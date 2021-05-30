@@ -1,13 +1,7 @@
-import matplotlib.pyplot as plt
-from manimlib import *
-# from manim import *
-
-# plt.ion()
-fig = plt.figure()
+from manim import *
 
 xvec = [1, 0, -1, 0]
 yvec = [0, 1, 0, -1]
-
 
 class Node:
     def __init__(self, x, y):

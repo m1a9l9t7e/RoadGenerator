@@ -1,9 +1,8 @@
-from manimlib import *
-# from manim import *
+from manim import *
 from graph import Graph, GraphSearcher
 
 
-class CircuitCreation(Scene):
+class CircuitCreation(MovingCameraScene):
     def construct(self):
         self.create_graph(4, 4)
         self.two_factorization()
@@ -16,12 +15,12 @@ class CircuitCreation(Scene):
         self.graph = Graph(width, height)
         nodes = self.graph.nodes
         edges = self.graph.edges
-        # self.play(
-        #     # Set the size with the width of a object
-        #     self.camera_frame.set_width, width * 1.7,
-        #     # Move the camera to the object
-        #     self.camera_frame.move_to, (width/2.5, height/2.5, 0)
-        # )
+        self.play(
+            # Set the size with the width of a object
+            self.camera.frame.animate.set_width(width * 1.7),
+            # Move the camera to the object
+            self.camera.frame.animate.move_to((width/2.5, height/2.5, 0))
+        )
 
         # Draw Nodes
         for node in nodes:
@@ -33,7 +32,7 @@ class CircuitCreation(Scene):
         for edge in edges:
             line = edge.drawable
             self.bring_to_back(line)
-            animations.append(ShowCreation(line))
+            animations.append(Create(line))
 
         self.play(*animations, run_time=1)
 

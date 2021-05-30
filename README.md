@@ -1,5 +1,7 @@
 # circuit-creator
 
+Get more instructions [here](https://github.com/ManimCommunity/manim)
+
 ## Installation
 
 `sudo apt update`
@@ -16,7 +18,11 @@
 
 `sudo apt-get install build-essential libgl1-mesa-dev`
 
-`pip install manimpango`
+`pip install -r requirements.txt`
+
+THEN:
+
+`pip install manim`
 
 ## Running
 
@@ -26,19 +32,9 @@ Add to .bashrc:
 
 In cwd Terminal:
 
-`manimgl [options] scene.py CircuitCreation`
+`python -m manim [options] creation.py CircuitCreation`
 
 Options:
 
 * -p : __play__
 * -ql : __quick load__
-
-## Instructions for cloning Manim from Github (needed for moving camera)
-
-Get Code from [here](https://github.com/ManimCommunity/manim)
-
-`pip install manim`
-
-Execute with:
-
-`python -m manim [options] scene.py CircuitCreation`
