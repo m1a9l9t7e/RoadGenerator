@@ -10,6 +10,8 @@ Get more instructions [here](https://github.com/ManimCommunity/manim)
 
 `sudo apt install libpango1.0-dev pkg-config python3-dev`
 
+`sudo apt-get install python3.8-dev` (change version)
+
 `sudo apt install texlive-full`
 
 `sudo apt install libcairo2-dev`
