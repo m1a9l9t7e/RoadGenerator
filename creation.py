@@ -1,4 +1,5 @@
 from manim import *
+import random
 from util import Converter, Grid
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequence
@@ -8,7 +9,7 @@ class CircuitCreation(MovingCameraScene):
     def construct(self):
         width, height = (4, 4)
         square_size = 1  # Needs to be 1 because grid and camera scale, but graph doesn't
-        track_width = 0.2
+        track_width = 0.3
 
         self.play(
             self.camera.frame.animate.set_width(width * square_size * 2.1),
@@ -25,7 +26,7 @@ class CircuitCreation(MovingCameraScene):
         self.graph.init_cycles()
 
         make_joins = None
-        if True:
+        if False:
             make_joins = self.custom_joins()
         else:
             make_joins = self.random_joins()
@@ -137,7 +138,10 @@ class CircuitCreation(MovingCameraScene):
             animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
             joint = joints[0]
             animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
-            animations = joint.merge()
+            if random.choice([True, False]):
+                animations = joint.merge()
+            else:
+                animations = joint.intersect()
             joint_animation = AnimationObject(type='play', content=animations, duration=1)
             animation_sequence.append(joint_animation)
             animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
@@ -175,14 +179,14 @@ class CircuitCreation(MovingCameraScene):
             right, left, center = get_track_points(coord1, coord2, track_width)
             track_points.append((right, left, center))
 
-            orthogonal_lines.append(get_line(center, left, stroke_width=1))
-            orthogonal_lines.append(get_line(center, right, stroke_width=1))
+            orthogonal_lines.append(get_line(center, left, stroke_width=1, color=GREEN))
+            orthogonal_lines.append(get_line(center, right, stroke_width=1, color=GREEN))
 
             points_animations = [FadeIn(get_circle(right, 0.06, PURPLE, PURPLE_E)),
                                  FadeIn(get_circle(left, 0.06, MAROON, MAROON_E))]
             track_point_animations.append(points_animations)
 
-        animation_sequence.append(AnimationObject(type='play', content=[Create(line) for line in orthogonal_lines], duration=2))
+        animation_sequence.append(AnimationObject(type='play', content=[Create(line) for line in orthogonal_lines], duration=2, bring_to_front=True))
         for track_point_anim in track_point_animations:
             animation_sequence.append(AnimationObject(type='play', content=track_point_anim, duration=0.3, bring_to_front=True))
 
@@ -253,8 +257,10 @@ def get_circle(coords, radius, color, secondary_color):
     return circle
 
 
-def get_line(coord1, coord2, stroke_width=1.0):
-    return Line(coord1, coord2, stroke_width=stroke_width)
+def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
+    line = Line(coord1, coord2, stroke_width=stroke_width)
+    line.set_color(color)
+    return line
 
 
 if __name__ == '__main__':
