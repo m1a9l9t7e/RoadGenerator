@@ -43,13 +43,14 @@ def get_next_node(node, previous_node=None):
 
 
 class Grid:
-    def __init__(self, graph, square_size, shift, color=GREEN_C):
+    def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=0.2):
         self.graph = graph
         self.width = len(graph.grid)
         self.height = len(graph.grid[0])
         self.square_size = square_size
         self.shift = shift
         self.color = color
+        self.stroke_width = stroke_width
         self.drawable = self._create_drawable()
 
     def _create_drawable(self):
@@ -58,12 +59,12 @@ class Grid:
 
         h_lines = list()
         for x in range(self.width + 1):
-            line = Line(transform_coords((x, 0), shift, s), transform_coords((x, self.height), shift, s))
+            line = Line(transform_coords((x, 0), shift, s), transform_coords((x, self.height), shift, s), stroke_width=self.stroke_width)
             h_lines.append(line)
 
         v_lines = list()
         for y in range(self.height + 1):
-            line = Line(transform_coords((0, y), shift, s), transform_coords((self.width, y), shift, s))
+            line = Line(transform_coords((0, y), shift, s), transform_coords((self.width, y), shift, s), stroke_width=self.stroke_width)
             v_lines.append(line)
 
         lines = h_lines + v_lines

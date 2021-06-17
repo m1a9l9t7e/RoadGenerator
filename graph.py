@@ -243,7 +243,7 @@ class Graph:
     def join_dots(self):
         pass
 
-    def init_cycles(self):
+    def init_cycles(self, print_debug=False):
         counter = 0
         cycle_map = [[None] * len(self.grid[0]) for _ in range(len(self.grid))]
         for x in range(len(self.grid)):
@@ -257,7 +257,8 @@ class Graph:
                                 cycle_map[_x][_y] = counter
                                 self.grid[_x][_y].cycle_id = counter
                     counter += 1
-        print_2d(cycle_map)
+        if print_debug:
+            print_2d(cycle_map)
         self.cycles = counter
 
     def merge_cycles(self, cycle_id1, cycle_id2):
@@ -349,7 +350,7 @@ class VerticalJoint(Joint):
         edge1_new = Edge(self.corners[3], self.corners[1])
         edge2_new = Edge(self.corners[0], self.corners[2])
         self.update_graph()
-        return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
+        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
     def merge(self):
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[1])
@@ -357,7 +358,7 @@ class VerticalJoint(Joint):
         edge1_new = Edge(self.corners[0], self.corners[3])
         edge2_new = Edge(self.corners[1], self.corners[2])
         self.update_graph()
-        return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
+        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
 
 class HorizontalJoint(Joint):
@@ -367,7 +368,7 @@ class HorizontalJoint(Joint):
         edge1_new = Edge(self.corners[0], self.corners[2])
         edge2_new = Edge(self.corners[1], self.corners[3])
         self.update_graph()
-        return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
+        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
     def merge(self):
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[3])
@@ -375,7 +376,7 @@ class HorizontalJoint(Joint):
         edge1_new = Edge(self.corners[0], self.corners[1])
         edge2_new = Edge(self.corners[3], self.corners[2])
         self.update_graph()
-        return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
+        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
 
 def print_2d(array):
