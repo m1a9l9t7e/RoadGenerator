@@ -1,7 +1,9 @@
 from manim import *
+from util import Converter
 
 xvec = [1, 0, -1, 0]
 yvec = [0, 1, 0, -1]
+
 
 class Node:
     def __init__(self, x, y):
@@ -10,6 +12,7 @@ class Node:
         self.edges = []
         self.adjacent_nodes = []
         self.drawable = self._create_drawable()
+        self.cycle_id = None
 
     def __str__(self):
         adjacent = "adjacent:\n"
@@ -41,10 +44,14 @@ class Node:
             raise Exception("Edge not adjacent to this Node!")
         self.edges.append(edge)
 
-    def remove_adjacent_node(self, node):
+    def get_edge_to(self, adjacent_node):
         for edge in self.edges:
-            if node == edge.node1 or node == edge.node2:
-                return edge.remove()
+            if adjacent_node == edge.node1 or adjacent_node == edge.node2:
+                return edge
+
+    def remove_adjacent_node(self, node):
+        edge = self.get_edge_to(node)
+        return edge.remove()
 
     def _create_drawable(self):
         circle = Dot(point=self.get_coords(), radius=0.1)
@@ -63,6 +70,11 @@ class Edge:
 
     def __str__(self):
         return "Edge {} - {}".format(self.node1.get_coords(), self.node2.get_coords())
+
+    def swap_nodes(self):
+        swap = self.node1
+        self.node1 = self.node2
+        self.node2 = swap
 
     def _create_drawable(self):
         line = Line(self.node1.get_coords(), self.node2.get_coords())
@@ -98,7 +110,7 @@ class Graph:
                         edge = Edge(node, neighbor_node)
                         self.edges.append(edge)
 
-        self.cycles = int(width/2) * int(height/2)  # upper bound
+        self.cycles = int(width / 2) * int(height / 2)  # upper bound
 
     def get_element_safe(self, coords):
         x = coords[0]
@@ -231,6 +243,31 @@ class Graph:
     def join_dots(self):
         pass
 
+    def init_cycles(self):
+        counter = 0
+        cycle_map = [[None] * len(self.grid[0]) for _ in range(len(self.grid))]
+        for x in range(len(self.grid)):
+            for y in range(len(self.grid[x])):
+                node = self.grid[x][y]
+                if node.cycle_id is None:
+                    bfs_map = self.bfs(node)
+                    for _x in range(len(bfs_map)):
+                        for _y in range(len(bfs_map[_x])):
+                            if bfs_map[_x][_y] == 1:
+                                cycle_map[_x][_y] = counter
+                                self.grid[_x][_y].cycle_id = counter
+                    counter += 1
+        print_2d(cycle_map)
+        self.cycles = counter
+
+    def merge_cycles(self, cycle_id1, cycle_id2):
+        merge_id = cycle_id1
+        for x in range(len(self.grid)):
+            for y in range(len(self.grid[x])):
+                node = self.grid[x][y]
+                if node.cycle_id == cycle_id1 or node.cycle_id == cycle_id2:
+                    node.cycle_id = merge_id
+
 
 class GraphSearcher:
     def __init__(self, graph):
@@ -256,22 +293,32 @@ class GraphSearcher:
         top_right = self.grid[x + 1][y + 1]
         # Clockwise starting at bottom left
         corners = [bottom_left, top_left, top_right, bottom_right]
+        cycle_ids = [node.cycle_id for node in corners]
         # Clockwise starting at bottom
         adjacency = [bottom_left.is_adjacent_to(bottom_right), bottom_left.is_adjacent_to(top_left),
                      top_left.is_adjacent_to(top_right), bottom_right.is_adjacent_to(top_right)]
 
-        if adjacency[0] and adjacency[2] and not (adjacency[1] or adjacency[3]):
-            return HorizontalJoint(corners, adjacency)
-        if adjacency[1] and adjacency[3] and not (adjacency[0] or adjacency[2]):
-            return VerticalJoint(corners, adjacency)
+        # Check for Horizontal Joint
+        parallel_horizontally = adjacency[0] and adjacency[2] and not (adjacency[1] or adjacency[3])
+        distinct_cycles = cycle_ids[0] == cycle_ids[3] and cycle_ids[1] == cycle_ids[2] and cycle_ids[0] != cycle_ids[1]
+        if parallel_horizontally and distinct_cycles:
+            return HorizontalJoint(corners, cycle_ids, adjacency, self.graph)
+
+        # Check for Vertical Joint
+        parallel_vertically = adjacency[1] and adjacency[3] and not (adjacency[0] or adjacency[2])
+        distinct_cycles = cycle_ids[0] == cycle_ids[1] and cycle_ids[2] == cycle_ids[3] and cycle_ids[1] != cycle_ids[2]
+        if parallel_vertically and distinct_cycles:
+            return VerticalJoint(corners, cycle_ids, adjacency, self.graph)
 
         return None
 
 
 class Joint:
-    def __init__(self, corners, adjacency):
+    def __init__(self, corners, cycle_ids, adjacency, graph):
         self.corners = corners
+        self.cycle_ids = cycle_ids
         self.adjacency = adjacency
+        self.graph = graph
         self.drawable = self._create_drawable()
 
     def _create_drawable(self):
@@ -280,6 +327,13 @@ class Joint:
         circle.set_fill(RED, opacity=1)
         circle.set_stroke(RED_E, width=4)
         return circle
+
+    def update_graph(self):
+        unique_cycle_ids = set(self.cycle_ids)
+        if len(unique_cycle_ids) != 2:
+            raise ValueError("Trying to merge {} cycles instead of 2!".format(len(unique_cycle_ids)))
+
+        self.graph.merge_cycles(*set(self.cycle_ids))
 
     def intersect(self):
         pass
@@ -294,6 +348,7 @@ class VerticalJoint(Joint):
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[3], self.corners[1])
         edge2_new = Edge(self.corners[0], self.corners[2])
+        self.update_graph()
         return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
 
     def merge(self):
@@ -301,6 +356,7 @@ class VerticalJoint(Joint):
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[3])
         edge2_new = Edge(self.corners[1], self.corners[2])
+        self.update_graph()
         return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
 
 
@@ -310,6 +366,7 @@ class HorizontalJoint(Joint):
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[2])
         edge2_new = Edge(self.corners[1], self.corners[3])
+        self.update_graph()
         return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
 
     def merge(self):
@@ -317,11 +374,34 @@ class HorizontalJoint(Joint):
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[1])
         edge2_new = Edge(self.corners[3], self.corners[2])
+        self.update_graph()
         return Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)
 
 
+def print_2d(array):
+    print_str = ""
+    for x in range(len(array)):
+        print_str += " ".join([str(value) for value in array[x]]) + "\n"
+
+    print(print_str)
+
+
 if __name__ == '__main__':
+    # init graph
     g = Graph(4, 4)
-    nodes = g.nodes
-    edges = g.edges
-    g.two_factorization()
+    g.remove_all_but_unitary()
+    g.init_cycles()
+
+    # find joints and merge until single cycle
+    searcher = GraphSearcher(g)
+    while True:
+        joints = searcher.walk_graph()
+        if len(joints) == 0:
+            break
+        # join first joint
+        joint = joints[0]
+        joint.merge()
+
+    # Convert to geometrics
+    converter = Converter(g, 2, 1)
+    converter.extract_tour()
