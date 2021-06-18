@@ -2,7 +2,7 @@ from manim import *
 import random
 
 from interpolation import find_polynomials
-from util import Converter, Grid
+from util import Converter, Grid, TrackPoint
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequence
 
@@ -34,8 +34,15 @@ class CircuitCreation(MovingCameraScene):
             make_joins = self.random_joins()
 
         gen_track_points, points = self.generate_track_points(square_size=square_size, track_width=track_width)
+        interpolation_animation = self.interpolate_track_points(points)
 
-        animations_list = [graph_creation, grid_fade_in, fade_out_non_unitary, make_joins, gen_track_points]
+        animations_list = [graph_creation,
+                           grid_fade_in,
+                           fade_out_non_unitary,
+                           make_joins, gen_track_points,
+                           interpolation_animation,
+                           self.remove_graph()]
+
         for animations in animations_list:
             self.play_animations(animations)
 
@@ -67,6 +74,12 @@ class CircuitCreation(MovingCameraScene):
         animation_sequence.append(AnimationObject(type='play', content=line_animations, wait_after=0.5, duration=1, bring_to_back=True))
 
         return animation_sequence
+
+    def remove_graph(self):
+        nodes = self.graph.nodes
+        edges = self.graph.edges
+        drawables = [node.drawable for node in nodes] + [edge.drawable for edge in edges]
+        return [AnimationObject(type='remove', content=drawables)]
 
     def make_unitary(self):
         animation_sequence = []
@@ -181,11 +194,11 @@ class CircuitCreation(MovingCameraScene):
             right, left, center = get_track_points(coord1, coord2, track_width)
             track_points.append((right, left, center))
 
-            orthogonal_lines.append(get_line(center, left, stroke_width=1, color=GREEN))
-            orthogonal_lines.append(get_line(center, right, stroke_width=1, color=GREEN))
+            orthogonal_lines.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
+            orthogonal_lines.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
 
-            points_animations = [FadeIn(get_circle(right, 0.05, PURPLE, PURPLE_E)),
-                                 FadeIn(get_circle(left, 0.05, MAROON, MAROON_E))]
+            points_animations = [FadeIn(get_circle(right.coords, 0.04, GREY, GREY_E, border_width=1)),
+                                 FadeIn(get_circle(left.coords, 0.04, GREY, GREY_E, border_width=1))]
             track_point_animations.append(points_animations)
 
         animation_sequence.append(AnimationObject(type='play', content=[Create(line) for line in orthogonal_lines], duration=2, bring_to_front=True))
@@ -195,6 +208,30 @@ class CircuitCreation(MovingCameraScene):
         animation_sequence.append(AnimationObject(type='play', content=[FadeOut(line) for line in orthogonal_lines], duration=0.5))
 
         return animation_sequence, track_points
+
+    def interpolate_track_points(self, track_points):
+        left_line_animations = []
+        right_line_animations = []
+        right1, left1, center1 = track_points[0]
+        track_points = track_points[1:]
+        track_points.append((right1, left1, center1))
+        for right2, left2, center2 in track_points:
+            # print("Connect: {} and {}".format(right1, right2))
+            px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
+            right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+            right_line_animations.append(Create(right_line))
+            px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
+            left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+            left_line_animations.append(Create(left_line))
+            right1, left1, center1 = (right2, left2, center2)
+
+        animation_sequence = []
+        for idx in range(len(right_line_animations)):
+            animation_sequence.append(AnimationObject(type='play',
+                                                      content=[right_line_animations[idx], left_line_animations[idx]],
+                                                      duration=0.5, bring_to_front=True))
+
+        return animation_sequence
 
     def play_animations(self, sequence):
         for animation in sequence:
@@ -222,34 +259,41 @@ def find_center(coord1, coord2):
     return (x1 + x2) / 2, (y1 + y2) / 2, 0
 
 
-def get_orthogonal_vec(coord1, coord2):
+def get_direction(coord1, coord2):
     """
-    Calculates vector that is orthogonal to
-    vector between two points coord1 and coord2
+    Calculate norm vector between two points coord1 and coord2
     """
     coord1 = np.array(coord1[:2])
     coord2 = np.array(coord2[:2])
     vec = np.subtract(coord2, coord1)
-    # print("vector: {}".format(vec))
     vec_norm = vec / np.linalg.norm(vec)
-    # print("normalized vector: {}".format(vec_norm))
-    vec_norm = vec_norm[::-1]  # change the indexing to reverse the vector to swap x and y (note that this doesn't do any copying)
+    return np.array(vec_norm)
+
+
+def get_orthogonal_vec(vec):
+    """
+    Calculate vector that is orthogonal to vec
+    """
+    vec_copy = np.copy(vec)
+    vec_norm = vec_copy[::-1]  # change the indexing to reverse the vector to swap x and y (note that this doesn't do any copying)
     # print("change indexing: {}".format(vec_norm))
     vec_norm[0] = -vec_norm[0]
     # print("make first axis negative: {}".format(vec_norm))
     orth_vec = list(vec_norm) + [0]
-    return orth_vec
+    return np.array(orth_vec)
 
 
 def get_track_points(coord1, coord2, track_width):
     """
     get right and left point of center of track between two coordinates
     """
-    center_point = find_center(coord1, coord2)
-    orth_vec = np.array(get_orthogonal_vec(coord1, coord2))
-    right_point = np.add(center_point, track_width * orth_vec)
-    left_point = np.subtract(center_point, track_width * orth_vec)
-    return right_point, left_point, center_point
+    center = find_center(coord1, coord2)
+    direction = get_direction(coord1, coord2)
+    orth_vec = np.array(get_orthogonal_vec(direction))
+    right = np.add(center, track_width * orth_vec)
+    left = np.subtract(center, track_width * orth_vec)
+    # return [TrackPoint(coords, direction) for coords in [right, left, center]]
+    return [TrackPoint(coords, direction) for coords in [right, left, center]]
 
 
 def get_circle(coords, radius, color, secondary_color, border_width=2):
@@ -267,9 +311,11 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
 
 class LineTest(MovingCameraScene):
     def construct(self):
-        # px, py = find_polynomials(0, 0, 1, 0, 1, 1, 1, 0)
-        px, py = find_polynomials(0, 0, 1, 0, 1, -3, -1, -1)
-        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=GREY)
+        px, py = find_polynomials(0, 0, 1, 0, 1, 1, 1, 0)
+        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE)
+        self.play(Create(_line), run_time=5)
+        px, py = find_polynomials(1, 1, 1, 0, 1, -3, -1, -1)
+        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE)
         self.play(Create(_line), run_time=5)
 
 

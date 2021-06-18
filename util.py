@@ -78,3 +78,17 @@ def transform_coords(coords, shift, scale):
     x, y = coords
     x_shift, y_shift = shift
     return x_shift + x * scale, y_shift + y * scale, 0
+
+
+class TrackPoint:
+    def __init__(self, coords, direction):
+        self.coords = coords
+        self.direction = direction
+
+    def __str__(self):
+        return "coords: {}, direction: {}".format(self.coords, self.direction)
+
+    def as_list(self):
+        x, y, _ = self.coords
+        dx, dy = self.direction
+        return [x, y, dx, dy]
