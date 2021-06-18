@@ -1,5 +1,7 @@
 from manim import *
 import random
+
+from interpolation import find_polynomials
 from util import Converter, Grid
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequence
@@ -26,7 +28,7 @@ class CircuitCreation(MovingCameraScene):
         self.graph.init_cycles()
 
         make_joins = None
-        if False:
+        if True:
             make_joins = self.custom_joins()
         else:
             make_joins = self.random_joins()
@@ -182,8 +184,8 @@ class CircuitCreation(MovingCameraScene):
             orthogonal_lines.append(get_line(center, left, stroke_width=1, color=GREEN))
             orthogonal_lines.append(get_line(center, right, stroke_width=1, color=GREEN))
 
-            points_animations = [FadeIn(get_circle(right, 0.06, PURPLE, PURPLE_E)),
-                                 FadeIn(get_circle(left, 0.06, MAROON, MAROON_E))]
+            points_animations = [FadeIn(get_circle(right, 0.05, PURPLE, PURPLE_E)),
+                                 FadeIn(get_circle(left, 0.05, MAROON, MAROON_E))]
             track_point_animations.append(points_animations)
 
         animation_sequence.append(AnimationObject(type='play', content=[Create(line) for line in orthogonal_lines], duration=2, bring_to_front=True))
@@ -250,10 +252,10 @@ def get_track_points(coord1, coord2, track_width):
     return right_point, left_point, center_point
 
 
-def get_circle(coords, radius, color, secondary_color):
+def get_circle(coords, radius, color, secondary_color, border_width=2):
     circle = Dot(point=coords, radius=radius)
     circle.set_fill(color, opacity=1)
-    circle.set_stroke(secondary_color, width=1)
+    circle.set_stroke(secondary_color, width=border_width)
     return circle
 
 
@@ -263,13 +265,14 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
     return line
 
 
+class LineTest(MovingCameraScene):
+    def construct(self):
+        # px, py = find_polynomials(0, 0, 1, 0, 1, 1, 1, 0)
+        px, py = find_polynomials(0, 0, 1, 0, 1, -3, -1, -1)
+        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=GREY)
+        self.play(Create(_line), run_time=5)
+
+
 if __name__ == '__main__':
     scene = CircuitCreation()
     scene.construct()
-
-
-# Plan:
-# 1. Draw Grid
-# 2. Draw Graph and show Joins
-# 3. Show how track points are found
-# 4. Draw in interpolated points that from track
