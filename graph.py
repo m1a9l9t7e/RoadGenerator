@@ -1,3 +1,5 @@
+import copy
+
 from manim import *
 from util import Converter
 
@@ -71,6 +73,9 @@ class Edge:
     def __str__(self):
         return "Edge {} - {}".format(self.node1.get_coords(), self.node2.get_coords())
 
+    def __eq__(self, other):
+        return self.node1 == other.node1 and self.node2 == other.node2
+
     def swap_nodes(self):
         swap = self.node1
         self.node1 = self.node2
@@ -122,12 +127,17 @@ class Graph:
 
     def remove_all_but_unitary(self):
         drawables = []
+        removed_edges = []
         for edge in self.edges:
             bad_horizontal = edge.node1.x % 2 != 0 and edge.node2.x % 2 == 0
             bad_vertical = edge.node1.y % 2 != 0 and edge.node2.y % 2 == 0
             if bad_horizontal or bad_vertical:
+                removed_edges.append(edge)
                 drawable = edge.remove()
                 drawables.append(drawable)
+
+        for edge in removed_edges:
+            self.edges.remove(edge)
 
         return drawables
 
@@ -329,12 +339,15 @@ class Joint:
         circle.set_stroke(RED_E, width=4)
         return circle
 
-    def update_graph(self):
+    def update_graph(self, deleted_edges, new_edges):
         unique_cycle_ids = set(self.cycle_ids)
         if len(unique_cycle_ids) != 2:
             raise ValueError("Trying to merge {} cycles instead of 2!".format(len(unique_cycle_ids)))
 
         self.graph.merge_cycles(*set(self.cycle_ids))
+        for edge in deleted_edges:
+            self.graph.edges.remove(edge)
+        self.graph.edges += new_edges
 
     def intersect(self):
         pass
@@ -345,37 +358,45 @@ class Joint:
 
 class VerticalJoint(Joint):
     def intersect(self):
+        edge1_old = self.corners[0].get_edge_to(self.corners[1])
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[1])
+        edge2_old = self.corners[3].get_edge_to(self.corners[2])
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[3], self.corners[1])
         edge2_new = Edge(self.corners[0], self.corners[2])
-        self.update_graph()
+        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
         return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
     def merge(self):
+        edge1_old = self.corners[0].get_edge_to(self.corners[1])
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[1])
+        edge2_old = self.corners[3].get_edge_to(self.corners[2])
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[3])
         edge2_new = Edge(self.corners[1], self.corners[2])
-        self.update_graph()
+        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
         return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
 
 class HorizontalJoint(Joint):
     def intersect(self):
+        edge1_old = self.corners[0].get_edge_to(self.corners[3])
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[3])
+        edge2_old = self.corners[1].get_edge_to(self.corners[2])
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[2])
         edge2_new = Edge(self.corners[1], self.corners[3])
-        self.update_graph()
+        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
         return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
     def merge(self):
+        edge1_old = self.corners[0].get_edge_to(self.corners[3])
         edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[3])
+        edge2_old = self.corners[1].get_edge_to(self.corners[2])
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[1])
         edge2_new = Edge(self.corners[3], self.corners[2])
-        self.update_graph()
+        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
         return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
 
 
@@ -385,6 +406,25 @@ def print_2d(array):
         print_str += " ".join([str(value) for value in array[x]]) + "\n"
 
     print(print_str)
+
+
+class GraphModel:
+    def __init__(self, base_graph):
+        self.base_graph = base_graph
+
+    def iterate_all_possible_tours(self):
+        g1 = copy.deepcopy(self.base_graph)
+        g2 = copy.deepcopy(self.base_graph)
+        g1_search = GraphSearcher(g1)
+        g2_search = GraphSearcher(g2)
+        g1_joints = g1_search.walk_graph()
+        g2_joints = g2_search.walk_graph()
+        g1_joints[0].merge()
+        g2_joints[1].intersect()
+        return g1, g2
+        # queue = []
+        # queue.append(self.base_graph)
+        # pass
 
 
 if __name__ == '__main__':
