@@ -81,7 +81,8 @@ class CircuitCreation(MovingCameraScene):
         nodes = self.graph.nodes
         edges = self.graph.edges
         drawables = [node.drawable for node in nodes] + [edge.drawable for edge in edges]
-        return [AnimationObject(type='remove', content=drawables)]
+        animations = [FadeOut(drawable) for drawable in drawables]
+        return [AnimationObject(type='play', content=animations, duration=1)]
 
     def make_unitary(self):
         animation_sequence = []
@@ -340,17 +341,25 @@ class GraphModelTest(MovingCameraScene):
         base_graph.init_cycles()
 
         model = GraphModel(base_graph)
-        graph_list = model.iterate_all_possible_tours()[1:]
+        graph = model.iterate_all_possible_tours()[1]
+        # graph_list = model.iterate_all_possible_tours()[1:]
 
         animation_sequence = []
 
-        for graph in graph_list:
-            node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
-            edge_drawables = [Create(edge.drawable) for edge in graph.edges]
-            animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-            animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+        node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
+        edge_drawables = [Create(edge.drawable) for edge in graph.edges]
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
 
         self.play_animations(animation_sequence)
+        self.wait(2)
+
+        drawables = []
+        for edge in graph.edges:
+            print(edge)
+            drawables.append(edge.drawable)
+
+        self.play_animations([AnimationObject(type='remove', content=drawables)])
         self.wait(5)
 
     def play_animations(self, sequence):
