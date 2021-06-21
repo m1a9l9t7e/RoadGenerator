@@ -24,82 +24,59 @@ class CircuitCreation(MovingCameraScene):
             run_time=0.1
         )
 
-        graph_creation = self.create_graph(width, height)
-        grid_fade_in = self.draw_grid(square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
-        fade_out_non_unitary = self.make_unitary()
-        self.graph.init_cycles()
-
-        make_joins = None
-        if True:
-            make_joins = self.custom_joins()
-        else:
-            make_joins = self.random_joins()
-
-        gen_track_points, points = self.generate_track_points(square_size=square_size, track_width=track_width)
+        graph = Graph(width, height)
+        grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        
+        graph_creation = self.draw_graph(graph)
+        fade_out_non_unitary = self.make_unitary(graph)
+        show_cycles = graph.init_cycles()
+        make_joins = self.custom_joins(graph)
+        # make_joins = self.random_joins(graph)
+        gen_track_points, points = self.generate_track_points(graph, square_size=square_size, track_width=track_width)
         interpolation_animation = self.interpolate_track_points(points)
 
         animations_list = [graph_creation,
-                           grid_fade_in,
+                           grid.get_animation_sequence(),
                            fade_out_non_unitary,
                            make_joins, gen_track_points,
                            interpolation_animation,
-                           self.remove_graph()]
+                           self.remove_graph(graph)]
 
         for animations in animations_list:
             self.play_animations(animations)
 
         self.wait(5)
 
-    def create_graph(self, width=4, height=4):
+    def draw_graph(self, graph):
         animation_sequence = []
-        # Get Graph
-        self.graph = Graph(width, height)
-        nodes = self.graph.nodes
-        edges = self.graph.edges
-
-        node_drawables = []
-        # Draw Nodes
-        for node in nodes:
-            circle = node.drawable
-            node_drawables.append(circle)
-            # self.add(circle)
-
-        animation_sequence.append(AnimationObject(type='add', content=node_drawables))
-
-        # Draw Edges
-        line_animations = []
-        for edge in edges:
-            line = edge.drawable
-            # self.bring_to_back(line)
-            line_animations.append(Create(line))
-        # self.play(*line_animations, run_time=1)
-        animation_sequence.append(AnimationObject(type='play', content=line_animations, wait_after=0.5, duration=1, bring_to_back=True))
-
+        node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
+        edge_drawables = [Create(edge.drawable) for edge in graph.edges]
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
         return animation_sequence
 
-    def remove_graph(self):
-        nodes = self.graph.nodes
-        edges = self.graph.edges
-        drawables = [node.drawable for node in nodes] + [edge.drawable for edge in edges]
+    def remove_graph(self, graph):
+        drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
         animations = [FadeOut(drawable) for drawable in drawables]
-        return [AnimationObject(type='play', content=animations, duration=1)]
+        # return [AnimationObject(type='play', content=animations, duration=1)]
+        return [AnimationObject(type='remove', content=drawables)]
 
-    def make_unitary(self):
+    def make_unitary(self, graph):
         animation_sequence = []
 
-        drawables = self.graph.remove_all_but_unitary()
+        drawables = graph.remove_all_but_unitary()
         animations = [FadeOut(drawable) for drawable in drawables]
         animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
         return animation_sequence
 
-    def two_factorization(self):
-        drawables_list = self.graph.two_factorization()
+    def two_factorization(self, graph):
+        drawables_list = graph.two_factorization()
         for drawables in drawables_list:
             for drawable in drawables:
                 self.play(FadeOut(drawable), run_time=0.1)
 
-    def search_graph(self):
-        searcher = GraphSearcher(self.graph)
+    def search_graph(self, graph):
+        searcher = GraphSearcher(graph)
         joints = searcher.walk_graph()
         for joint in joints:
             self.add(joint.drawable)
@@ -108,19 +85,19 @@ class CircuitCreation(MovingCameraScene):
 
         for idx, joint in enumerate(joints):
             self.remove(joint.drawable)
-            if idx >= self.graph.cycles - 1:
+            if idx >= graph.cycles - 1:
                 break
             # animations = joint.intersect()
             animations = joint.merge()
             self.play(*animations, run_time=3)
 
-    def custom_joins(self):
+    def custom_joins(self, graph):
         """
         Custom joins specifically designed to resemble
         example circuit from ruleset starting from 4x4 grid
         """
         animation_sequence = []
-        searcher = GraphSearcher(self.graph)
+        searcher = GraphSearcher(graph)
         joints = searcher.walk_graph()
 
         animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
@@ -133,20 +110,18 @@ class CircuitCreation(MovingCameraScene):
             animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
             operation = operations[i]
             if operation == 'intersect':
-                animations = joint.intersect()
+                animation_sequence += joint.intersect()
             elif operation == 'merge':
-                animations = joint.merge()
+                animation_sequence += joint.merge()
             else:
                 raise ValueError('operation "{}" is undefined!'.format(operation))
-            joint_animation = AnimationObject(type='play', content=animations, duration=1)
-            animation_sequence.append(joint_animation)
 
         animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
         return animation_sequence
 
-    def random_joins(self):
+    def random_joins(self, graph):
         animation_sequence = []
-        searcher = GraphSearcher(self.graph)
+        searcher = GraphSearcher(graph)
 
         while True:
             joints = searcher.walk_graph()
@@ -166,28 +141,15 @@ class CircuitCreation(MovingCameraScene):
 
         return animation_sequence
 
-    def draw_grid(self, square_size=1, shift=(-0.5, -0.5), fade_in=True):
-        animation_sequence = []
-        grid = Grid(self.graph, square_size, shift)
-        if fade_in:
-            animations = [FadeIn(drawable) for drawable in grid.drawable]
-            animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=True))
-        else:
-            animation_sequence.append(AnimationObject(type='add', content=grid.drawable, bring_to_back=True))
-
-        return animation_sequence
-
-    def generate_track_points(self, square_size, track_width):
-        animation_sequence = []
+    def generate_track_points(self, graph, square_size, track_width):
         track_points = []
-        converter = Converter(self.graph, square_size=square_size, track_width=track_width)
+        converter = Converter(graph, square_size=square_size, track_width=track_width)
         converter.extract_tour()
-        edges = converter.edges
         nodes = converter.nodes
         nodes.append(nodes[0])
 
-        orthogonal_lines = []
-        track_point_animations = []
+        line_drawables = []
+        point_drawables = []
 
         for idx in range(len(nodes)-1):
             node1 = nodes[idx]
@@ -197,18 +159,16 @@ class CircuitCreation(MovingCameraScene):
             right, left, center = get_track_points(coord1, coord2, track_width)
             track_points.append((right, left, center))
 
-            orthogonal_lines.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
-            orthogonal_lines.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
+            line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
+            line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
+            point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
+            point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
 
-            points_animations = [FadeIn(get_circle(right.coords, 0.04, GREY, GREY_E, border_width=1)),
-                                 FadeIn(get_circle(left.coords, 0.04, GREY, GREY_E, border_width=1))]
-            track_point_animations.append(points_animations)
-
-        animation_sequence.append(AnimationObject(type='play', content=[Create(line) for line in orthogonal_lines], duration=2, bring_to_front=True))
-        for track_point_anim in track_point_animations:
-            animation_sequence.append(AnimationObject(type='play', content=track_point_anim, duration=0.3, bring_to_front=True))
-
-        animation_sequence.append(AnimationObject(type='play', content=[FadeOut(line) for line in orthogonal_lines], duration=0.5))
+        animation_sequence = [
+            AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
+            AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+            AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
+        ]
 
         return animation_sequence, track_points
 
@@ -226,6 +186,8 @@ class CircuitCreation(MovingCameraScene):
             px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
             left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
             left_line_animations.append(Create(left_line))
+            # dashed_line = DashedVMobject(line) for center line?
+
             right1, left1, center1 = (right2, left2, center2)
 
         animation_sequence = []
@@ -248,6 +210,10 @@ class CircuitCreation(MovingCameraScene):
                     self.bring_to_back(*content)
             if animation.type == 'add':
                 self.add(*animation.content)
+                if animation.bring_to_front:
+                    self.bring_to_front(*content)
+                if animation.bring_to_back:
+                    self.bring_to_back(*content)
             if animation.type == 'remove':
                 self.remove(*animation.content)
             elif animation.type == 'play':
@@ -346,20 +312,26 @@ class GraphModelTest(MovingCameraScene):
 
         animation_sequence = []
 
-        node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
-        edge_drawables = [Create(edge.drawable) for edge in graph.edges]
-        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+        node_animations = [FadeIn(node.drawable) for node in graph.nodes]
+        edge_drawables = [edge.drawable for edge in graph.edges]
+        edge_animations = [Create(edge.drawable) for edge in graph.edges]
+        animation_sequence.append(AnimationObject(type='play', content=node_animations, duration=1, bring_to_front=True))
+        # animation_sequence.append(AnimationObject(type='play', content=edge_animations, duration=1, bring_to_back=True))
+        # animation_sequence.append(AnimationObject(type='remove', content=edge_drawables))
+        # animation_sequence.append(AnimationObject(type='add', content=edge_drawables))
 
         self.play_animations(animation_sequence)
+        self.add(*edge_drawables)
+        self.bring_to_back(*edge_drawables)
+
         self.wait(2)
 
-        drawables = []
-        for edge in graph.edges:
-            print(edge)
-            drawables.append(edge.drawable)
-
-        self.play_animations([AnimationObject(type='remove', content=drawables)])
+        # drawables = []
+        # for edge in graph.edges:
+        #     # print(edge)
+        #     drawables.append(Create(edge.drawable))
+        #
+        # self.play_animations([AnimationObject(type='play', content=drawables, bring_to_back=True, duration=1)])
         self.wait(5)
 
     def play_animations(self, sequence):
@@ -374,6 +346,10 @@ class GraphModelTest(MovingCameraScene):
                     self.bring_to_back(*content)
             if animation.type == 'add':
                 self.add(*animation.content)
+                if animation.bring_to_front:
+                    self.bring_to_front(*content)
+                if animation.bring_to_back:
+                    self.bring_to_back(*content)
             if animation.type == 'remove':
                 self.remove(*animation.content)
             elif animation.type == 'play':

@@ -1,6 +1,8 @@
 import copy
 
 from manim import *
+
+from anim_sequence import AnimationObject
 from util import Converter
 
 xvec = [1, 0, -1, 0]
@@ -339,7 +341,7 @@ class Joint:
         circle.set_stroke(RED_E, width=4)
         return circle
 
-    def update_graph(self, deleted_edges, new_edges):
+    def _update_graph(self, deleted_edges, new_edges):
         unique_cycle_ids = set(self.cycle_ids)
         if len(unique_cycle_ids) != 2:
             raise ValueError("Trying to merge {} cycles instead of 2!".format(len(unique_cycle_ids)))
@@ -348,6 +350,21 @@ class Joint:
         for edge in deleted_edges:
             self.graph.edges.remove(edge)
         self.graph.edges += new_edges
+
+    def _create_animation_sequence(self, replacements):
+        new_drawables = []
+        animations = []
+        for replacement in replacements:
+            old_drawable, new_drawable = replacement
+            new_drawables.append(new_drawable)
+            animations.append(ReplacementTransform(old_drawable, new_drawable))
+
+        animation_sequence = [
+            AnimationObject(type='play', content=animations, duration=1),
+            AnimationObject(type='add', content=new_drawables, bring_to_back=True)
+        ]
+
+        return animation_sequence
 
     def intersect(self):
         pass
@@ -364,8 +381,8 @@ class VerticalJoint(Joint):
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[3], self.corners[1])
         edge2_new = Edge(self.corners[0], self.corners[2])
-        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
+        self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
+        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
 
     def merge(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[1])
@@ -374,8 +391,8 @@ class VerticalJoint(Joint):
         edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[3])
         edge2_new = Edge(self.corners[1], self.corners[2])
-        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
+        self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
+        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
 
 
 class HorizontalJoint(Joint):
@@ -386,8 +403,8 @@ class HorizontalJoint(Joint):
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[2])
         edge2_new = Edge(self.corners[1], self.corners[3])
-        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
+        self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
+        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
 
     def merge(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[3])
@@ -396,8 +413,8 @@ class HorizontalJoint(Joint):
         edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[1])
         edge2_new = Edge(self.corners[3], self.corners[2])
-        self.update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return [Transform(edge1_old_drawable, edge1_new.drawable), Transform(edge2_old_drawable, edge2_new.drawable)]
+        self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
+        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
 
 
 def print_2d(array):

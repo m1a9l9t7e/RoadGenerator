@@ -1,5 +1,7 @@
 from manim import *
 
+from anim_sequence import AnimationObject
+
 
 class Converter:
     def __init__(self, graph, square_size, track_width):
@@ -72,6 +74,16 @@ class Grid:
             line.set_color(self.color)
 
         return lines
+
+    def get_animation_sequence(self, fade_in=True):
+        animation_sequence = []
+        if fade_in:
+            animations = [FadeIn(drawable) for drawable in self.drawable]
+            animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=True))
+        else:
+            animation_sequence.append(AnimationObject(type='add', content=self.drawable, bring_to_back=True))
+
+        return animation_sequence
 
 
 def transform_coords(coords, shift, scale):
