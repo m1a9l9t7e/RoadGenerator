@@ -45,7 +45,7 @@ def get_next_node(node, previous_node=None):
 
 
 class Grid:
-    def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=0.2):
+    def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=0.4):
         self.graph = graph
         self.width = len(graph.grid)
         self.height = len(graph.grid[0])

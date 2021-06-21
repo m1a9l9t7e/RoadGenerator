@@ -15,6 +15,8 @@ def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
         Constraint(0, dx1, 1),
         Constraint(1, x2, 0),
         Constraint(1, dx2, 1),
+        # Constraint(0, 0, 2),
+        # Constraint(1, 0, 2),
     ]
 
     a, b = get_equation_system(constraints)
@@ -26,6 +28,8 @@ def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
         Constraint(0, dy1, 1),
         Constraint(1, y2, 0),
         Constraint(1, dy2, 1),
+        # Constraint(0, 0, 2),
+        # Constraint(1, 0, 2),
     ]
 
     a, b = get_equation_system(constraints)

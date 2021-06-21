@@ -1,19 +1,16 @@
-import copy
-
 from manim import *
 import random
-
 from interpolation import find_polynomials
 from util import Converter, Grid, TrackPoint
 from graph import Graph, GraphSearcher, GraphModel
-from anim_sequence import AnimationObject, AnimationSequence
+from anim_sequence import AnimationObject
 
 
 class CircuitCreation(MovingCameraScene):
     def construct(self):
         width, height = (4, 4)
         square_size = 1  # Needs to be 1 because grid and camera scale, but graph doesn't
-        track_width = 0.3
+        track_width = 0.4
 
         self.play(
             self.camera.frame.animate.set_width(width * square_size * 2.1),
@@ -27,176 +24,26 @@ class CircuitCreation(MovingCameraScene):
         graph = Graph(width, height)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
         
-        graph_creation = self.draw_graph(graph)
-        fade_out_non_unitary = self.make_unitary(graph)
+        graph_creation = draw_graph(graph)
+        fade_out_non_unitary = make_unitary(graph)
         show_cycles = graph.init_cycles()
-        make_joins = self.custom_joins(graph)
-        # make_joins = self.random_joins(graph)
-        gen_track_points, points = self.generate_track_points(graph, square_size=square_size, track_width=track_width)
-        interpolation_animation = self.interpolate_track_points(points)
+        make_joins = custom_joins(graph)
+        # make_joins = random_joins(graph)
+        gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
+        interpolation_animation = interpolate_track_points(points)
 
         animations_list = [graph_creation,
                            grid.get_animation_sequence(),
                            fade_out_non_unitary,
                            make_joins, gen_track_points,
                            interpolation_animation,
-                           self.remove_graph(graph)]
+                           remove_track_points,
+                           remove_graph(graph)]
 
         for animations in animations_list:
             self.play_animations(animations)
 
         self.wait(5)
-
-    def draw_graph(self, graph):
-        animation_sequence = []
-        node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
-        edge_drawables = [Create(edge.drawable) for edge in graph.edges]
-        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
-        return animation_sequence
-
-    def remove_graph(self, graph):
-        drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
-        animations = [FadeOut(drawable) for drawable in drawables]
-        # return [AnimationObject(type='play', content=animations, duration=1)]
-        return [AnimationObject(type='remove', content=drawables)]
-
-    def make_unitary(self, graph):
-        animation_sequence = []
-
-        drawables = graph.remove_all_but_unitary()
-        animations = [FadeOut(drawable) for drawable in drawables]
-        animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
-        return animation_sequence
-
-    def two_factorization(self, graph):
-        drawables_list = graph.two_factorization()
-        for drawables in drawables_list:
-            for drawable in drawables:
-                self.play(FadeOut(drawable), run_time=0.1)
-
-    def search_graph(self, graph):
-        searcher = GraphSearcher(graph)
-        joints = searcher.walk_graph()
-        for joint in joints:
-            self.add(joint.drawable)
-
-        self.wait(duration=1)
-
-        for idx, joint in enumerate(joints):
-            self.remove(joint.drawable)
-            if idx >= graph.cycles - 1:
-                break
-            # animations = joint.intersect()
-            animations = joint.merge()
-            self.play(*animations, run_time=3)
-
-    def custom_joins(self, graph):
-        """
-        Custom joins specifically designed to resemble
-        example circuit from ruleset starting from 4x4 grid
-        """
-        animation_sequence = []
-        searcher = GraphSearcher(graph)
-        joints = searcher.walk_graph()
-
-        animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
-
-        indices = [0, 3, 2]
-        operations = ['intersect', 'merge', 'intersect']
-
-        for i, idx in enumerate(indices):
-            joint = joints[idx]
-            animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
-            operation = operations[i]
-            if operation == 'intersect':
-                animation_sequence += joint.intersect()
-            elif operation == 'merge':
-                animation_sequence += joint.merge()
-            else:
-                raise ValueError('operation "{}" is undefined!'.format(operation))
-
-        animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
-        return animation_sequence
-
-    def random_joins(self, graph):
-        animation_sequence = []
-        searcher = GraphSearcher(graph)
-
-        while True:
-            joints = searcher.walk_graph()
-            if len(joints) == 0:
-                break
-
-            animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
-            joint = joints[0]
-            animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
-            if random.choice([True, False]):
-                animations = joint.merge()
-            else:
-                animations = joint.intersect()
-            joint_animation = AnimationObject(type='play', content=animations, duration=1)
-            animation_sequence.append(joint_animation)
-            animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
-
-        return animation_sequence
-
-    def generate_track_points(self, graph, square_size, track_width):
-        track_points = []
-        converter = Converter(graph, square_size=square_size, track_width=track_width)
-        converter.extract_tour()
-        nodes = converter.nodes
-        nodes.append(nodes[0])
-
-        line_drawables = []
-        point_drawables = []
-
-        for idx in range(len(nodes)-1):
-            node1 = nodes[idx]
-            node2 = nodes[idx+1]
-            coord1 = node1.get_coords()
-            coord2 = node2.get_coords()
-            right, left, center = get_track_points(coord1, coord2, track_width)
-            track_points.append((right, left, center))
-
-            line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
-            line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
-            point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
-            point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
-
-        animation_sequence = [
-            AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
-            AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
-            AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
-        ]
-
-        return animation_sequence, track_points
-
-    def interpolate_track_points(self, track_points):
-        left_line_animations = []
-        right_line_animations = []
-        right1, left1, center1 = track_points[0]
-        track_points = track_points[1:]
-        track_points.append((right1, left1, center1))
-        for right2, left2, center2 in track_points:
-            # print("Connect: {} and {}".format(right1, right2))
-            px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
-            right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
-            right_line_animations.append(Create(right_line))
-            px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
-            left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
-            left_line_animations.append(Create(left_line))
-            # dashed_line = DashedVMobject(line) for center line?
-
-            right1, left1, center1 = (right2, left2, center2)
-
-        animation_sequence = []
-        for idx in range(len(right_line_animations)):
-            animation_sequence.append(AnimationObject(type='play',
-                                                      content=[right_line_animations[idx], left_line_animations[idx]],
-                                                      duration=0.5, bring_to_front=True))
-
-        return animation_sequence
 
     def play_animations(self, sequence):
         for animation in sequence:
@@ -220,6 +67,169 @@ class CircuitCreation(MovingCameraScene):
                 self.play(*animation.content, run_time=animation.duration)
 
             self.wait(animation.wait_after)
+
+
+def draw_graph(graph):
+    animation_sequence = []
+    node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
+    edge_drawables = [Create(edge.drawable) for edge in graph.edges]
+    animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
+    animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+    return animation_sequence
+
+
+def remove_graph(graph):
+    drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
+    animations = [FadeOut(drawable) for drawable in drawables]
+    # return [AnimationObject(type='play', content=animations, duration=1)]
+    return [AnimationObject(type='remove', content=drawables)]
+
+
+def make_unitary(graph):
+    animation_sequence = []
+
+    drawables = graph.remove_all_but_unitary()
+    animations = [FadeOut(drawable) for drawable in drawables]
+    animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
+    return animation_sequence
+
+
+def custom_joins(graph):
+    """
+    Custom joins specifically designed to resemble
+    example circuit from ruleset starting from 4x4 grid
+    """
+    animation_sequence = []
+    searcher = GraphSearcher(graph)
+    joints = searcher.walk_graph()
+
+    animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+
+    indices = [0, 3, 2]
+    operations = ['intersect', 'merge', 'intersect']
+
+    for i, idx in enumerate(indices):
+        joint = joints[idx]
+        animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
+        operation = operations[i]
+        if operation == 'intersect':
+            animation_sequence += joint.intersect()
+        elif operation == 'merge':
+            animation_sequence += joint.merge()
+        else:
+            raise ValueError('operation "{}" is undefined!'.format(operation))
+
+    animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
+    return animation_sequence
+
+
+def random_joins(graph):
+    animation_sequence = []
+    searcher = GraphSearcher(graph)
+
+    while True:
+        joints = searcher.walk_graph()
+        if len(joints) == 0:
+            break
+
+        animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+        joint = joints[0]
+        animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
+        if random.choice([True, False]):
+            animations = joint.merge()
+        else:
+            animations = joint.intersect()
+        joint_animation = AnimationObject(type='play', content=animations, duration=1)
+        animation_sequence.append(joint_animation)
+        animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
+
+    return animation_sequence
+
+
+def generate_track_points(graph, square_size, track_width):
+    track_points = []
+    converter = Converter(graph, square_size=square_size, track_width=track_width)
+    converter.extract_tour()
+    nodes = converter.nodes
+    nodes.append(nodes[0])
+
+    line_drawables = []
+    point_drawables = []
+
+    for idx in range(len(nodes)-1):
+        node1 = nodes[idx]
+        node2 = nodes[idx+1]
+        coord1 = node1.get_coords()
+        coord2 = node2.get_coords()
+        right, left, center = get_track_points(coord1, coord2, track_width)
+        track_points.append((right, left, center))
+
+        line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
+        line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
+        point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
+        point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
+
+    animation_sequence = [
+        AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
+        AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+        AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
+    ]
+
+    animation_sequence2 = [
+        AnimationObject(type='play', content=[FadeOut(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+    ]
+
+    return animation_sequence, animation_sequence2, track_points
+
+
+def interpolate_track_points(track_points):
+    left_line_animations = []
+    right_line_animations = []
+    right1, left1, center1 = track_points[0]
+    track_points = track_points[1:]
+    track_points.append((right1, left1, center1))
+    for right2, left2, center2 in track_points:
+        # print("Connect: {} and {}".format(right1, right2))
+        px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+        right_line_animations.append(Create(right_line))
+        px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+        left_line_animations.append(Create(left_line))
+        # dashed_line = DashedVMobject(line) for center line?
+
+        right1, left1, center1 = (right2, left2, center2)
+
+    animation_sequence = []
+    for idx in range(len(right_line_animations)):
+        animation_sequence.append(AnimationObject(type='play',
+                                                  content=[right_line_animations[idx], left_line_animations[idx]],
+                                                  duration=0.5, bring_to_front=True))
+
+    return animation_sequence
+
+# def two_factorization(graph):
+#     drawables_list = graph.two_factorization()
+#     for drawables in drawables_list:
+#         for drawable in drawables:
+#             self.play(FadeOut(drawable), run_time=0.1)
+#
+#
+# def search_graph(graph):
+#     searcher = GraphSearcher(graph)
+#     joints = searcher.walk_graph()
+#     for joint in joints:
+#         self.add(joint.drawable)
+#
+#     self.wait(duration=1)
+#
+#     for idx, joint in enumerate(joints):
+#         self.remove(joint.drawable)
+#         if idx >= graph.cycles - 1:
+#             break
+#         # animations = joint.intersect()
+#         animations = joint.merge()
+#         self.play(*animations, run_time=3)
 
 
 def find_center(coord1, coord2):
