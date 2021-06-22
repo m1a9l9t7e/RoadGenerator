@@ -1,5 +1,6 @@
+import numpy as np
 from manim import *
-
+import math
 from anim_sequence import AnimationObject
 
 
@@ -104,3 +105,57 @@ class TrackPoint:
         x, y, _ = self.coords
         dx, dy = self.direction
         return [x, y, dx, dy]
+
+
+class GridShowCase:
+    def __init__(self, num_elements, element_dimensions, spacing=[1, 1], space_ratio=[16, 9]):
+        self.grid_dimensions = calculate_grid_dimensions(num_elements, ratio=space_ratio)
+        self.element_width, self.element_height = element_dimensions
+        self.x_spacing, self.y_spacing = spacing
+        pass
+
+    def get_global_camera_settings(self):
+        cols, rows = self.grid_dimensions
+        width = cols * self.element_width + (cols - 1) * self.x_spacing
+        height = rows * self.element_height + (rows - 1) * self.y_spacing
+        size = [width, height]
+        position = np.array(size) / 2
+        return position, size
+
+    def get_zoomed_camera_settings(self, index):
+        cols, rows = self.grid_dimensions
+        x = index % cols
+        y = np.floor(index / cols)
+        top_left_x = max(0, (x - 1)) * (self.element_width + self.x_spacing)
+        top_left_y = max(0, (y - 1)) * (self.element_height + self.y_spacing)
+        position = (top_left_x + self.element_width/2, top_left_y + self.element_height/2)
+        size = [self.element_width, self.element_height]
+        return position, size
+
+    def get_element_coords(self, index):
+        cols, rows = self.grid_dimensions
+        x = index % cols
+        y = np.floor(index / cols)
+        bottom_left_x = x * (self.element_width + self.x_spacing)
+        bottom_left_y = y * (self.element_height + self.y_spacing)
+        return bottom_left_x, bottom_left_y
+
+
+def calculate_grid_dimensions(num_elements, ratio):
+    factor = (ratio[0] * ratio[1])
+    scale = math.sqrt(num_elements / factor)
+    grid_dims = [np.ceil(ratio[0] * scale), np.ceil(ratio[1] * scale)]
+    approx = ratio[0] * scale * ratio[1] * scale
+    # print("Arrange {} elements in ratio {} x {}!".format(num_elements, *ratio))
+    # print("scaling is {scale:.2f}! Because {x_scaled:.2f} x {y_scaled:.2f} = {approx:.2f} ~ {num}".format(scale=scale, x_scaled=scale * ratio[0],
+    #                                                                                                       y_scaled=scale * ratio[1], num=num_elements,
+    #                                                                                                       approx=approx))
+    print("Approximate grid dimensions: {} x {}".format(*grid_dims))
+    return grid_dims
+
+
+if __name__ == '__main__':
+    num = 15
+    gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
+    for i in range(num):
+        gs.get_element_coords(i)

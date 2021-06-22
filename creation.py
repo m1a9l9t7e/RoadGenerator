@@ -1,13 +1,47 @@
-import numpy as np
 from manim import *
 import random
 from interpolation import find_polynomials
-from util import Converter, Grid, TrackPoint
+from util import Converter, Grid, TrackPoint, GridShowCase
 from graph import Graph, GraphSearcher, GraphModel
-from anim_sequence import AnimationObject
+from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
-class CircuitCreation(MovingCameraScene):
+class MultiGraph(AnimationSequenceScene):
+    def construct(self):
+        num_graphs = 12
+        width, height = (4, 4)
+        square_size = 1.3
+        track_width = 0.4
+        graph_width = square_size * width
+        graph_height = square_size * height
+
+        helper = GridShowCase(num_graphs, (graph_width, graph_height))
+        camera_position, camera_size = helper.get_global_camera_settings()
+        self.play(
+            self.camera.frame.animate.set_width(camera_size[0] * 1.3),
+            run_time=0.1
+        )
+        self.play(
+            self.camera.frame.animate.move_to((camera_position[0], camera_position[1], 0)),
+            run_time=0.1
+        )
+
+        graphs = []
+        animations_list = []
+
+        for index in range(num_graphs):
+            shift = helper.get_element_coords(index)
+            graph = Graph(width, height, scale=square_size, shift=shift)
+            graphs.append(graph)
+            animations_list.append(draw_graph(graph))
+
+        for animations in animations_list:
+            self.play_animations(animations)
+
+        self.wait(5)
+
+
+class CircuitCreation(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
         square_size = 1.3  # Needs to be 1 because grid and camera scale, but graph doesn't
@@ -48,29 +82,6 @@ class CircuitCreation(MovingCameraScene):
             self.play_animations(animations)
 
         self.wait(5)
-
-    def play_animations(self, sequence):
-        for animation in sequence:
-            if animation.bring_to_back or animation.bring_to_front:
-                content = animation.content
-                if animation.type == 'play':
-                    content = [c.mobject for c in animation.content]
-                if animation.bring_to_front:
-                    self.bring_to_front(*content)
-                if animation.bring_to_back:
-                    self.bring_to_back(*content)
-            if animation.type == 'add':
-                self.add(*animation.content)
-                if animation.bring_to_front:
-                    self.bring_to_front(*content)
-                if animation.bring_to_back:
-                    self.bring_to_back(*content)
-            if animation.type == 'remove':
-                self.remove(*animation.content)
-            elif animation.type == 'play':
-                self.play(*animation.content, run_time=animation.duration)
-
-            self.wait(animation.wait_after)
 
 
 def draw_graph(graph):
@@ -290,8 +301,7 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
     line.set_color(color)
     return line
 
-
-class GraphModelTest(MovingCameraScene):
+class GraphModelTest(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
         square_size = 1  # Needs to be 1 because grid and camera scale, but graph doesn't
@@ -336,29 +346,6 @@ class GraphModelTest(MovingCameraScene):
         #
         # self.play_animations([AnimationObject(type='play', content=drawables, bring_to_back=True, duration=1)])
         self.wait(5)
-
-    def play_animations(self, sequence):
-        for animation in sequence:
-            if animation.bring_to_back or animation.bring_to_front:
-                content = animation.content
-                if animation.type == 'play':
-                    content = [c.mobject for c in animation.content]
-                if animation.bring_to_front:
-                    self.bring_to_front(*content)
-                if animation.bring_to_back:
-                    self.bring_to_back(*content)
-            if animation.type == 'add':
-                self.add(*animation.content)
-                if animation.bring_to_front:
-                    self.bring_to_front(*content)
-                if animation.bring_to_back:
-                    self.bring_to_back(*content)
-            if animation.type == 'remove':
-                self.remove(*animation.content)
-            elif animation.type == 'play':
-                self.play(*animation.content, run_time=animation.duration)
-
-            self.wait(animation.wait_after)
 
 
 class LineTest(MovingCameraScene):
