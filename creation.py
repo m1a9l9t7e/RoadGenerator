@@ -1,3 +1,4 @@
+import numpy as np
 from manim import *
 import random
 from interpolation import find_polynomials
@@ -9,7 +10,7 @@ from anim_sequence import AnimationObject
 class CircuitCreation(MovingCameraScene):
     def construct(self):
         width, height = (4, 4)
-        square_size = 1  # Needs to be 1 because grid and camera scale, but graph doesn't
+        square_size = 1.3  # Needs to be 1 because grid and camera scale, but graph doesn't
         track_width = 0.4
 
         self.play(
@@ -17,28 +18,31 @@ class CircuitCreation(MovingCameraScene):
             run_time=0.1
         )
         self.play(
-            self.camera.frame.animate.move_to((square_size * width/2.5, square_size * height/2.5, 0)),
+            self.camera.frame.animate.move_to((square_size * width / 2.5, square_size * height / 2.5, 0)),
             run_time=0.1
         )
 
-        graph = Graph(width, height)
+        graph = Graph(width, height, scale=square_size)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
-        
+
         graph_creation = draw_graph(graph)
         fade_out_non_unitary = make_unitary(graph)
         show_cycles = graph.init_cycles()
-        make_joins = custom_joins(graph)
-        # make_joins = random_joins(graph)
+        # make_joins = custom_joins(graph)
+        make_joins = random_joins(graph)
         gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
         interpolation_animation = interpolate_track_points(points)
 
-        animations_list = [graph_creation,
-                           grid.get_animation_sequence(),
-                           fade_out_non_unitary,
-                           make_joins, gen_track_points,
-                           interpolation_animation,
-                           remove_track_points,
-                           remove_graph(graph)]
+        animations_list = [
+            graph_creation,
+            grid.get_animation_sequence(),
+            fade_out_non_unitary,
+            make_joins,
+            gen_track_points,
+            interpolation_animation,
+            remove_track_points,
+            remove_graph(graph)
+        ]
 
         for animations in animations_list:
             self.play_animations(animations)
@@ -136,11 +140,9 @@ def random_joins(graph):
         joint = joints[0]
         animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
         if random.choice([True, False]):
-            animations = joint.merge()
+            animation_sequence += joint.merge()
         else:
-            animations = joint.intersect()
-        joint_animation = AnimationObject(type='play', content=animations, duration=1)
-        animation_sequence.append(joint_animation)
+            animation_sequence += joint.intersect()
         animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
 
     return animation_sequence
@@ -156,11 +158,11 @@ def generate_track_points(graph, square_size, track_width):
     line_drawables = []
     point_drawables = []
 
-    for idx in range(len(nodes)-1):
+    for idx in range(len(nodes) - 1):
         node1 = nodes[idx]
-        node2 = nodes[idx+1]
-        coord1 = node1.get_coords()
-        coord2 = node2.get_coords()
+        node2 = nodes[idx + 1]
+        coord1 = node1.get_real_coords()
+        coord2 = node2.get_real_coords()
         right, left, center = get_track_points(coord1, coord2, track_width)
         track_points.append((right, left, center))
 
@@ -207,6 +209,7 @@ def interpolate_track_points(track_points):
                                                   duration=0.5, bring_to_front=True))
 
     return animation_sequence
+
 
 # def two_factorization(graph):
 #     drawables_list = graph.two_factorization()
@@ -288,16 +291,6 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
     return line
 
 
-class LineTest(MovingCameraScene):
-    def construct(self):
-        px, py = find_polynomials(0, 0, 1, 0, 1, 1, 1, 0)
-        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE)
-        self.play(Create(_line), run_time=5)
-        px, py = find_polynomials(1, 1, 1, 0, 1, -3, -1, -1)
-        _line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE)
-        self.play(Create(_line), run_time=5)
-
-
 class GraphModelTest(MovingCameraScene):
     def construct(self):
         width, height = (4, 4)
@@ -308,7 +301,7 @@ class GraphModelTest(MovingCameraScene):
             run_time=0.1
         )
         self.play(
-            self.camera.frame.animate.move_to((square_size * width/2.5, square_size * height/2.5, 0)),
+            self.camera.frame.animate.move_to((square_size * width / 2.5, square_size * height / 2.5, 0)),
             run_time=0.1
         )
 
@@ -368,7 +361,63 @@ class GraphModelTest(MovingCameraScene):
             self.wait(animation.wait_after)
 
 
+class LineTest(MovingCameraScene):
+    def construct(self):
+        px, py = find_polynomials(0, 0, 1, 0, 0.1, 0.1, 0, 1)
+        _line_x = ParametricFunction(function=lambda t: (t - 2, px(t), 0), t_min=0, t_max=2, color=WHITE)
+        _line_y = ParametricFunction(function=lambda t: (t, py(t), 0), t_min=0, t_max=2, color=WHITE)
+        _line = ParametricFunction(function=lambda t: (px(t) + 2, py(t), 0), t_min=0, t_max=0.1, color=WHITE)
+        label_x = Text("fx(z)")
+        label_x.next_to(_line_x, DOWN)
+        label_y = Text("fy(z)")
+        label_y.next_to(_line_y, DOWN)
+        label = Text("fx,y(z)")
+        label.next_to(_line, DOWN)
+        # self.play(Create(label_x), Create(label_y), Create(label))
+        self.add(label_x, label_y, label)
+        self.play(Create(_line_x))
+        self.play(Create(_line_y))
+        self.play(Create(_line), run_time=2)
+        self.wait(5)
+
+
+class CircleTest(MovingCameraScene):
+    def construct(self):
+        # scale_list = [0.1, 0.5, 0.75, 1, 2, 10, 100]
+        scale_list = [0.1, 0.5, 0.75, 1, 2]
+        x_pos = 0
+        for scale_idx, scale in enumerate(scale_list):
+            circle_points = [np.array([0, 0]) * scale, np.array([1, 1]) * scale, np.array([0, 2]) * scale, np.array([-1, 1]) * scale]
+            circle_directions = [[1, 0], [0, 1], [-1, 0], [0, -1]]
+            width = scale * 5 + 1 if scale_idx > 0 else 2.2
+            spacing = 0 if scale_idx > 0 else -width * 0.9 + 1
+            current_pos = x_pos + width/2
+            self.play(
+                self.camera.frame.animate.set_width(width),
+                run_time=0.5
+            )
+            self.play(
+                self.camera.frame.animate.move_to((current_pos, scale/1.5, 0)),
+                run_time=1
+            )
+            label = Text("r={}".format(scale), size=0.5)
+            label.next_to((current_pos, 0, 0), DOWN)
+            self.add(label)
+
+            x_pos += spacing + width
+
+            for idx in range(len(circle_points)):
+                next_idx = (idx + 1) % len(circle_points)
+                point1, direction1 = (circle_points[idx], circle_directions[idx])
+                point2, direction2 = (circle_points[next_idx], circle_directions[next_idx])
+                px, py = find_polynomials(*point1, *direction1, *point2, *direction2)
+                _line = ParametricFunction(function=lambda t: (current_pos + px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2 if scale < 10 else (np.log10(scale) + 2) * 5)
+                self.play(Create(_line), run_time=0.5)
+
+        self.wait(3)
+
+
 if __name__ == '__main__':
-    # scene = CircuitCreation()
-    scene = GraphModelTest()
+    scene = CircuitCreation()
+    # scene = GraphModelTest()
     scene.construct()

@@ -1,18 +1,20 @@
-import copy
-
 from manim import *
-
 from anim_sequence import AnimationObject
-from util import Converter
+from util import Converter, transform_coords
+import copy
 
 xvec = [1, 0, -1, 0]
 yvec = [0, 1, 0, -1]
 
 
 class Node:
-    def __init__(self, x, y):
+    def __init__(self, x, y, real_coords=None):
         self.x = x
         self.y = y
+        if real_coords is None:
+            self.real_coords = (x, y, 0)
+        else:
+            self.real_coords = real_coords
         self.edges = []
         self.adjacent_nodes = []
         self.drawable = self._create_drawable()
@@ -28,7 +30,10 @@ class Node:
         return self.x == other.x and self.y == other.y
 
     def get_coords(self):
-        return self.x, self.y, 0
+        return self.x, self.y
+
+    def get_real_coords(self):
+        return self.real_coords
 
     def get_degree(self):
         return len(self.adjacent_nodes)
@@ -58,7 +63,7 @@ class Node:
         return edge.remove()
 
     def _create_drawable(self):
-        circle = Dot(point=self.get_coords(), radius=0.1)
+        circle = Dot(point=self.get_real_coords(), radius=0.1)
         circle.set_fill(BLUE, opacity=1)
         circle.set_stroke(BLUE_E, width=4)
         return circle
@@ -84,7 +89,7 @@ class Edge:
         self.node2 = swap
 
     def _create_drawable(self):
-        line = Line(self.node1.get_coords(), self.node2.get_coords())
+        line = Line(self.node1.get_real_coords(), self.node2.get_real_coords())
         return line
 
     def remove(self):
@@ -96,13 +101,13 @@ class Edge:
 
 
 class Graph:
-    def __init__(self, width, height):
+    def __init__(self, width, height, scale=1, shift=[0, 0]):
         self.grid = [[Node(-1, -1)] * height for i in range(width)]
         self.nodes = []
         self.edges = []
         for x in range(width):
             for y in range(height):
-                node = Node(x, y)
+                node = Node(x, y, real_coords=transform_coords([x, y], shift, scale))
                 self.grid[x][y] = node
                 self.nodes.append(node)
 
@@ -166,7 +171,7 @@ class Graph:
         grid = [[0] * len(self.grid[0]) for i in range(len(self.grid))]
         grid[node.x][node.y] = -1
         if blocked_node is not None:
-            x, y, _ = blocked_node.get_coords()
+            x, y, = blocked_node.get_coords()
             grid[x][y] = -1
         while len(queue) > 0:
             node = queue.pop()
@@ -202,7 +207,7 @@ class Graph:
                 if adjacent_node == previous_node:
                     continue
                 bfs_grid = self.bfs(adjacent_node, current_node)
-                x, y, _ = start_node.get_coords()
+                x, y, = start_node.get_coords()
                 if bfs_grid[x][y] < 1:
                     drawable = current_node.remove_adjacent_node(adjacent_node)
                     drawables.append(drawable)
@@ -335,8 +340,9 @@ class Joint:
         self.drawable = self._create_drawable()
 
     def _create_drawable(self):
-        x, y, z = self.corners[0].get_coords()
-        circle = Dot(point=(x + 0.5, y + 0.5, z), radius=0.1)
+        x1, y1, z1 = self.corners[0].get_real_coords()
+        x2, y2, z2 = self.corners[2].get_real_coords()
+        circle = Dot(point=((x1 + x2) / 2, (y1 + y2) / 2, z1), radius=0.1)
         circle.set_fill(RED, opacity=1)
         circle.set_stroke(RED_E, width=4)
         return circle
@@ -351,7 +357,8 @@ class Joint:
             self.graph.edges.remove(edge)
         self.graph.edges += new_edges
 
-    def _create_animation_sequence(self, replacements):
+    @staticmethod
+    def _create_animation_sequence(replacements):
         new_drawables = []
         animations = []
         for replacement in replacements:
