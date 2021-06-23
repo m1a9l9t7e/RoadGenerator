@@ -30,7 +30,7 @@ class Converter:
                 break
 
         self.nodes = tour
-        print("Found tour with {} nodes and {} edges!".format(len(self.nodes), len(self.edges)))
+        # print("Found tour with {} nodes and {} edges!".format(len(self.nodes), len(self.edges)))
 
 
 def get_next_node(node, previous_node=None):
@@ -112,7 +112,6 @@ class GridShowCase:
         self.grid_dimensions = calculate_grid_dimensions(num_elements, ratio=space_ratio)
         self.element_width, self.element_height = element_dimensions
         self.x_spacing, self.y_spacing = spacing
-        pass
 
     def get_global_camera_settings(self):
         cols, rows = self.grid_dimensions
@@ -123,12 +122,8 @@ class GridShowCase:
         return position, size
 
     def get_zoomed_camera_settings(self, index):
-        cols, rows = self.grid_dimensions
-        x = index % cols
-        y = np.floor(index / cols)
-        top_left_x = max(0, (x - 1)) * (self.element_width + self.x_spacing)
-        top_left_y = max(0, (y - 1)) * (self.element_height + self.y_spacing)
-        position = (top_left_x + self.element_width/2, top_left_y + self.element_height/2)
+        bottom_left_x, bottom_left_y = self.get_element_coords(index)
+        position = (bottom_left_x + self.element_width/2, bottom_left_y + self.element_height/2)
         size = [self.element_width, self.element_height]
         return position, size
 
@@ -152,6 +147,31 @@ def calculate_grid_dimensions(num_elements, ratio):
     #                                                                                                       approx=approx))
     print("Approximate grid dimensions: {} x {}".format(*grid_dims))
     return grid_dims
+
+
+def draw_graph(graph):
+    animation_sequence = []
+    node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
+    edge_drawables = [Create(edge.drawable) for edge in graph.edges]
+    animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
+    animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+    return animation_sequence
+
+
+def remove_graph(graph):
+    drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
+    animations = [FadeOut(drawable) for drawable in drawables]
+    # return [AnimationObject(type='play', content=animations, duration=1)]
+    return [AnimationObject(type='remove', content=drawables)]
+
+
+def make_unitary(graph):
+    animation_sequence = []
+
+    drawables = graph.remove_all_but_unitary()
+    animations = [FadeOut(drawable) for drawable in drawables]
+    animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
+    return animation_sequence
 
 
 if __name__ == '__main__':

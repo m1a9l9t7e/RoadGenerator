@@ -1,6 +1,6 @@
 from manim import *
 from anim_sequence import AnimationObject
-from util import Converter, transform_coords
+from util import Converter, transform_coords, GridShowCase, draw_graph, remove_graph, make_unitary
 import copy
 
 xvec = [1, 0, -1, 0]
@@ -147,6 +147,16 @@ class Graph:
                 return False
 
         return True
+
+    def __str__(self):
+        _str = "Graph: "
+        strings = []
+        for edge in self.edges:
+            strings.append(str(edge))
+
+        strings = sorted(strings)
+        _str += "".join(strings)
+        return _str
 
     def get_element_safe(self, coords):
         x = coords[0]
@@ -379,6 +389,7 @@ class Joint:
         self.graph.merge_cycles(*set(self.cycle_ids))
         for edge in deleted_edges:
             self.graph.edges.remove(edge)
+            edge.remove()
         self.graph.edges += new_edges
 
     @staticmethod
@@ -407,45 +418,37 @@ class Joint:
 class VerticalJoint(Joint):
     def intersect(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[1])
-        edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[1])
         edge2_old = self.corners[3].get_edge_to(self.corners[2])
-        edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[3], self.corners[1])
         edge2_new = Edge(self.corners[0], self.corners[2])
         self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
+        return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
     def merge(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[1])
-        edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[1])
         edge2_old = self.corners[3].get_edge_to(self.corners[2])
-        edge2_old_drawable = self.corners[3].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[3])
         edge2_new = Edge(self.corners[1], self.corners[2])
         self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
+        return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
 
 class HorizontalJoint(Joint):
     def intersect(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[3])
-        edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[3])
         edge2_old = self.corners[1].get_edge_to(self.corners[2])
-        edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[2])
         edge2_new = Edge(self.corners[1], self.corners[3])
         self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
+        return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
     def merge(self):
         edge1_old = self.corners[0].get_edge_to(self.corners[3])
-        edge1_old_drawable = self.corners[0].remove_adjacent_node(self.corners[3])
         edge2_old = self.corners[1].get_edge_to(self.corners[2])
-        edge2_old_drawable = self.corners[1].remove_adjacent_node(self.corners[2])
         edge1_new = Edge(self.corners[0], self.corners[1])
         edge2_new = Edge(self.corners[3], self.corners[2])
         self._update_graph([edge1_old, edge2_old], [edge1_new, edge2_new])
-        return self._create_animation_sequence([[edge1_old_drawable, edge1_new.drawable], [edge2_old_drawable, edge2_new.drawable]])
+        return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
 
 def print_2d(array):
@@ -457,41 +460,118 @@ def print_2d(array):
 
 
 class GraphModel:
-    def __init__(self, base_graph):
-        self.base_graph = base_graph
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.leaf_sequences = []
+        self.hash_map = dict()
+        self.iterate()
 
-    def iterate_all_possible_tours(self):
-        g1 = copy.deepcopy(self.base_graph)
-        g2 = copy.deepcopy(self.base_graph)
-        g1_search = GraphSearcher(g1)
-        g2_search = GraphSearcher(g2)
-        g1_joints = g1_search.walk_graph()
-        g2_joints = g2_search.walk_graph()
-        g1_joints[0].merge()
-        g2_joints[0].intersect()
+    def iterate(self):
+        queue = [JoinSequence(self.width, self.height)]
+        hash_map = dict()
+        while len(queue) > 0:
+            sequence = queue.pop(0)
+            continuations = sequence.get_possible_continuations()
+            if len(continuations) == 0:
+                key = str(sequence.generate_graph())
+                if key not in hash_map:
+                    self.leaf_sequences.append(sequence)
+                    hash_map[key] = True
+            else:
+                queue += continuations
 
-        print("g1 == g1: {}".format(g1==g1))
-        print("g1 == g2: {}".format(g1==g2))
-        return g1, g2
+        print("Possible tours: {}".format(len(self.leaf_sequences)))
 
-        # queue = []
-        # queue.append(self.base_graph)
-        # pass
+    def get_graphs(self):
+        graph_list = []
+        for sequence in self.leaf_sequences:
+            graph = sequence.generate_graph()
+            graph_list.append(graph)
 
-    def get_next(self, graph):
-        searcher = GraphSearcher(g)
+        return graph_list
+
+    def get_animations(self, scale, ratio=[16, 9], spacing=[1, 1]):
+        helper = GridShowCase(num_elements=len(self.leaf_sequences),
+                              element_dimensions=(scale * self.width, scale * self.height),
+                              spacing=spacing, space_ratio=ratio)
+        animations_list = []
+        graph_list = []
+        for index, sequence in enumerate(self.leaf_sequences):
+            shift = helper.get_element_coords(index)
+            animations, graph = sequence.get_animations(scale=scale, shift=shift)
+            animations_list.append(animations)
+            graph_list.append(graph)
+
+        return animations_list, graph_list, helper
+
+
+class JoinSequence:
+    def __init__(self, width, height, sequence=None):
+        self.width = width
+        self.height = height
+        self.sequence = [] if sequence is None else sequence
+
+    def __str__(self):
+        _str = "Join Sequence: "
+        for idx, (index, operation) in enumerate(self.sequence):
+            _str += "{}.({},{});".format(idx, operation, index)
+        return _str
+
+    def get_possible_continuations(self):
+        continuations = []
+        graph = self.generate_graph()
+        searcher = GraphSearcher(graph)
         joints = searcher.walk_graph()
-        if len(joints) == 0:
-            return []
+        for i in range(len(joints)):
+            continuations.append(self.get_new_sequence((i, 'intersect')))
+            continuations.append(self.get_new_sequence((i, 'merge')))
 
-        # animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
-        # joint = joints[0]
-        # animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
-        # if random.choice([True, False]):
-        #     animation_sequence += joint.merge()
-        # else:
-        #     animation_sequence += joint.intersect()
-        # animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
+        return continuations
+
+    def get_new_sequence(self, continuation):
+        continued_sequence = self.sequence + [continuation]
+        return JoinSequence(self.width, self.height, continued_sequence)
+
+    def generate_graph(self):
+        graph = Graph(width=self.width, height=self.height)
+        graph.remove_all_but_unitary()
+        graph.init_cycles()
+        for (index, operation) in self.sequence:
+            searcher = GraphSearcher(graph)
+            joints = searcher.walk_graph()
+            joint = joints[index]
+            if operation == 'intersect':
+                joint.intersect()
+            elif operation == 'merge':
+                joint.merge()
+            else:
+                raise ValueError('operation "{}" is undefined!'.format(operation))
+
+        return graph
+
+    def get_animations(self, scale, shift):
+        animations = []
+        graph = Graph(width=self.width, height=self.height, scale=scale, shift=shift)
+        animations += draw_graph(graph)
+        animations += make_unitary(graph)
+        graph.init_cycles()
+        for (index, operation) in self.sequence:
+            searcher = GraphSearcher(graph)
+            joints = searcher.walk_graph()
+            animations.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+            joint = joints[index]
+            animations.append(AnimationObject(type='remove', content=joint.drawable))
+            if operation == 'intersect':
+                animations += joint.intersect()
+            elif operation == 'merge':
+                animations += joint.merge()
+            else:
+                raise ValueError('operation "{}" is undefined!'.format(operation))
+
+            animations.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints], wait_after=1))
+
+        return animations, graph
 
 
 if __name__ == '__main__':
@@ -500,19 +580,16 @@ if __name__ == '__main__':
     g.remove_all_but_unitary()
     g.init_cycles()
 
-    gm = GraphModel(g)
-    gm.iterate_all_possible_tours()
-
     # find joints and merge until single cycle
-    # searcher = GraphSearcher(g)
-    # while True:
-    #     joints = searcher.walk_graph()
-    #     if len(joints) == 0:
-    #         break
-    #     # join first joint
-    #     joint = joints[0]
-    #     joint.merge()
-    #
-    # # Convert to geometrics
-    # converter = Converter(g, 2, 1)
-    # converter.extract_tour()
+    searcher = GraphSearcher(g)
+    while True:
+        joints = searcher.walk_graph()
+        if len(joints) == 0:
+            break
+        # join first joint
+        joint = joints[0]
+        joint.merge()
+
+    # Convert to geometrics
+    converter = Converter(g, 2, 1)
+    converter.extract_tour()

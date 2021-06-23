@@ -1,41 +1,33 @@
 from manim import *
 import random
 from interpolation import find_polynomials
-from util import Converter, Grid, TrackPoint, GridShowCase
+from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary
 from graph import Graph, GraphSearcher, GraphModel
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
 class MultiGraph(AnimationSequenceScene):
     def construct(self):
-        num_graphs = 12
         width, height = (4, 4)
         square_size = 1.3
         track_width = 0.4
-        graph_width = square_size * width
-        graph_height = square_size * height
 
-        helper = GridShowCase(num_graphs, (graph_width, graph_height))
+        graph_model = GraphModel(width, height)
+        animations_list, graph_list, helper = graph_model.get_animations(scale=square_size)
         camera_position, camera_size = helper.get_global_camera_settings()
-        self.play(
-            self.camera.frame.animate.set_width(camera_size[0] * 1.3),
-            run_time=0.1
-        )
-        self.play(
-            self.camera.frame.animate.move_to((camera_position[0], camera_position[1], 0)),
-            run_time=0.1
-        )
-
-        graphs = []
-        animations_list = []
-
-        for index in range(num_graphs):
-            shift = helper.get_element_coords(index)
-            graph = Graph(width, height, scale=square_size, shift=shift)
-            graphs.append(graph)
-            animations_list.append(draw_graph(graph))
-
+        self.move_camera(camera_size, camera_position, duration=0.1)
         self.play_concurrent(animations_list)
+
+        idx = 11
+        graph = graph_list[idx]
+        camera_position, camera_size = helper.get_zoomed_camera_settings(idx)
+        self.move_camera(camera_size, camera_position, duration=2)
+
+        gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
+        interpolation_animation = interpolate_track_points(points)
+        animations = gen_track_points + interpolation_animation + remove_track_points
+        self.play_animations(animations)
+
         self.wait(5)
 
 
@@ -80,31 +72,6 @@ class CircuitCreation(AnimationSequenceScene):
             self.play_animations(animations)
 
         self.wait(5)
-
-
-def draw_graph(graph):
-    animation_sequence = []
-    node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
-    edge_drawables = [Create(edge.drawable) for edge in graph.edges]
-    animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-    animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
-    return animation_sequence
-
-
-def remove_graph(graph):
-    drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
-    animations = [FadeOut(drawable) for drawable in drawables]
-    # return [AnimationObject(type='play', content=animations, duration=1)]
-    return [AnimationObject(type='remove', content=drawables)]
-
-
-def make_unitary(graph):
-    animation_sequence = []
-
-    drawables = graph.remove_all_but_unitary()
-    animations = [FadeOut(drawable) for drawable in drawables]
-    animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
-    return animation_sequence
 
 
 def custom_joins(graph):
@@ -202,10 +169,10 @@ def interpolate_track_points(track_points):
     for right2, left2, center2 in track_points:
         # print("Connect: {} and {}".format(right1, right2))
         px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
         right_line_animations.append(Create(right_line))
         px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=1)
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
         left_line_animations.append(Create(left_line))
         # dashed_line = DashedVMobject(line) for center line?
 
