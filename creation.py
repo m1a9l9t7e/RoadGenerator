@@ -35,9 +35,7 @@ class MultiGraph(AnimationSequenceScene):
             graphs.append(graph)
             animations_list.append(draw_graph(graph))
 
-        for animations in animations_list:
-            self.play_animations(animations)
-
+        self.play_concurrent(animations_list)
         self.wait(5)
 
 
@@ -405,6 +403,7 @@ class CircleTest(MovingCameraScene):
 
 
 if __name__ == '__main__':
-    scene = CircuitCreation()
+    # scene = CircuitCreation()
     # scene = GraphModelTest()
+    scene = MultiGraph()
     scene.construct()
