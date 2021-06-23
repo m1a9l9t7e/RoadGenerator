@@ -24,7 +24,8 @@ class Node:
         adjacent = "adjacent:\n"
         for idx, adjacent_node in enumerate(self.adjacent_nodes):
             adjacent += "\t{}. ({},{})".format(idx + 1, adjacent_node.x, adjacent_node.y)
-        return "Node ({},{})\n{}".format(self.x, self.y, adjacent)
+        # return "Node ({},{})\n{}".format(self.x, self.y, adjacent)
+        return "Node ({},{})".format(self.x, self.y)
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
@@ -123,6 +124,29 @@ class Graph:
                         self.edges.append(edge)
 
         self.cycles = int(width / 2) * int(height / 2)  # upper bound
+
+    def __eq__(self, other):
+        self_map = dict()
+        other_map = dict()
+        for edge in other.edges:
+            other_map[str(edge)] = True
+
+        # check if all keys of self are in other
+        for edge in self.edges:
+            key = str(edge)
+            self_map[key] = True
+            if key not in other_map:
+                # print("({}) FROM SELF NOT IN OTHER".format(key))
+                return False
+
+        # check if all keys of other are in self
+        for edge in other.edges:
+            key = str(edge)
+            if key not in self_map:
+                # print("({}) FROM OTHER NOT IN SELF".format(key))
+                return False
+
+        return True
 
     def get_element_safe(self, coords):
         x = coords[0]
@@ -444,11 +468,30 @@ class GraphModel:
         g1_joints = g1_search.walk_graph()
         g2_joints = g2_search.walk_graph()
         g1_joints[0].merge()
-        g2_joints[1].intersect()
+        g2_joints[0].intersect()
+
+        print("g1 == g1: {}".format(g1==g1))
+        print("g1 == g2: {}".format(g1==g2))
         return g1, g2
+
         # queue = []
         # queue.append(self.base_graph)
         # pass
+
+    def get_next(self, graph):
+        searcher = GraphSearcher(g)
+        joints = searcher.walk_graph()
+        if len(joints) == 0:
+            return []
+
+        # animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+        # joint = joints[0]
+        # animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
+        # if random.choice([True, False]):
+        #     animation_sequence += joint.merge()
+        # else:
+        #     animation_sequence += joint.intersect()
+        # animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
 
 
 if __name__ == '__main__':
@@ -457,16 +500,19 @@ if __name__ == '__main__':
     g.remove_all_but_unitary()
     g.init_cycles()
 
-    # find joints and merge until single cycle
-    searcher = GraphSearcher(g)
-    while True:
-        joints = searcher.walk_graph()
-        if len(joints) == 0:
-            break
-        # join first joint
-        joint = joints[0]
-        joint.merge()
+    gm = GraphModel(g)
+    gm.iterate_all_possible_tours()
 
-    # Convert to geometrics
-    converter = Converter(g, 2, 1)
-    converter.extract_tour()
+    # find joints and merge until single cycle
+    # searcher = GraphSearcher(g)
+    # while True:
+    #     joints = searcher.walk_graph()
+    #     if len(joints) == 0:
+    #         break
+    #     # join first joint
+    #     joint = joints[0]
+    #     joint.merge()
+    #
+    # # Convert to geometrics
+    # converter = Converter(g, 2, 1)
+    # converter.extract_tour()
