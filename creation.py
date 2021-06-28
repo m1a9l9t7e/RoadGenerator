@@ -1,8 +1,10 @@
+import numpy as np
 from manim import *
 import random
 from interpolation import find_polynomials
-from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary
-from graph import Graph, GraphSearcher, GraphModel
+from ip import Problem, get_problem
+from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, get_intersect_matrix
+from graph import Graph, GraphSearcher, GraphModel, convert_solution_to_join_sequence
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
@@ -11,7 +13,6 @@ class MultiGraph(AnimationSequenceScene):
         width, height = (4, 4)
         square_size = 1.3
         track_width = 0.4
-
         graph_model = GraphModel(width, height)
         animations_list, graph_list, helper = graph_model.get_animations(scale=square_size)
         camera_position, camera_size = helper.get_global_camera_settings()
@@ -33,8 +34,8 @@ class MultiGraph(AnimationSequenceScene):
 
 class CircuitCreation(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 4)
-        square_size = 1.3  # Needs to be 1 because grid and camera scale, but graph doesn't
+        width, height = (8, 4)
+        square_size = 1.3
         track_width = 0.4
 
         self.play(
@@ -266,52 +267,6 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
     line.set_color(color)
     return line
 
-class GraphModelTest(AnimationSequenceScene):
-    def construct(self):
-        width, height = (4, 4)
-        square_size = 1  # Needs to be 1 because grid and camera scale, but graph doesn't
-
-        self.play(
-            self.camera.frame.animate.set_width(width * square_size * 2.1),
-            run_time=0.1
-        )
-        self.play(
-            self.camera.frame.animate.move_to((square_size * width / 2.5, square_size * height / 2.5, 0)),
-            run_time=0.1
-        )
-
-        base_graph = Graph(width, height)
-        base_graph.remove_all_but_unitary()
-        base_graph.init_cycles()
-
-        model = GraphModel(base_graph)
-        graph = model.iterate_all_possible_tours()[1]
-        # graph_list = model.iterate_all_possible_tours()[1:]
-
-        animation_sequence = []
-
-        node_animations = [FadeIn(node.drawable) for node in graph.nodes]
-        edge_drawables = [edge.drawable for edge in graph.edges]
-        edge_animations = [Create(edge.drawable) for edge in graph.edges]
-        animation_sequence.append(AnimationObject(type='play', content=node_animations, duration=1, bring_to_front=True))
-        # animation_sequence.append(AnimationObject(type='play', content=edge_animations, duration=1, bring_to_back=True))
-        # animation_sequence.append(AnimationObject(type='remove', content=edge_drawables))
-        # animation_sequence.append(AnimationObject(type='add', content=edge_drawables))
-
-        self.play_animations(animation_sequence)
-        self.add(*edge_drawables)
-        self.bring_to_back(*edge_drawables)
-
-        self.wait(2)
-
-        # drawables = []
-        # for edge in graph.edges:
-        #     # print(edge)
-        #     drawables.append(Create(edge.drawable))
-        #
-        # self.play_animations([AnimationObject(type='play', content=drawables, bring_to_back=True, duration=1)])
-        self.wait(5)
-
 
 class LineTest(MovingCameraScene):
     def construct(self):
@@ -369,8 +324,41 @@ class CircleTest(MovingCameraScene):
         self.wait(3)
 
 
+class IPCircuitCreation(AnimationSequenceScene):
+    def construct(self):
+        width, height = (10, 10)
+        square_size = 1.3
+        track_width = 0.4
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+
+        problem = get_problem(width, height)
+        solution = problem.solve(_print=False)
+        intersect, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+        solution = np.array(solution) + np.array(intersect)
+        sequence = convert_solution_to_join_sequence(solution)
+        animations, graph = sequence.get_animations(square_size, (0, 0))
+        self.play_animations(animations)
+
+        # TODO remove this
+        gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
+        interpolation_animation = interpolate_track_points(points)
+
+        animations_list = [
+            interpolation_animation,
+            remove_track_points,
+            remove_graph(graph)
+        ]
+
+        for anim in animations_list:
+            self.play_animations(anim)
+
+        # TODO remove this
+        self.wait(4)
+
+
 if __name__ == '__main__':
     # scene = CircuitCreation()
     # scene = GraphModelTest()
-    scene = MultiGraph()
+    # scene = MultiGraph()
+    scene = IPCircuitCreation()
     scene.construct()

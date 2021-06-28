@@ -1,6 +1,6 @@
 from manim import *
 from anim_sequence import AnimationObject
-from util import Converter, transform_coords, GridShowCase, draw_graph, remove_graph, make_unitary
+from util import Converter, transform_coords, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d
 import copy
 
 xvec = [1, 0, -1, 0]
@@ -451,14 +451,6 @@ class HorizontalJoint(Joint):
         return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
 
-def print_2d(array):
-    print_str = ""
-    for x in range(len(array)):
-        print_str += " ".join([str(value) for value in array[x]]) + "\n"
-
-    print(print_str)
-
-
 class GraphModel:
     def __init__(self, width, height):
         self.width = width
@@ -468,7 +460,7 @@ class GraphModel:
         self.iterate()
 
     def iterate(self):
-        queue = [JoinSequence(self.width, self.height)]
+        queue = [DynamicJoinSequence(self.width, self.height)]
         hash_map = dict()
         while len(queue) > 0:
             sequence = queue.pop(0)
@@ -506,7 +498,7 @@ class GraphModel:
         return animations_list, graph_list, helper
 
 
-class JoinSequence:
+class DynamicJoinSequence:
     def __init__(self, width, height, sequence=None):
         self.width = width
         self.height = height
@@ -531,7 +523,7 @@ class JoinSequence:
 
     def get_new_sequence(self, continuation):
         continued_sequence = self.sequence + [continuation]
-        return JoinSequence(self.width, self.height, continued_sequence)
+        return DynamicJoinSequence(self.width, self.height, continued_sequence)
 
     def generate_graph(self):
         graph = Graph(width=self.width, height=self.height)
@@ -572,6 +564,80 @@ class JoinSequence:
             animations.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints], wait_after=1))
 
         return animations, graph
+
+
+class PredeterminedJoinSequence:
+    def __init__(self, width, height, sequence):
+        self.width = width
+        self.height = height
+        self.sequence = sequence
+
+    def __str__(self):
+        _str = "Join Sequence: "
+        for idx, (x, y, operation) in enumerate(self.sequence):
+            _str += "{}.({}|{}, {});".format(idx, x, y, operation)
+        return _str
+
+    def generate_graph(self, scale, shift):
+        graph = Graph(width=self.width, height=self.height, scale=scale, shift=shift)
+        graph.init_cycles()
+        for (x, y, operation) in self.sequence:
+            searcher = GraphSearcher(graph)
+            joint = searcher.evaluate_position((x, y))
+            if operation == 'intersect':
+                joint.intersect()
+            elif operation == 'merge':
+                joint.merge()
+            else:
+                raise ValueError('operation "{}" is undefined!'.format(operation))
+        return graph
+
+    def get_animations(self, scale, shift):
+        animations = []
+        graph = Graph(width=self.width, height=self.height, scale=scale, shift=shift)
+        animations += draw_graph(graph)
+        animations += make_unitary(graph)
+        graph.init_cycles()
+        for (x, y, operation) in self.sequence:
+            searcher = GraphSearcher(graph)
+            # joints = searcher.walk_graph()
+            # animations.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+            # joint = joints[index]
+            joint = searcher.evaluate_position((x, y))
+            # animations.append(AnimationObject(type='remove', content=joint.drawable))
+            if operation == 'intersect':
+                animations += joint.intersect()
+            elif operation == 'merge':
+                animations += joint.merge()
+            else:
+                raise ValueError('operation "{}" is undefined!'.format(operation))
+            # animations.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints], wait_after=1))
+        return animations, graph
+
+
+def convert_solution_to_join_sequence(ip_solution):
+    width = len(ip_solution)
+    height = len(ip_solution[0])
+    sequence = []
+    for x in range(0, width, 2):
+        for y in range(1, height, 2):
+            if ip_solution[x][y] == 1:
+                sequence.append((x, y, 'merge'))
+            elif ip_solution[x][y] == 2:
+                sequence.append((x, y, 'intersect'))
+    for y in range(0, height, 2):
+        for x in range(1, width, 2):
+            if ip_solution[x][y] == 1:
+                sequence.append((x, y, 'merge'))
+            elif ip_solution[x][y] == 2:
+                sequence.append((x, y, 'intersect'))
+    for x in range(1, width, 2):
+        for y in range(1, height, 2):
+            if ip_solution[x][y] == 1:
+                sequence.append((x, y, 'merge'))
+            elif ip_solution[x][y] == 2:
+                sequence.append((x, y, 'intersect'))
+    return PredeterminedJoinSequence(width + 1, height + 1, sequence)
 
 
 if __name__ == '__main__':
