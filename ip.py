@@ -210,13 +210,13 @@ def iterate(width, height):
     while len(queue) > 0:
         print("Iteration {}, queue size: {}".format(counter, len(queue)))
         sequence = queue.pop(0)
-        if n_choice - len(sequence) > n_free - sequence[-1]:  # not enough free spaces left to choose a full sequence
-            continue
         _free = np.arange(sequence[-1] + 1, n_free, 1)  # since order is irrelevant, we always choose elements in ascending order
-        print("Parent sequence: {}, available options: {}".format(sequence, _free))
-        for cell in _free:
-            _sequence = sequence + [cell]
-            print("Child sequence: {}".format(_sequence))
+        # print("Parent sequence: {}, available options: {}".format(sequence, _free))
+        for cell_index in _free:
+            _sequence = sequence + [cell_index]
+            if n_choice - len(_sequence) > n_free - cell_index:  # not enough free spaces left to choose a full sequence
+                continue
+            # print("Child sequence: {}".format(_sequence))
             problem = Problem(width, height, [free[i] for i in _sequence])
             solution, status = problem.solve()
             # solution, status = (0, 1)
@@ -235,8 +235,5 @@ def iterate(width, height):
 if __name__ == '__main__':
     # p = Problem(3, 3, [[0, 1], [1, 0]])
     # solution_grid, success = p.solve(_print=True)
-    v = iterate(5, 3)
-    # for s in v:
-    #     print_2d(s)
-
+    v = iterate(3, 5)
     print("\nNumber of Variants found: {}".format(len(v)))
