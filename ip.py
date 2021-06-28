@@ -1,8 +1,6 @@
 from pulp import *
 import numpy as np
 
-from util import print_2d
-
 
 class Problem:
     def __init__(self, width, height, extra_constraints=None):
@@ -238,7 +236,7 @@ if __name__ == '__main__':
     # p = Problem(3, 3, [[0, 1], [1, 0]])
     # solution_grid, success = p.solve(_print=True)
     v = iterate(5, 3)
-    for s in v:
-        print_2d(s)
+    # for s in v:
+    #     print_2d(s)
 
     print("\nNumber of Variants found: {}".format(len(v)))
