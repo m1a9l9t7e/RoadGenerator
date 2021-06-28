@@ -3,11 +3,12 @@ import numpy as np
 
 
 class Problem:
-    def __init__(self, width, height):
-        assert (width + 1) % 2 == 0 or (height + 1) % 2 == 0
+    def __init__(self, width, height, extra_constraints=None):
+        assert width % 2 == 1 and height % 2 == 1
         self.width = width
         self.height = height
         self.grid = self.init_variables()
+        self.extra_constraints = extra_constraints
         self.problem = LpProblem("myProblem", LpMinimize)
         self.add_all_constraints()
 
@@ -124,7 +125,6 @@ class Problem:
         No pixel can have a value greater than 1, all pixels combined must have a value of n
         """
         n = np.ceil(self.width/2) * self.height + np.floor(self.width/2)
-        print("width: {}, height: {} => n: {}".format(self.width, self.height, n))
         all_variables = self.get_all_variables()
         self.problem += sum(all_variables) == n
 
@@ -139,6 +139,11 @@ class Problem:
             for y in range(0, self.height, 2):
                 self.problem += self.grid[x][y] == 1
 
+    def add_extra_constraints(self):
+        if self.extra_constraints is not None:
+            for (x, y) in self.extra_constraints:
+                self.problem += self.grid[x][y] == 1
+
     def add_all_constraints(self):
         self.add_coverage_constraints()  # needed?
         self.add_local_adjacency_constraints()   # needed?
@@ -147,12 +152,13 @@ class Problem:
         self.add_global_adjacency_constraints()
         self.add_raster_constraint()
         self.add_n_constraint()
-        # self.problem += self.grid[1][1] == 1
+        self.add_extra_constraints()
 
     def solve(self, _print=False, print_zeros=False):
         solution = [[0 for y in range(len(self.grid[x]))] for x in range(len(self.grid))]
-        status = self.problem.solve()
-        # status = prob.solve(GLPK(msg = 0))  # Alternative Solver
+        # status = self.problem.solve()
+        # status = self.problem.solve(GLPK(msg = 0))  # Alternative Solver
+        status = self.problem.solve(PULP_CBC_CMD(msg=0))
         if _print:
             print("{} Solution:".format(LpStatus[status]))
         for y in range(self.height-1, -1, -1):
@@ -165,13 +171,67 @@ class Problem:
                 row += "{} ".format(solution_x_y)
             if _print:
                 print(row)
-        return solution
+        return solution, status+1
 
 
 def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
 
+def iterate(width, height):
+    cells = []
+    raster = []
+    free = []
+    for x in range(width):
+        for y in range(height):
+            cells.append([x, y])
+            if x % 2 == 0 and y % 2 == 0:
+                raster.append([x, y])
+            else:
+                free.append([x, y])
+
+    n_cells = width * height
+    n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
+    n_free = n_cells - n_raster
+    n_choice = n_raster - 1
+    n_variants = np.prod(np.arange(n_free, n_free - n_choice + 1, -1))
+
+    assert n_cells == len(cells)
+    assert n_raster == len(raster)
+    assert n_free == len(free)
+
+    print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, n_free, n_choice))
+    print("Number of Variants: {}".format(n_variants))
+
+    queue = [[]]
+    variants = []
+    counter = 0
+
+    while len(queue) > 0:
+        print("Iteration {}, queue size: {}".format(counter, len(queue)))
+        sequence = queue.pop(0)
+        _free = np.arange(n_free)
+        _free = np.delete(_free, sequence)
+        # print("Parent sequence: {}, available options: {}".format(sequence, _free))
+        for cell in _free:
+            _sequence = sequence + [cell]
+            # print("Child sequence: {}".format(_sequence))
+            problem = Problem(width, height, [free[i] for i in _sequence])
+            solution, status = problem.solve()
+            if not status:
+                continue
+            elif len(_sequence) >= n_choice:
+                variants.append(solution)
+            else:
+                queue.append(_sequence)
+
+        counter += 1
+
+    return variants
+
+
 if __name__ == '__main__':
-    problem = Problem(5, 5)
-    solution_grid = problem.solve(_print=True)
+    p = Problem(3, 3, [[0, 1], [1, 0]])
+    solution_grid, success = p.solve(_print=True)
+    v = iterate(5, 5)
+    print("\nNumber of Variants found: {}".format(len(v)))
