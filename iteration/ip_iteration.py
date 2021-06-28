@@ -3,13 +3,17 @@ from ip import Problem
 from util import draw_graph, make_unitary, GridShowCase
 import numpy as np
 import itertools
+from termcolor import colored
 
 
 class GraphModel:
-    def __init__(self, width, height):
+    def __init__(self, width, height, generate_intersections=True):
         self.width = width - 1
         self.height = height - 1
         self.variants = iterate(self.width, self.height)
+        if generate_intersections:
+            self.variants = add_join_variants(self.variants)
+        print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
 
     def get_graphs(self):
         graph_list = []
@@ -150,7 +154,7 @@ def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
     return intersect_matrix, np.count_nonzero(intersect_matrix)
 
 
-def get_all_joint_variants(solution):
+def generate_join_variants(solution):
     variants = []
     intersect_matrix, n = get_intersect_matrix(solution)
     combinations = [list(i) for i in itertools.product([0, 1], repeat=n)]
@@ -167,11 +171,18 @@ def get_all_joint_variants(solution):
     return variants
 
 
+def add_join_variants(solutions):
+    complete_list = []
+    for solution in solutions:
+        complete_list += generate_join_variants(solution)
+    return complete_list
+
+
 def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
 
-def iterate(width, height):
+def iterate(width, height, _print=False):
     cells = []
     raster = []
     free = []
@@ -187,21 +198,22 @@ def iterate(width, height):
     n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
     n_free = n_cells - n_raster
     n_choice = n_raster - 1
-    n_variants = np.prod(np.arange(n_free, n_free - n_choice + 1, -1))
+    # n_variants = np.prod(np.arange(n_free, n_free - n_choice + 1, -1))  # wrong
 
     assert n_cells == len(cells)
     assert n_raster == len(raster)
     assert n_free == len(free)
 
-    print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, n_free, n_choice))
-    print("Number of Variants: {}".format(n_variants))
+    if _print:
+        print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, n_free, n_choice))
 
     queue = [[i] for i in range(n_free - n_choice + 1)]
     variants = []
     counter = 0
 
     while len(queue) > 0:
-        print("Iteration {}, queue size: {}".format(counter, len(queue)))
+        if _print:
+            print("Iteration {}, queue size: {}".format(counter, len(queue)))
         sequence = queue.pop(0)
         _free = np.arange(sequence[-1] + 1, n_free, 1)  # since order is irrelevant, we always choose elements in ascending order
         # print("Parent sequence: {}, available options: {}".format(sequence, _free))
@@ -227,5 +239,4 @@ def iterate(width, height):
 
 
 if __name__ == '__main__':
-    v = iterate(3, 5)
-    print("\nNumber of Variants found: {}".format(len(v)))
+    GraphModel(6, 6)

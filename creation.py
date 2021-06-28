@@ -9,13 +9,13 @@ from anim_sequence import AnimationObject, AnimationSequenceScene
 
 class MultiGraph(AnimationSequenceScene):
     def construct(self):
-        width, height = (6, 6)
-        square_size = 1
+        width, height = (4, 4)
+        square_size = 1.3
         track_width = 0.4
-        graph_model = GraphModel(width, height)
+        graph_model = GraphModel(width, height, generate_intersections=False)
         animations_list, graph_list, helper = graph_model.get_animations(scale=square_size, spacing=[2, 2])
         camera_position, camera_size = helper.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1)
+        self.move_camera(camera_size, camera_position, duration=0.1, shift=[0, -0.05 * square_size])
         self.play_concurrent(animations_list)
 
         # idx = 4
