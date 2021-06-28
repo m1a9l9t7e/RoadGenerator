@@ -174,66 +174,6 @@ class Problem:
         return solution, status+1
 
 
-def get_problem(graph_width, graph_height):
-    return Problem(graph_width - 1, graph_height - 1)
-
-
-def iterate(width, height):
-    cells = []
-    raster = []
-    free = []
-    for x in range(width):
-        for y in range(height):
-            cells.append([x, y])
-            if x % 2 == 0 and y % 2 == 0:
-                raster.append([x, y])
-            else:
-                free.append([x, y])
-
-    n_cells = width * height
-    n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
-    n_free = n_cells - n_raster
-    n_choice = n_raster - 1
-    n_variants = np.prod(np.arange(n_free, n_free - n_choice + 1, -1))
-
-    assert n_cells == len(cells)
-    assert n_raster == len(raster)
-    assert n_free == len(free)
-
-    print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, n_free, n_choice))
-    print("Number of Variants: {}".format(n_variants))
-
-    queue = [[i] for i in range(n_free-n_choice+1)]
-    variants = []
-    counter = 0
-
-    while len(queue) > 0:
-        print("Iteration {}, queue size: {}".format(counter, len(queue)))
-        sequence = queue.pop(0)
-        _free = np.arange(sequence[-1] + 1, n_free, 1)  # since order is irrelevant, we always choose elements in ascending order
-        # print("Parent sequence: {}, available options: {}".format(sequence, _free))
-        for cell_index in _free:
-            _sequence = sequence + [cell_index]
-            if n_choice - len(_sequence) > n_free - cell_index:  # not enough free spaces left to choose a full sequence
-                continue
-            # print("Child sequence: {}".format(_sequence))
-            problem = Problem(width, height, [free[i] for i in _sequence])
-            solution, status = problem.solve()
-            # solution, status = (0, 1)
-            if not status:
-                continue
-            elif len(_sequence) >= n_choice:
-                variants.append(solution)
-            else:
-                queue.append(_sequence)
-
-        counter += 1
-
-    return variants
-
-
 if __name__ == '__main__':
-    # p = Problem(3, 3, [[0, 1], [1, 0]])
-    # solution_grid, success = p.solve(_print=True)
-    v = iterate(3, 5)
-    print("\nNumber of Variants found: {}".format(len(v)))
+    p = Problem(3, 3, [[0, 1], [1, 0]])
+    solution_grid, success = p.solve(_print=True)

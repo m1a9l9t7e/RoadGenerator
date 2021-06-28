@@ -1,34 +1,31 @@
-import numpy as np
 from manim import *
 import random
 from interpolation import find_polynomials
-from ip import Problem, get_problem
-from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, get_intersect_matrix
-from graph import Graph, GraphSearcher, GraphModel, convert_solution_to_join_sequence
+from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel
+from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary
+from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
 class MultiGraph(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 4)
-        square_size = 1.3
+        width, height = (6, 6)
+        square_size = 1
         track_width = 0.4
         graph_model = GraphModel(width, height)
-        animations_list, graph_list, helper = graph_model.get_animations(scale=square_size)
+        animations_list, graph_list, helper = graph_model.get_animations(scale=square_size, spacing=[2, 2])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1)
         self.play_concurrent(animations_list)
 
-        idx = 11
-        graph = graph_list[idx]
-        camera_position, camera_size = helper.get_zoomed_camera_settings(idx)
-        self.move_camera(camera_size, camera_position, duration=2)
-
-        gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
-        interpolation_animation = interpolate_track_points(points)
-        animations = gen_track_points + interpolation_animation + remove_track_points
-        self.play_animations(animations)
-
+        # idx = 4
+        # graph = graph_list[idx]
+        # camera_position, camera_size = helper.get_zoomed_camera_settings(idx)
+        # self.move_camera(camera_size, camera_position, duration=2)
+        # gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
+        # interpolation_animation = interpolate_track_points(points)
+        # animations = gen_track_points + interpolation_animation + remove_track_points
+        # self.play_animations(animations)
         self.wait(5)
 
 

@@ -79,14 +79,19 @@ class AnimationSequenceScene(MovingCameraScene):
 
         self.wait(animation.wait_after)
 
-    def move_camera(self, camera_size, camera_position, duration=1, border_scale=1.1, shift=[0, -0.07]):
+    def move_camera(self, camera_size, camera_position, duration=1, border_scale=1.1, shift=[0, -0.07], resolution=[16, 9]):
         camera_position = [camera_position[0] * (1 + shift[0]), camera_position[1] * (1 + shift[1])]
         self.play(
             self.camera.frame.animate.move_to((camera_position[0], camera_position[1], 0)),
             run_time=duration/2
         )
-        self.play(
-            self.camera.frame.animate.set_height(camera_size[1] * 1.1),
-            run_time=duration/2
-        )
-
+        if camera_size[0] / resolution[0] > camera_size[1] / resolution[1]:
+            self.play(
+                self.camera.frame.animate.set_width(camera_size[0] * border_scale),
+                run_time=duration/2
+            )
+        else:
+            self.play(
+                self.camera.frame.animate.set_height(camera_size[1] * border_scale),
+                run_time=duration/2
+            )

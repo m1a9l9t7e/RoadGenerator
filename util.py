@@ -1,8 +1,6 @@
-import numpy as np
 from manim import *
 import math
 from anim_sequence import AnimationObject
-import itertools
 
 
 class Converter:
@@ -173,41 +171,6 @@ def make_unitary(graph):
     animations = [FadeOut(drawable) for drawable in drawables]
     animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=False))
     return animation_sequence
-
-
-def get_degree_matrix(matrix, value_at_none=0):
-    """
-    Given a matrix where each entry is either 1 or 0, return a matrix of equal size where each entry describes how many of the bordering cells are 1
-    :param value_at_none: Defines value of degree matrix, where there is no graph. If None, degree is still calculated. Otherwise only positive
-                          entries are given a degree and none entries are set as value_at_none
-    """
-    degree_matrix = np.zeros(np.shape(matrix), dtype=int)
-    shift_left = matrix[1:]
-    shift_left.append([0] * len(matrix[0]))
-    shift_right = matrix[:-1]
-    shift_right.insert(0, [0] * len(matrix[0]))
-    shift_up = np.array(matrix, dtype=int)[:, :-1]
-    shift_up = np.concatenate([np.zeros([len(matrix), 1], dtype=int), shift_up], axis=1)
-    shift_down = np.array(matrix, dtype=int)[:, 1:]
-    shift_down = np.concatenate([shift_down, np.zeros([len(matrix), 1], dtype=int)], axis=1)
-    degree_matrix = degree_matrix + np.array(shift_left) + np.array(shift_right) + np.array(shift_down) + np.array(shift_up)
-    if value_at_none is not None:
-        degree_matrix = np.where(np.array(matrix) > 0, degree_matrix, np.ones_like(degree_matrix) * value_at_none)
-    return degree_matrix
-
-
-def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
-    if allow_intersect_at_stubs:
-        degree_matrix = get_degree_matrix(ip_solution, value_at_none=999)  # 999 is chosen to exclude non graph positions (any value > 5 would suffice)
-        intersect_matrix = np.where(degree_matrix < 3, np.ones_like(degree_matrix), np.zeros_like(degree_matrix))
-    else:
-        degree_matrix = get_degree_matrix(ip_solution)
-        intersect_matrix = np.where(degree_matrix == 2, np.ones_like(degree_matrix), np.zeros_like(degree_matrix))
-    return intersect_matrix, np.count_nonzero(intersect_matrix)
-
-
-def get_all_joint_variants(n):
-    return [list(i) for i in itertools.product([0, 1], repeat=n)]
 
 
 def print_2d(grid, print_zeros=True):
