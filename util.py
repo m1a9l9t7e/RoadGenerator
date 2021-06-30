@@ -173,6 +173,28 @@ def make_unitary(graph):
     return animation_sequence
 
 
+def get_circle(coords, radius, color, secondary_color, border_width=2):
+    circle = Dot(point=coords, radius=radius)
+    circle.set_fill(color, opacity=1)
+    circle.set_stroke(secondary_color, width=border_width)
+    return circle
+
+
+def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
+    line = Line(coord1, coord2, stroke_width=stroke_width)
+    line.set_color(color)
+    return line
+
+
+def get_square(coords, size, color, secondary_color, border_width=2):
+    square = Square(side_length=size)
+    square.set_fill(color, opacity=1)
+    square.set_stroke(secondary_color, width=border_width)
+    square.set_x(coords[0])
+    square.set_y(coords[1])
+    return square
+
+
 def print_2d(grid, print_zeros=True):
     height = len(grid[0])
     width = len(grid)

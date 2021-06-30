@@ -4,7 +4,7 @@ import numpy as np
 
 class Problem:
     def __init__(self, width, height, extra_constraints=None):
-        assert width % 2 == 1 and height % 2 == 1
+        # assert width % 2 == 1 and height % 2 == 1
         self.width = width
         self.height = height
         self.grid = self.init_variables()

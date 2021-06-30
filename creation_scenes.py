@@ -2,7 +2,7 @@ from manim import *
 import random
 from interpolation import find_polynomials
 from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel
-from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary
+from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_line, get_circle, get_square
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
@@ -15,7 +15,7 @@ class MultiGraph(AnimationSequenceScene):
         graph_model = GraphModel(width, height, generate_intersections=False)
         animations_list, graph_list, helper = graph_model.get_animations(scale=square_size, spacing=[2, 2])
         camera_position, camera_size = helper.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, shift=[0, -0.05 * square_size])
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
         self.play_concurrent(animations_list)
 
         # idx = 4
@@ -31,9 +31,9 @@ class MultiGraph(AnimationSequenceScene):
 
 class CircuitCreation(AnimationSequenceScene):
     def construct(self):
-        width, height = (8, 4)
-        square_size = 1.3
-        track_width = 0.4
+        width, height = (6, 6)
+        square_size = 2
+        track_width = 0.3
 
         self.play(
             self.camera.frame.animate.set_width(width * square_size * 2.1),
@@ -185,30 +185,6 @@ def interpolate_track_points(track_points):
     return animation_sequence
 
 
-# def two_factorization(graph):
-#     drawables_list = graph.two_factorization()
-#     for drawables in drawables_list:
-#         for drawable in drawables:
-#             self.play(FadeOut(drawable), run_time=0.1)
-#
-#
-# def search_graph(graph):
-#     searcher = GraphSearcher(graph)
-#     joints = searcher.walk_graph()
-#     for joint in joints:
-#         self.add(joint.drawable)
-#
-#     self.wait(duration=1)
-#
-#     for idx, joint in enumerate(joints):
-#         self.remove(joint.drawable)
-#         if idx >= graph.cycles - 1:
-#             break
-#         # animations = joint.intersect()
-#         animations = joint.merge()
-#         self.play(*animations, run_time=3)
-
-
 def find_center(coord1, coord2):
     x1, y1, _ = coord1
     x2, y2, _ = coord2
@@ -252,75 +228,6 @@ def get_track_points(coord1, coord2, track_width):
     return [TrackPoint(coords, direction) for coords in [right, left, center]]
 
 
-def get_circle(coords, radius, color, secondary_color, border_width=2):
-    circle = Dot(point=coords, radius=radius)
-    circle.set_fill(color, opacity=1)
-    circle.set_stroke(secondary_color, width=border_width)
-    return circle
-
-
-def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
-    line = Line(coord1, coord2, stroke_width=stroke_width)
-    line.set_color(color)
-    return line
-
-
-class LineTest(MovingCameraScene):
-    def construct(self):
-        px, py = find_polynomials(0, 0, 1, 0, 0.1, 0.1, 0, 1)
-        _line_x = ParametricFunction(function=lambda t: (t - 2, px(t), 0), t_min=0, t_max=2, color=WHITE)
-        _line_y = ParametricFunction(function=lambda t: (t, py(t), 0), t_min=0, t_max=2, color=WHITE)
-        _line = ParametricFunction(function=lambda t: (px(t) + 2, py(t), 0), t_min=0, t_max=0.1, color=WHITE)
-        label_x = Text("fx(z)")
-        label_x.next_to(_line_x, DOWN)
-        label_y = Text("fy(z)")
-        label_y.next_to(_line_y, DOWN)
-        label = Text("fx,y(z)")
-        label.next_to(_line, DOWN)
-        # self.play(Create(label_x), Create(label_y), Create(label))
-        self.add(label_x, label_y, label)
-        self.play(Create(_line_x))
-        self.play(Create(_line_y))
-        self.play(Create(_line), run_time=2)
-        self.wait(5)
-
-
-class CircleTest(MovingCameraScene):
-    def construct(self):
-        # scale_list = [0.1, 0.5, 0.75, 1, 2, 10, 100]
-        scale_list = [0.1, 0.5, 0.75, 1, 2]
-        x_pos = 0
-        for scale_idx, scale in enumerate(scale_list):
-            circle_points = [np.array([0, 0]) * scale, np.array([1, 1]) * scale, np.array([0, 2]) * scale, np.array([-1, 1]) * scale]
-            circle_directions = [[1, 0], [0, 1], [-1, 0], [0, -1]]
-            width = scale * 5 + 1 if scale_idx > 0 else 2.2
-            spacing = 0 if scale_idx > 0 else -width * 0.9 + 1
-            current_pos = x_pos + width/2
-            self.play(
-                self.camera.frame.animate.set_width(width),
-                run_time=0.5
-            )
-            self.play(
-                self.camera.frame.animate.move_to((current_pos, scale/1.5, 0)),
-                run_time=1
-            )
-            label = Text("r={}".format(scale), size=0.5)
-            label.next_to((current_pos, 0, 0), DOWN)
-            self.add(label)
-
-            x_pos += spacing + width
-
-            for idx in range(len(circle_points)):
-                next_idx = (idx + 1) % len(circle_points)
-                point1, direction1 = (circle_points[idx], circle_directions[idx])
-                point2, direction2 = (circle_points[next_idx], circle_directions[next_idx])
-                px, py = find_polynomials(*point1, *direction1, *point2, *direction2)
-                _line = ParametricFunction(function=lambda t: (current_pos + px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2 if scale < 10 else (np.log10(scale) + 2) * 5)
-                self.play(Create(_line), run_time=0.5)
-
-        self.wait(3)
-
-
 class IPCircuitCreation(AnimationSequenceScene):
     def construct(self):
         width, height = (10, 10)
@@ -336,7 +243,6 @@ class IPCircuitCreation(AnimationSequenceScene):
         animations, graph = sequence.get_animations(square_size, (0, 0))
         self.play_animations(animations)
 
-        # TODO remove this
         gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
         interpolation_animation = interpolate_track_points(points)
 
@@ -349,13 +255,12 @@ class IPCircuitCreation(AnimationSequenceScene):
         for anim in animations_list:
             self.play_animations(anim)
 
-        # TODO remove this
         self.wait(4)
 
 
 if __name__ == '__main__':
-    # scene = CircuitCreation()
+    scene = CircuitCreation()
     # scene = GraphModelTest()
     # scene = MultiGraph()
-    scene = IPCircuitCreation()
+    # scene = IPCircuitCreation()
     scene.construct()
