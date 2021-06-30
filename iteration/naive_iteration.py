@@ -116,3 +116,9 @@ class JoinSequence:
             animations.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints], wait_after=1))
 
         return animations, graph
+
+
+if __name__ == '__main__':
+    model = GraphModel(6, 6)
+    graphs = model.get_graphs()
+    print("Anzahl Graphen: {}".format(len(graphs)))

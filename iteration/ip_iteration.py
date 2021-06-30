@@ -154,9 +154,9 @@ def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
     return intersect_matrix, np.count_nonzero(intersect_matrix)
 
 
-def generate_join_variants(solution):
+def generate_join_variants(solution, allow_intersect_at_stubs=False):
     variants = []
-    intersect_matrix, n = get_intersect_matrix(solution)
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
     combinations = [list(i) for i in itertools.product([0, 1], repeat=n)]
     non_zero_indices = np.argwhere(intersect_matrix > 0)
     for variation in combinations:
@@ -171,10 +171,10 @@ def generate_join_variants(solution):
     return variants
 
 
-def add_join_variants(solutions):
+def add_join_variants(solutions, allow_intersect_at_stubs=False):
     complete_list = []
     for solution in solutions:
-        complete_list += generate_join_variants(solution)
+        complete_list += generate_join_variants(solution, allow_intersect_at_stubs)
     return complete_list
 
 

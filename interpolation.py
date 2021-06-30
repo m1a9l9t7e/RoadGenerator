@@ -11,11 +11,12 @@ class Constraint:
 
 
 def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
+    distance = np.linalg.norm([x1 - x2, y1 - y2])
     constraints = [
         Constraint(0, x1, 0),
-        Constraint(0, dx1, 1),
+        Constraint(0, dx1 * distance, 1),
         Constraint(1, x2, 0),
-        Constraint(1, dx2, 1),
+        Constraint(1, dx2 * distance, 1),
         Constraint(0, 0, 2),
         Constraint(1, 0, 2),
     ]
@@ -26,9 +27,9 @@ def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
 
     constraints = [
         Constraint(0, y1, 0),
-        Constraint(0, dy1, 1),
+        Constraint(0, dy1 * distance, 1),
         Constraint(1, y2, 0),
-        Constraint(1, dy2, 1),
+        Constraint(1, dy2 * distance, 1),
         Constraint(0, 0, 2),
         Constraint(1, 0, 2),
     ]
