@@ -158,7 +158,13 @@ def generate_track_points(graph, square_size, track_width):
     return animation_sequence, animation_sequence2, track_points
 
 
-def interpolate_track_points(track_points):
+def interpolate_track_points(track_points, random_gradients=False):
+    if random_gradients:
+        for points in track_points:
+            degrees_20 = 0.349066
+            angle = degrees_20 * random.uniform(0, 1) - degrees_20/2
+            [point.alter_direction(angle) for point in points]
+
     left_line_animations = []
     right_line_animations = []
     right1, left1, center1 = track_points[0]
@@ -231,22 +237,32 @@ def get_track_points(coord1, coord2, track_width):
 class IPCircuitCreation(AnimationSequenceScene):
     def construct(self):
         width, height = (10, 10)
-        square_size = 1.3
+        square_size = 2
         track_width = 0.4
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
+        # Get Solution
         problem = get_problem(width, height)
-        solution = problem.solve(_print=False)
-        intersect, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
-        solution = np.array(solution) + np.array(intersect)
+        solution, status = problem.solve(_print=False)
+
+        # Add intersections
+        intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+        non_zero_indices = np.argwhere(intersect_matrix > 0)
+        for index in range(n):
+            x, y = non_zero_indices[index]
+            intersect_matrix[x][y] = random.choice([0, 0, 0, 1])
+        solution = intersect_matrix + np.array(solution)
+
+        # Animate Solution
         sequence = convert_solution_to_join_sequence(solution)
         animations, graph = sequence.get_animations(square_size, (0, 0))
-        self.play_animations(animations)
-
         gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
         interpolation_animation = interpolate_track_points(points)
+        grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
 
         animations_list = [
+            grid.get_animation_sequence(),
+            animations,
             interpolation_animation,
             remove_track_points,
             remove_graph(graph)
@@ -259,7 +275,8 @@ class IPCircuitCreation(AnimationSequenceScene):
 
 
 if __name__ == '__main__':
-    scene = CircuitCreation()
+    # scene = CircuitCreation()
+    scene = IPCircuitCreation()
     # scene = GraphModelTest()
     # scene = MultiGraph()
     # scene = IPCircuitCreation()

@@ -95,10 +95,21 @@ def transform_coords(coords, shift, scale):
 class TrackPoint:
     def __init__(self, coords, direction):
         self.coords = coords
-        self.direction = direction
+        self.direction = direction / np.linalg.norm(direction)
 
     def __str__(self):
         return "coords: {}, direction: {}".format(self.coords, self.direction)
+
+    def alter_direction(self, angle):
+        """
+        alter direction by adding angle in radian
+        :param angle:
+        :return:
+        """
+        current_angle = np.arctan2(*self.direction)
+        new_angle = current_angle + angle
+        direction = [np.sin(new_angle), np.cos(new_angle)]
+        self.direction = np.round(direction, decimals=2)
 
     def as_list(self):
         x, y, _ = self.coords
