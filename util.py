@@ -168,6 +168,11 @@ def draw_graph(graph):
     return animation_sequence
 
 
+def add_graph(graph):
+    drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
+    return [AnimationObject(type='add', content=drawables)]
+
+
 def remove_graph(graph, animate=False, duration=1):
     drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
     if animate:
@@ -207,6 +212,14 @@ def get_square(coords, size, color, secondary_color, border_width=2):
     return square
 
 
+def get_text(text, coords, scale=1):
+    x, y = coords
+    text = Tex(text).scale(scale)
+    text.set_x(coords[0])
+    text.set_y(coords[1])
+    return text
+
+
 def print_2d(grid, print_zeros=True):
     height = len(grid[0])
     width = len(grid)
@@ -219,6 +232,22 @@ def print_2d(grid, print_zeros=True):
                 row += "{} ".format(grid[x][y])
         print(row)
     print()
+
+
+def get_adjacent(grid, coords):
+    """
+    Get list of booleans indicating which adjacent cells given coords have.
+    :return: list of booleans and coords: [right, up, left, down]
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if x + _x >= len(grid) or y + _y >= len(grid[_x]) or x + _x < 0 or y + _y < 0:
+            adjacent.append((False, (_x, _y)))
+        else:
+            adjacent.append((grid[_x][_y] > 0, (_x, _y)))
+
+    return adjacent
 
 
 if __name__ == '__main__':

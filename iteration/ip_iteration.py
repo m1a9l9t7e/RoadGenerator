@@ -1,16 +1,18 @@
 from graph import Graph, GraphSearcher
 from ip import Problem
-from util import draw_graph, make_unitary, GridShowCase
+from util import draw_graph, make_unitary, GridShowCase, print_2d, get_adjacent
 import numpy as np
 import itertools
 from termcolor import colored
+import multiprocessing as mp
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True):
+    def __init__(self, width, height, generate_intersections=True, fast=True):
         self.width = width - 1
         self.height = height - 1
-        self.variants = iterate(self.width, self.height)
+        iterator = Iterator(self.width, self.height, raster=fast, _print=True)
+        self.variants = iterator.iterate()
         if generate_intersections:
             self.variants = add_join_variants(self.variants)
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
@@ -41,6 +43,90 @@ class GraphModel:
             graph_list.append(graph)
 
         return animations_list, graph_list, helper
+
+
+class Iterator:
+    def __init__(self, width, height, raster=True, _print=False):
+        self.width = width
+        self.height = height
+        self.raster = raster
+        self._print = _print
+        self.variants = []
+        self.counter = 0
+
+        cells = []
+        raster = []
+        self.free = []
+        for x in range(width):
+            for y in range(height):
+                cells.append([x, y])
+                if x % 2 == 0 and y % 2 == 0:
+                    raster.append([x, y])
+                else:
+                    self.free.append([x, y])
+
+        n_cells = width * height
+        n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
+        self.n_free = n_cells - n_raster
+        self.n_choice = n_raster - 1
+
+        if _print:
+            print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, self.n_free, self.n_choice))
+
+    def iterate(self, multi_processing=True):
+        queue = [[i] for i in range(self.n_free - self.n_choice + 1)]
+
+        while len(queue) > 0:
+            if self._print:
+                print("Processed elements {}, queue size: {}".format(self.counter, len(queue)))
+            if multi_processing:
+                pool = mp.Pool(mp.cpu_count())
+                full_iteration = pool.map(self.next, queue)
+                pool.close()
+                queue = []
+                for next_elements in full_iteration:
+                    add_to_queue = self.unpack_next(next_elements)
+                    queue += add_to_queue
+                    self.counter += len(add_to_queue)
+
+            else:
+                next_elements = self.next(queue.pop(0))
+                add_to_queue = self.unpack_next(next_elements)
+                queue += add_to_queue
+
+        return self.variants
+
+    def next(self, sequence):
+        _next = []
+        _free = np.arange(sequence[-1] + 1, self.n_free, 1)  # since order is irrelevant, we always choose elements in ascending order
+        # print("Parent sequence: {}, available options: {}".format(sequence, _free))
+        for cell_index in _free:
+            _sequence = sequence + [cell_index]
+            if self.n_choice - len(_sequence) > self.n_free - cell_index:  # not enough free spaces left to choose a full sequence
+                continue
+            # print("Child sequence: {}".format(_sequence))
+            # problem = Problem(width, height, [free[i] for i in _sequence])
+            problem = Problem(self.width, self.height, [self.free[i] for i in _sequence], raster=self.raster)
+            solution, feasible = problem.solve()
+            # solution, status = (0, 1)
+            if feasible:
+                if len(_sequence) >= self.n_choice:
+                    _next.append((True, solution))
+                else:
+                    _next.append((False, _sequence))
+
+        return _next
+
+    def unpack_next(self, next_elements):
+        add_to_queue = []
+        for element in next_elements:
+            leaf, content = element
+            if leaf:
+                self.variants.append(content)
+            else:
+                add_to_queue.append(content)
+
+        return add_to_queue
 
 
 class JoinSequence:
@@ -117,6 +203,20 @@ def convert_solution_to_join_sequence(ip_solution):
     return JoinSequence(width + 1, height + 1, sequence)
 
 
+def convert_solution_to_graph(ip_solution):
+    width = len(ip_solution)
+    height = len(ip_solution[0])
+    graph = Graph(width+1, height+1)
+    # edge_grid = []
+
+    for x in range(width):
+        for y in range(height):
+            adjacent, coords = get_adjacent(ip_solution, (x, y))
+            if adjacent:
+                pass
+    return graph
+
+
 def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
     """
     Given a matrix where each entry is either 1 or 0, return a matrix of equal size where each entry describes how many of the bordering cells are 1
@@ -182,61 +282,10 @@ def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
 
-def iterate(width, height, _print=False):
-    cells = []
-    raster = []
-    free = []
-    for x in range(width):
-        for y in range(height):
-            cells.append([x, y])
-            if x % 2 == 0 and y % 2 == 0:
-                raster.append([x, y])
-            else:
-                free.append([x, y])
-
-    n_cells = width * height
-    n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
-    n_free = n_cells - n_raster
-    n_choice = n_raster - 1
-    # n_variants = np.prod(np.arange(n_free, n_free - n_choice + 1, -1))  # wrong
-
-    assert n_cells == len(cells)
-    assert n_raster == len(raster)
-    assert n_free == len(free)
-
-    if _print:
-        print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, n_free, n_choice))
-
-    queue = [[i] for i in range(n_free - n_choice + 1)]
-    variants = []
-    counter = 0
-
-    while len(queue) > 0:
-        if _print:
-            print("Iteration {}, queue size: {}".format(counter, len(queue)))
-        sequence = queue.pop(0)
-        _free = np.arange(sequence[-1] + 1, n_free, 1)  # since order is irrelevant, we always choose elements in ascending order
-        # print("Parent sequence: {}, available options: {}".format(sequence, _free))
-        for cell_index in _free:
-            _sequence = sequence + [cell_index]
-            if n_choice - len(_sequence) > n_free - cell_index:  # not enough free spaces left to choose a full sequence
-                continue
-            # print("Child sequence: {}".format(_sequence))
-            # problem = Problem(width, height, [free[i] for i in _sequence])
-            problem = Problem(width, height, [free[i] for i in _sequence])
-            solution, status = problem.solve()
-            # solution, status = (0, 1)
-            if not status:
-                continue
-            elif len(_sequence) >= n_choice:
-                variants.append(solution)
-            else:
-                queue.append(_sequence)
-
-        counter += 1
-
-    return variants
-
-
 if __name__ == '__main__':
-    GraphModel(6, 6)
+    # 6x6 -> 112
+    m = GraphModel(4, 6, generate_intersections=False, fast=False)
+    print_2d(m.variants[0])
+    #
+    # p = Problem(5, 5)
+    # solution_grid, success = p.solve(_print=True)

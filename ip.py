@@ -3,14 +3,14 @@ import numpy as np
 
 
 class Problem:
-    def __init__(self, width, height, extra_constraints=None):
+    def __init__(self, width, height, extra_constraints=None, raster=True):
         # assert width % 2 == 1 and height % 2 == 1
         self.width = width
         self.height = height
         self.grid = self.init_variables()
         self.extra_constraints = extra_constraints
         self.problem = LpProblem("myProblem", LpMinimize)
-        self.add_all_constraints()
+        self.add_all_constraints(raster)
 
     def init_variables(self):
         grid = [[LpVariable("{}_{}".format(x, y), 0, 1, cat=const.LpInteger) for y in range(self.height)] for x in range(self.width)]
@@ -69,11 +69,30 @@ class Problem:
 
         return variables_list
 
+    def get_squares_fractured(self):
+        """
+        Get variables from all 2x2 squares as list
+        :return: [bottom_left, top_left, bottom_right, top_right]
+        """
+        variables_list = []
+        for x in range(len(self.grid) + 1):
+            for y in range(len(self.grid[0]) + 1):
+                variables = []
+                square = [self.get_safe(x + _x, y + _y) for _x, _y in [(0, 0), (0, -1), (-1, 0), (-1, -1)]]
+                for v in square:
+                    if v is not None:
+                        variables.append(v)
+
+                variables_list.append(variables)
+
+        return variables_list
+
     def add_coverage_constraints(self):
         """
         For each square, at least on pixel must be 1
         """
-        squares = self.get_squares()
+        # squares = self.get_squares()
+        squares = self.get_squares_fractured()
         for square in squares:
             self.problem += sum(square) >= 1
 
@@ -144,15 +163,17 @@ class Problem:
             for (x, y) in self.extra_constraints:
                 self.problem += self.grid[x][y] == 1
 
-    def add_all_constraints(self):
-        self.add_coverage_constraints()  # needed?
+    def add_all_constraints(self, add_raster_constraint):
+        self.add_coverage_constraints()
         self.add_local_adjacency_constraints()   # needed?
         self.add_no_square_cycle_constraints()  # needed?
         self.add_no_diagonal_only_constraints()
         self.add_global_adjacency_constraints()
-        self.add_raster_constraint()
         self.add_n_constraint()
         self.add_extra_constraints()
+        if add_raster_constraint:
+            self.add_raster_constraint()
+        # self.problem += self.grid[2][0] == 0
 
     def solve(self, _print=False, print_zeros=False):
         solution = [[0 for y in range(len(self.grid[x]))] for x in range(len(self.grid))]
@@ -175,5 +196,6 @@ class Problem:
 
 
 if __name__ == '__main__':
-    p = Problem(3, 3, [[0, 1], [1, 0]])
+    # p = Problem(3, 3, [[0, 1], [1, 0]])
+    p = Problem(5, 5)
     solution_grid, success = p.solve(_print=True)

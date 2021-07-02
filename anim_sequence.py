@@ -10,13 +10,14 @@ class AnimationSequence:
 
 
 class AnimationObject:
-    def __init__(self, type, content, wait_after=0, duration=0, bring_to_back=False, bring_to_front=False):
+    def __init__(self, type, content, wait_after=0, duration=0, bring_to_back=False, bring_to_front=False, z_index=None):
         self.type = type
         self.content = content
         self.duration = duration
         self.wait_after = wait_after
         self.bring_to_back = bring_to_back
         self.bring_to_front = bring_to_front
+        self.z_index = z_index
         if not isinstance(content, list):
             self.content = [content]
 
@@ -62,9 +63,11 @@ class AnimationSequenceScene(MovingCameraScene):
             content = animation.content
             if animation.type == 'play':
                 content = [c.mobject for c in animation.content]
-            if animation.bring_to_front:
+            if animation.z_index is not None:
+                [c.set_z_index(animation.z_index) for c in content]
+            elif animation.bring_to_front:
                 self.bring_to_front(*content)
-            if animation.bring_to_back:
+            elif animation.bring_to_back:
                 self.bring_to_back(*content)
         if animation.type == 'add':
             self.add(*animation.content)
