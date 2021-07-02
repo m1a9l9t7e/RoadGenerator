@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.interpolate import CubicSpline
+from manim import *
 
 
 class Constraint:
@@ -83,39 +83,50 @@ def plot(polynomial_x, polynomial_y, n):
     plt.show()
 
 
-def spline_unit_circle(radius=2):
-    theta = 2 * np.pi * np.linspace(0, 1, 5)[:2]
-    # theta = np.linspace(0, 1, 5)
+class Spline:
+    def __init__(self, polynomials=None):
+        if polynomials is None:
+            self.polynomials = list()
+        else:
+            self.polynomials = polynomials
 
-    points = np.c_[np.cos(theta) * radius, np.sin(theta) * radius]
-    np.set_printoptions(formatter={'float': lambda x: "{0:0.1f}".format(x)})
-    print("theta:\n{} ".format(theta))
-    print("points:\n{} ".format(points))
+    def __len__(self):
+        return len(self.polynomials)
 
-    # cs = CubicSpline(theta, points, bc_type='periodic')
-    cs = CubicSpline(theta, points)
+    def add_polynomial(self, p):
+        self.polynomials.append(p)
 
-    # print("ds/dx={:.1f} ds/dy={:.1f}".format(cs(0, 1)[0], cs(0, 1)[1]))
-    # print("ds/dx={:.1f} ds/dy={:.1f}".format(cs(0, 0)[0], cs(0, 0)[1]))
-    # ds / dx = 0.0
-    # ds / dy = 1.0
+    def __call__(self, z):
+        z *= len(self)
+        index = min(int(z), len(self)-1)
+        # print("p({}) -> p{}({})".format(z, index, z-index))
+        return self.polynomials[index](z-index)
 
-    xs = 2 * np.pi * np.linspace(0, 1, 100)
 
-    fig, ax = plt.subplots(figsize=(6.5, 4))
-    ax.plot(points[:, 0], points[:, 1], 'o', label='data')
-    ax.plot(np.cos(xs), np.sin(xs), label='true')
+class Spline2d:
+    def __init__(self, spline_x=None, spline_y=None):
+        self.spline_x = Spline() if spline_x is None else spline_x
+        self.spline_y = Spline() if spline_y is None else spline_y
 
-    # Interpolation here
-    ax.plot(cs(xs)[:, 0], cs(xs)[:, 1], label='spline')
+    def __len__(self):
+        return len(self.spline_x)
 
-    ax.axes.set_aspect('equal')
-    ax.legend(loc='center')
-    plt.show()
+    def add_polynomials(self, px, py):
+        self.spline_x.add_polynomial(px)
+        self.spline_y.add_polynomial(py)
+
+    def get_splines(self):
+        return self.spline_x, self.spline_y
+
+    def get_animation(self, dashed=False, num_dashes=10):
+        # parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=len(self), color=WHITE, stroke_width=2)
+        parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=2, color=WHITE, stroke_width=2)
+        if dashed:
+            parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes, positive_space_ratio=0.6)
+        animation = Create(parametric_function)
+        return animation
 
 
 if __name__ == '__main__':
-    # px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
-    # px, py = find_polynomials(0, 0, 1, 0, 0.75, 0.75, 0, 1)
-    # plot(px, py, 20)
-    spline_unit_circle()
+    px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
+    plot(px, py, 20)

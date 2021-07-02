@@ -1,6 +1,7 @@
 from manim import *
 import random
-from interpolation import find_polynomials
+from interpolation import find_polynomials, Spline, Spline2d
+from ip import Problem
 from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel
 from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_line, get_circle, get_square
 from graph import Graph, GraphSearcher
@@ -122,6 +123,37 @@ def random_joins(graph):
     return animation_sequence
 
 
+def get_random_solution(width, height):
+    # Get Solution
+    problem = get_problem(width, height)
+    solution, status = problem.solve(_print=False)
+
+    # Add intersections
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    non_zero_indices = np.argwhere(intersect_matrix > 0)
+    for index in range(n):
+        x, y = non_zero_indices[index]
+        intersect_matrix[x][y] = random.choice([0, 1])
+    solution = intersect_matrix + np.array(solution)
+    return solution
+
+
+def get_custom_solution(width, height):
+    # Get Solution
+    problem = Problem(width-1, height-1, [[0, 1], [1, 2], [2, 1]])
+    solution, status = problem.solve(_print=False)
+
+    # Add intersections
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    non_zero_indices = np.argwhere(intersect_matrix > 0)
+    custom_choice = [1, 1, 0] + [0] * (width * height)
+    for index in range(n):
+        x, y = non_zero_indices[index]
+        intersect_matrix[x][y] = custom_choice[index]
+    solution = intersect_matrix + np.array(solution)
+    return solution
+
+
 def generate_track_points(graph, square_size, track_width):
     track_points = []
     converter = Converter(graph, square_size=square_size, track_width=track_width)
@@ -158,36 +190,64 @@ def generate_track_points(graph, square_size, track_width):
     return animation_sequence, animation_sequence2, track_points
 
 
-def interpolate_track_points(track_points, random_gradients=False):
-    if random_gradients:
-        for points in track_points:
-            degrees_20 = 0.349066
-            angle = degrees_20 * random.uniform(0, 1) - degrees_20/2
-            [point.alter_direction(angle) for point in points]
+def alter_track_point_directions(track_points):
+    for points in track_points:
+        degrees_20 = 0.349066
+        angle = degrees_20 * random.uniform(0, 1) - degrees_20/2
+        [point.alter_direction(angle) for point in points]
 
-    left_line_animations = []
+
+def interpolate_track_points(track_points):
     right_line_animations = []
+    left_line_animations = []
+    center_line_animations = []
     right1, left1, center1 = track_points[0]
     track_points = track_points[1:]
     track_points.append((right1, left1, center1))
     for right2, left2, center2 in track_points:
-        # print("Connect: {} and {}".format(right1, right2))
         px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
         right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
         right_line_animations.append(Create(right_line))
         px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
         left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
         left_line_animations.append(Create(left_line))
-        # dashed_line = DashedVMobject(line) for center line?
+        px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        dashed_line = DashedVMobject(center_line, num_dashes=10, positive_space_ratio=0.6)
+        center_line_animations.append(Create(dashed_line))
 
         right1, left1, center1 = (right2, left2, center2)
 
     animation_sequence = []
     for idx in range(len(right_line_animations)):
         animation_sequence.append(AnimationObject(type='play',
-                                                  content=[right_line_animations[idx], left_line_animations[idx]],
+                                                  content=[right_line_animations[idx], left_line_animations[idx], center_line_animations[idx]],
                                                   duration=0.5, bring_to_front=True))
 
+    return animation_sequence
+
+
+def interpolate_track_points_continuous(track_points, duration=5):
+    right_spline = Spline2d()
+    left_spline = Spline2d()
+    center_spline = Spline2d()
+    right1, left1, center1 = track_points[0]
+    track_points = track_points[1:]
+    track_points.append((right1, left1, center1))
+    for right2, left2, center2 in track_points:
+        px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
+        right_spline.add_polynomials(px, py)
+        px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
+        left_spline.add_polynomials(px, py)
+        px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
+        center_spline.add_polynomials(px, py)
+        right1, left1, center1 = (right2, left2, center2)
+
+    print("Spline lengths: ({}, {}, {})".format(len(right_spline), len(left_spline), len(center_spline)))
+    right_line = right_spline.get_animation()
+    left_line = left_spline.get_animation()
+    center_line = center_spline.get_animation(dashed=True, num_dashes=len(center_spline) * 10)
+    animation_sequence = [AnimationObject(type='play', content=[right_line, left_line, center_line], duration=duration, bring_to_front=True)]
     return animation_sequence
 
 
@@ -236,36 +296,28 @@ def get_track_points(coord1, coord2, track_width):
 
 class IPCircuitCreation(AnimationSequenceScene):
     def construct(self):
-        width, height = (10, 10)
+        width, height = (4, 4)
         square_size = 2
         track_width = 0.4
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
-        # Get Solution
-        problem = get_problem(width, height)
-        solution, status = problem.solve(_print=False)
-
-        # Add intersections
-        intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
-        non_zero_indices = np.argwhere(intersect_matrix > 0)
-        for index in range(n):
-            x, y = non_zero_indices[index]
-            intersect_matrix[x][y] = random.choice([0, 0, 0, 1])
-        solution = intersect_matrix + np.array(solution)
+        # solution = get_random_solution(width, height)
+        solution = get_custom_solution(width, height)
 
         # Animate Solution
         sequence = convert_solution_to_join_sequence(solution)
         animations, graph = sequence.get_animations(square_size, (0, 0))
         gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
-        interpolation_animation = interpolate_track_points(points)
+        interpolation_animation = interpolate_track_points_continuous(points)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
 
         animations_list = [
             grid.get_animation_sequence(),
             animations,
+            gen_track_points,
+            remove_graph(graph, animate=True),
             interpolation_animation,
             remove_track_points,
-            remove_graph(graph)
         ]
 
         for anim in animations_list:
@@ -276,8 +328,7 @@ class IPCircuitCreation(AnimationSequenceScene):
 
 if __name__ == '__main__':
     # scene = CircuitCreation()
-    scene = IPCircuitCreation()
     # scene = GraphModelTest()
     # scene = MultiGraph()
-    # scene = IPCircuitCreation()
+    scene = IPCircuitCreation()
     scene.construct()

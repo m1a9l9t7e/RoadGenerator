@@ -168,10 +168,11 @@ def draw_graph(graph):
     return animation_sequence
 
 
-def remove_graph(graph):
+def remove_graph(graph, animate=False, duration=1):
     drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
-    animations = [FadeOut(drawable) for drawable in drawables]
-    # return [AnimationObject(type='play', content=animations, duration=1)]
+    if animate:
+        animations = [FadeOut(drawable) for drawable in drawables]
+        return [AnimationObject(type='play', content=animations, duration=duration)]
     return [AnimationObject(type='remove', content=drawables)]
 
 
