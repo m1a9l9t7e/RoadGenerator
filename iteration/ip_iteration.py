@@ -230,8 +230,14 @@ def convert_solution_to_graph(ip_solution, shift=[0, 0], scale=1):
                 for index, adjacent in enumerate(adjacent_cells):
                     if not adjacent_cells[index]:
                         edge_list.append(adjacent_edges[index])
-
-    return Graph(width+1, height+1, edge_list=edge_list, shift=shift, scale=scale)
+    graph = Graph(width+1, height+1, edge_list=edge_list, shift=shift, scale=scale)
+    for x in range(width):
+        for y in range(height):
+            if ip_solution[x][y] == 2:
+                searcher = GraphSearcher(graph)
+                joint = searcher.evaluate_position((x, y), ignore_cycles=True)
+                joint.intersect()
+    return graph
 
 
 def get_edges_adjacent_to_cell(coords):
@@ -310,9 +316,6 @@ def get_problem(graph_width, graph_height):
 
 
 if __name__ == '__main__':
-    # 6x6 -> 112
-    m = GraphModel(4, 4, generate_intersections=False, fast=False)
-    # print_2d(m.variants[0])
-    #
-    # p = Problem(5, 5)
-    # solution_grid, success = p.solve(_print=True)
+    # 6x6 complete with intersections: 52960
+    # 8x4 complete with intersections: 12796
+    GraphModel(8, 4, generate_intersections=True, fast=False)

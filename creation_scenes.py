@@ -8,6 +8,19 @@ from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
+class MultiGraphIP(AnimationSequenceScene):
+    def construct(self):
+        width, height = (4, 4)
+        square_size = 1.3
+        graph_model = GraphModel(width, height, generate_intersections=True, fast=False)
+        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2])
+        camera_position, camera_size = helper.get_global_camera_settings()
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
+        animations = [add_graph(graph) for graph in graph_list]
+        self.play_concurrent(animations)
+        self.wait(5)
+
+
 class MultiGraph(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
@@ -30,19 +43,6 @@ class MultiGraph(AnimationSequenceScene):
         # interpolation_animation = interpolate_track_points(points)
         # animations = gen_track_points + interpolation_animation + remove_track_points
         # self.play_animations(animations)
-        self.wait(5)
-
-
-class MultiGraphIP(AnimationSequenceScene):
-    def construct(self):
-        width, height = (6, 6)
-        square_size = 1.3
-        graph_model = GraphModel(width, height, generate_intersections=False, fast=False)
-        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2])
-        camera_position, camera_size = helper.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
-        animations = [add_graph(graph) for graph in graph_list]
-        self.play_concurrent(animations)
         self.wait(5)
 
 
@@ -345,6 +345,6 @@ class IPCircuitCreation(AnimationSequenceScene):
 if __name__ == '__main__':
     # scene = CircuitCreation()
     # scene = GraphModelTest()
-    # scene = MultiGraph()
-    scene = IPCircuitCreation()
+    # scene = IPCircuitCreation()
+    scene = MultiGraphIP()
     scene.construct()

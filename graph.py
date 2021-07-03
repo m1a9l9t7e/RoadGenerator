@@ -349,7 +349,7 @@ class GraphSearcher:
 
         return joints
 
-    def evaluate_position(self, coords):
+    def evaluate_position(self, coords, ignore_cycles=False):
         x, y = coords
         bottom_left = self.grid[x][y]
         bottom_right = self.grid[x + 1][y]
@@ -365,13 +365,13 @@ class GraphSearcher:
         # Check for Horizontal Joint
         parallel_horizontally = adjacency[0] and adjacency[2] and not (adjacency[1] or adjacency[3])
         distinct_cycles = cycle_ids[0] == cycle_ids[3] and cycle_ids[1] == cycle_ids[2] and cycle_ids[0] != cycle_ids[1]
-        if parallel_horizontally and distinct_cycles:
+        if parallel_horizontally and (distinct_cycles or ignore_cycles):
             return HorizontalJoint(corners, cycle_ids, adjacency, self.graph)
 
         # Check for Vertical Joint
         parallel_vertically = adjacency[1] and adjacency[3] and not (adjacency[0] or adjacency[2])
         distinct_cycles = cycle_ids[0] == cycle_ids[1] and cycle_ids[2] == cycle_ids[3] and cycle_ids[1] != cycle_ids[2]
-        if parallel_vertically and distinct_cycles:
+        if parallel_vertically and (distinct_cycles or ignore_cycles):
             return VerticalJoint(corners, cycle_ids, adjacency, self.graph)
 
         return None
@@ -395,10 +395,9 @@ class Joint:
 
     def _update_graph(self, deleted_edges, new_edges):
         unique_cycle_ids = set(self.cycle_ids)
-        if len(unique_cycle_ids) != 2:
-            raise ValueError("Trying to merge {} cycles instead of 2!".format(len(unique_cycle_ids)))
+        if len(unique_cycle_ids) == 2:
+            self.graph.merge_cycles(*set(self.cycle_ids))
 
-        self.graph.merge_cycles(*set(self.cycle_ids))
         for edge in deleted_edges:
             self.graph.edges.remove(edge)
             edge.remove()
