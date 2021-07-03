@@ -169,8 +169,10 @@ def draw_graph(graph):
 
 
 def add_graph(graph):
-    drawables = [node.drawable for node in graph.nodes] + [edge.drawable for edge in graph.edges]
-    return [AnimationObject(type='add', content=drawables)]
+    nodes = [node.drawable for node in graph.nodes]
+    edges = [edge.drawable for edge in graph.edges]
+    return [AnimationObject(type='add', content=nodes),
+            AnimationObject(type='add', content=edges, bring_to_back=True)]
 
 
 def remove_graph(graph, animate=False, duration=1):
@@ -237,15 +239,15 @@ def print_2d(grid, print_zeros=True):
 def get_adjacent(grid, coords):
     """
     Get list of booleans indicating which adjacent cells given coords have.
-    :return: list of booleans and coords: [right, up, left, down]
+    :return: list of booleans: [right, up, left, down]
     """
     x, y = coords
     adjacent = []
     for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
         if x + _x >= len(grid) or y + _y >= len(grid[_x]) or x + _x < 0 or y + _y < 0:
-            adjacent.append((False, (_x, _y)))
+            adjacent.append(False)
         else:
-            adjacent.append((grid[_x][_y] > 0, (_x, _y)))
+            adjacent.append(grid[_x][_y] > 0)
 
     return adjacent
 

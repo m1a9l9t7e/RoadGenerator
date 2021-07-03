@@ -17,19 +17,18 @@ class GraphModel:
             self.variants = add_join_variants(self.variants)
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
 
-    def get_graphs(self):
+    def get_graphs(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
+        helper = GridShowCase(num_elements=len(self.variants),
+                              element_dimensions=(scale * self.width, scale * self.height),
+                              spacing=spacing, space_ratio=ratio)
         graph_list = []
-        for variant in self.variants:
-            sequence = convert_solution_to_join_sequence(variant)
-            graph = sequence.generate_graph()
+        for index, variant in enumerate(self.variants):
+            shift = helper.get_element_coords(index)
+            graph = convert_solution_to_graph(variant, scale=scale, shift=shift)
             graph_list.append(graph)
-        return graph_list
+        return graph_list, helper
 
-    def get_animations(self, scale=1, ratio=None, spacing=None):
-        if spacing is None:
-            spacing = [1, 1]
-        if ratio is None:
-            ratio = [16, 9]
+    def get_animations(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
         helper = GridShowCase(num_elements=len(self.variants),
                               element_dimensions=(scale * self.width, scale * self.height),
                               spacing=spacing, space_ratio=ratio)
@@ -203,18 +202,31 @@ def convert_solution_to_join_sequence(ip_solution):
     return JoinSequence(width + 1, height + 1, sequence)
 
 
-def convert_solution_to_graph(ip_solution):
+def convert_solution_to_graph(ip_solution, shift=[0, 0], scale=1):
     width = len(ip_solution)
     height = len(ip_solution[0])
-    graph = Graph(width+1, height+1)
-    # edge_grid = []
+    edge_list = []
 
     for x in range(width):
         for y in range(height):
-            adjacent, coords = get_adjacent(ip_solution, (x, y))
-            if adjacent:
-                pass
-    return graph
+            if ip_solution[x][y] > 0:
+                adjacent_cells = get_adjacent(ip_solution, (x, y))
+                adjacent_edges = get_edges_adjacent_to_cell((x, y))
+                for index, adjacent in enumerate(adjacent_cells):
+                    if not adjacent_cells[index]:
+                        edge_list.append(adjacent_edges[index])
+
+    return Graph(width+1, height+1, edge_list=edge_list, shift=shift, scale=scale)
+
+
+def get_edges_adjacent_to_cell(coords):
+    x, y = coords
+    edge_bottom = ((x, y), (x+1, y))
+    edge_left = ((x, y), (x, y+1))
+    edge_right = ((x+1, y), (x+1, y+1))
+    edge_top = ((x, y+1), (x+1, y+1))
+
+    return [edge_right, edge_top, edge_left, edge_bottom]
 
 
 def get_degree_matrix(matrix, value_at_none=0, multipliers=None):

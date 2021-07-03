@@ -102,8 +102,10 @@ class Edge:
 
 
 class Graph:
-    def __init__(self, width, height, scale=1, shift=[0, 0]):
-        self.grid = [[Node(-1, -1)] * height for i in range(width)]
+    def __init__(self, width, height, scale=1, shift=[0, 0], edge_list=None):
+        self.width = width
+        self.height = height
+        self.grid = [[Node(-1, -1)] * height for _ in range(width)]
         self.nodes = []
         self.edges = []
         for x in range(width):
@@ -112,16 +114,14 @@ class Graph:
                 self.grid[x][y] = node
                 self.nodes.append(node)
 
-        for x in range(width):
-            for y in range(height):
-                node = self.grid[x][y]
-                right = (x + 1, y)
-                above = (x, y + 1)
-                for coords in [right, above]:
-                    if self.get_element_safe(coords) is not None:
-                        neighbor_node = self.get_element_safe(coords)
-                        edge = Edge(node, neighbor_node)
-                        self.edges.append(edge)
+        if edge_list is None:
+            self._add_all_edges()
+        else:
+            for coords1, coords2 in edge_list:
+                node1 = self.get_element_safe(coords1)
+                node2 = self.get_element_safe(coords2)
+                edge = Edge(node1, node2)
+                self.edges.append(edge)
 
         self.cycles = int(width / 2) * int(height / 2)  # upper bound
 
@@ -157,6 +157,18 @@ class Graph:
         strings = sorted(strings)
         _str += "".join(strings)
         return _str
+
+    def _add_all_edges(self):
+        for x in range(self.width):
+            for y in range(self.height):
+                node = self.grid[x][y]
+                right = (x + 1, y)
+                above = (x, y + 1)
+                for coords in [right, above]:
+                    if self.get_element_safe(coords) is not None:
+                        neighbor_node = self.get_element_safe(coords)
+                        edge = Edge(node, neighbor_node)
+                        self.edges.append(edge)
 
     def get_element_safe(self, coords):
         x = coords[0]
