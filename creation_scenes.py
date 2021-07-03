@@ -2,7 +2,7 @@ from manim import *
 import random
 from interpolation import find_polynomials, Spline, Spline2d
 from ip import Problem
-from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel
+from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel, convert_solution_to_graph
 from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_line, get_circle, get_square, add_graph
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene

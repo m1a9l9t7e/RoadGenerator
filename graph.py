@@ -332,23 +332,6 @@ class Graph:
                 if node.cycle_id == cycle_id1 or node.cycle_id == cycle_id2:
                     node.cycle_id = merge_id
 
-    def get_edge_map(self):
-        """
-        1-2-3
-        | | |
-        4-5-6
-        | | |
-        7-8-9
-        nodes = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-        edges = [[1-2, 2-3], [1-4, 1-5, 1-6], [4-5, 5-6], [4-7, 5-8, 6-9], [7-8, 8-9]]
-        Does not work with intersections
-        :return:
-        """
-        edge_map = [[None] * len(self.grid[0]) for _ in range(len(self.grid))]
-        for edge in self.edges:
-            x1, y1 = edge.node1
-            x2, y2 = edge.node2
-
 
 class GraphSearcher:
     def __init__(self, graph):

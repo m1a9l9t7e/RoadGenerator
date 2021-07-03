@@ -244,10 +244,10 @@ def get_adjacent(grid, coords):
     x, y = coords
     adjacent = []
     for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
-        if x + _x >= len(grid) or y + _y >= len(grid[_x]) or x + _x < 0 or y + _y < 0:
+        if x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0:
             adjacent.append(False)
         else:
-            adjacent.append(grid[_x][_y] > 0)
+            adjacent.append(grid[x + _x][y + _y] > 0)
 
     return adjacent
 
