@@ -11,13 +11,24 @@ from anim_sequence import AnimationObject, AnimationSequenceScene
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
-        square_size = 1.3
-        graph_model = GraphModel(width, height, generate_intersections=True, fast=False)
-        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2])
+        square_size = 2
+        graph_model = GraphModel(width, height, generate_intersections=True, fast=False, sample_random=6 * 4)
+        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[6, 4])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
         animations = [add_graph(graph) for graph in graph_list]
         self.play_concurrent(animations)
+        self.wait(3)
+
+        track_animations_list = []  # Animations for each graph
+        track_width = 0.4
+        for graph in graph_list:
+            gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
+            interpolation_animation = interpolate_track_points_continuous(points)
+            animations = gen_track_points + remove_graph(graph, animate=True) + interpolation_animation + remove_track_points
+            track_animations_list.append(animations)
+
+        self.play_concurrent(track_animations_list)
         self.wait(5)
 
 
@@ -70,7 +81,7 @@ class CircuitCreation(AnimationSequenceScene):
         # make_joins = custom_joins(graph)
         make_joins = random_joins(graph)
         gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
-        interpolation_animation = interpolate_track_points(points)
+        interpolation_animation = interpolate_track_points_continuous(points)
 
         animations_list = [
             graph_creation,
@@ -213,7 +224,7 @@ def alter_track_point_directions(track_points):
         [point.alter_direction(angle) for point in points]
 
 
-def interpolate_track_points(track_points):
+def _interpolate_track_points(track_points):
     right_line_animations = []
     left_line_animations = []
     center_line_animations = []
@@ -229,7 +240,7 @@ def interpolate_track_points(track_points):
         left_line_animations.append(Create(left_line))
         px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
         center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
-        dashed_line = DashedVMobject(center_line, num_dashes=10, positive_space_ratio=0.6)
+        dashed_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
         center_line_animations.append(Create(dashed_line))
 
         right1, left1, center1 = (right2, left2, center2)
@@ -259,10 +270,9 @@ def interpolate_track_points_continuous(track_points, duration=5):
         center_spline.add_polynomials(px, py)
         right1, left1, center1 = (right2, left2, center2)
 
-    print("Spline lengths: ({}, {}, {})".format(len(right_spline), len(left_spline), len(center_spline)))
     right_line = right_spline.get_animation()
     left_line = left_spline.get_animation()
-    center_line = center_spline.get_animation(dashed=True, num_dashes=len(center_spline) * 10)
+    center_line = center_spline.get_animation(dashed=True, num_dashes=4)
     animation_sequence = [AnimationObject(type='play', content=[right_line, left_line, center_line], duration=duration, bring_to_front=True)]
     return animation_sequence
 

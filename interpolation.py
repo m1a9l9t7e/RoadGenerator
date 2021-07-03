@@ -118,11 +118,11 @@ class Spline2d:
     def get_splines(self):
         return self.spline_x, self.spline_y
 
-    def get_animation(self, dashed=False, num_dashes=10):
+    def get_animation(self, dashed=False, num_dashes=5):
         # parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=len(self), color=WHITE, stroke_width=2)
         parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=2, color=WHITE, stroke_width=2)
         if dashed:
-            parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes, positive_space_ratio=0.6)
+            parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes * len(self), positive_space_ratio=0.6)
         animation = Create(parametric_function)
         return animation
 

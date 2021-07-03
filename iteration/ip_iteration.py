@@ -1,3 +1,5 @@
+import random
+
 from graph import Graph, GraphSearcher
 from ip import Problem
 from util import draw_graph, make_unitary, GridShowCase, print_2d, get_adjacent
@@ -8,14 +10,21 @@ import multiprocessing as mp
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, fast=True):
+    def __init__(self, width, height, generate_intersections=True, fast=True, sample_random=None):
         self.width = width - 1
         self.height = height - 1
-        iterator = Iterator(self.width, self.height, raster=fast, _print=True)
+        iterator = Iterator(self.width, self.height, raster=fast, _print=False)
         self.variants = iterator.iterate()
+
         if generate_intersections:
+            print(colored("Number of variants w/o intersections: {}".format(len(self.variants)), 'green'))
             self.variants = add_join_variants(self.variants)
+
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
+
+        if sample_random is not None and sample_random < len(self.variants):
+            self.variants = random.sample(self.variants, sample_random)
+            print(colored("Random samples: {}".format(len(self.variants)), 'green'))
 
     def get_graphs(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
         helper = GridShowCase(num_elements=len(self.variants),
@@ -318,4 +327,4 @@ def get_problem(graph_width, graph_height):
 if __name__ == '__main__':
     # 6x6 complete with intersections: 52960
     # 8x4 complete with intersections: 12796
-    GraphModel(8, 4, generate_intersections=True, fast=False)
+    GraphModel(6, 4, generate_intersections=True, fast=False)
