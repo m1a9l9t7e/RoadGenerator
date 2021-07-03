@@ -10,7 +10,7 @@ from anim_sequence import AnimationObject, AnimationSequenceScene
 
 class MultiGraph(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 6)
+        width, height = (4, 4)
         square_size = 1.3
         track_width = 0.4
         graph_model = GraphModel(width, height, generate_intersections=False, fast=False)
@@ -35,7 +35,7 @@ class MultiGraph(AnimationSequenceScene):
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 4)
+        width, height = (6, 6)
         square_size = 1.3
         graph_model = GraphModel(width, height, generate_intersections=False, fast=False)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2])

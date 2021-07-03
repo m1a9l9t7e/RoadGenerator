@@ -56,21 +56,35 @@ class Iterator:
         cells = []
         raster = []
         self.free = []
-        for x in range(width):
-            for y in range(height):
-                cells.append([x, y])
-                if x % 2 == 0 and y % 2 == 0:
-                    raster.append([x, y])
-                else:
-                    self.free.append([x, y])
-
         n_cells = width * height
-        n_raster = int(np.ceil(width / 2) * np.ceil(height / 2))
-        self.n_free = n_cells - n_raster
-        self.n_choice = n_raster - 1
+
+        if raster:
+            for x in range(width):
+                for y in range(height):
+                    cells.append([x, y])
+                    if x % 2 == 0 and y % 2 == 0:  # complete raster
+                        raster.append([x, y])
+                    else:
+                        self.free.append([x, y])
+
+            n_preoccupied = len(raster)
+            self.n_free = n_cells - n_preoccupied
+            self.n_choice = n_preoccupied - 1
+        else:
+            for x in range(width):
+                for y in range(height):
+                    cells.append([x, y])
+                    if x % (width-1) == 0 and y % (height-1) == 0:  # only corners
+                        raster.append([x, y])
+                    else:
+                        self.free.append([x, y])
+
+            n_preoccupied = len(raster)
+            self.n_free = n_cells - n_preoccupied
+            self.n_choice = int(np.ceil(width / 2) * np.ceil(height / 2)) * 2 - 1 - n_preoccupied
 
         if _print:
-            print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_raster, self.n_free, self.n_choice))
+            print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_preoccupied, self.n_free, self.n_choice))
 
     def iterate(self, multi_processing=True):
         queue = [[i] for i in range(self.n_free - self.n_choice + 1)]
@@ -92,6 +106,7 @@ class Iterator:
                 next_elements = self.next(queue.pop(0))
                 add_to_queue = self.unpack_next(next_elements)
                 queue += add_to_queue
+                self.counter += 1
 
         return self.variants
 
@@ -296,8 +311,8 @@ def get_problem(graph_width, graph_height):
 
 if __name__ == '__main__':
     # 6x6 -> 112
-    m = GraphModel(4, 6, generate_intersections=False, fast=False)
-    print_2d(m.variants[0])
+    m = GraphModel(4, 4, generate_intersections=False, fast=False)
+    # print_2d(m.variants[0])
     #
     # p = Problem(5, 5)
     # solution_grid, success = p.solve(_print=True)
