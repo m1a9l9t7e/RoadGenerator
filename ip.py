@@ -1,15 +1,19 @@
 from pulp import *
 import numpy as np
+from util import is_adjacent
 
 
-class Problem:
+class GGMSTProblem:
+    """
+    Grid Graph Minimum Spanning Tree
+    """
     def __init__(self, width, height, extra_constraints=None, raster=True):
         # assert width % 2 == 1 and height % 2 == 1
         self.width = width
         self.height = height
         self.grid = self.init_variables()
         self.extra_constraints = extra_constraints
-        self.problem = LpProblem("myProblem", LpMinimize)
+        self.problem = LpProblem("GGMSTProblem", LpMinimize)
         self.add_all_constraints(raster)
 
     def init_variables(self):
@@ -195,7 +199,53 @@ class Problem:
         return solution, status+1
 
 
+class IntersectionProblem:
+    def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
+        self.non_zero_indices = non_zero_indices
+        self.problem = LpProblem("IntersectionProblem", LpMinimize)
+        self.variables = self.init_variables()
+        self.add_all_constraints(n, allow_adjacent, extra_constraints)
+
+    def init_variables(self):
+        variables = [LpVariable("{}".format(index), 0, 1, cat=const.LpInteger) for index in range(len(self.non_zero_indices))]
+        return variables
+
+    def add_no_adjacency_constraints(self):
+        """
+        Adjacent intersection are not allowed
+        """
+        for i, indices1 in enumerate(self.non_zero_indices):
+            for j, indices2 in enumerate(self.non_zero_indices):
+                if is_adjacent(indices1, indices2):
+                    self.problem += self.variables[i] + self.variables[j] <= 1
+
+    def add_extra_constraints(self, extra_constraints):
+        """
+        Add intersections that must exist
+        """
+        for index in range(len(self.non_zero_indices)):
+            if index in extra_constraints:
+                self.problem += self.variables[index] == 1
+            else:
+                self.problem += self.variables[index] == 0
+
+    def add_all_constraints(self, n, allow_adjacent, extra_constraints):
+        if not allow_adjacent:
+            self.add_no_adjacency_constraints()
+        if extra_constraints is not None:
+            self.add_extra_constraints(extra_constraints)
+        if n is not None:
+            self.problem += sum(self.variables) == n
+
+    def solve(self, _print=False):
+        status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        solution = [value(variable) for variable in self.variables]
+        if _print:
+            print("{} Solution: {}".format(LpStatus[status], solution))
+        return solution, status+1
+
+
 if __name__ == '__main__':
     # p = Problem(3, 3, [[0, 1], [1, 0]])
-    p = Problem(5, 5)
-    solution_grid, success = p.solve(_print=True)
+    p = GGMSTProblem(3, 3)
+    solution_grid, success = p.solve(_print=False)

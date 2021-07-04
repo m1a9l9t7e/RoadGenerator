@@ -252,6 +252,14 @@ def get_adjacent(grid, coords):
     return adjacent
 
 
+def is_adjacent(coords1, coords2):
+    x1, y1 = coords1
+    x2, y2 = coords2
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if x1 + _x == x2 and y1 + _y == y2:
+            return True
+    return False
+
 if __name__ == '__main__':
     num = 15
     gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])

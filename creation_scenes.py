@@ -1,7 +1,7 @@
 from manim import *
 import random
 from interpolation import find_polynomials, Spline, Spline2d
-from ip import Problem
+from ip import GGMSTProblem
 from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel, convert_solution_to_graph
 from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_line, get_circle, get_square, add_graph
 from graph import Graph, GraphSearcher
@@ -10,9 +10,9 @@ from anim_sequence import AnimationObject, AnimationSequenceScene
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 4)
+        width, height = (6, 6)
         square_size = 2
-        graph_model = GraphModel(width, height, generate_intersections=True, fast=False, sample_random=6 * 4)
+        graph_model = GraphModel(width, height, generate_intersections=True, sample_random=6 * 4)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[6, 4])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
@@ -25,7 +25,7 @@ class MultiGraphIP(AnimationSequenceScene):
         for graph in graph_list:
             gen_track_points, remove_track_points, points = generate_track_points(graph, square_size=square_size, track_width=track_width)
             interpolation_animation = interpolate_track_points_continuous(points)
-            animations = gen_track_points + remove_graph(graph, animate=True) + interpolation_animation + remove_track_points
+            animations = gen_track_points + interpolation_animation + remove_graph(graph, animate=True) + remove_track_points
             track_animations_list.append(animations)
 
         self.play_concurrent(track_animations_list)
@@ -167,7 +167,7 @@ def get_random_solution(width, height):
 
 def get_custom_solution(width, height):
     # Get Solution
-    problem = Problem(width-1, height-1, [[0, 1], [1, 2], [2, 1]])
+    problem = GGMSTProblem(width - 1, height - 1, [[0, 1], [1, 2], [2, 1]])
     solution, status = problem.solve(_print=False)
 
     # Add intersections

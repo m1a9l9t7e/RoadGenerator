@@ -1,7 +1,8 @@
 import random
+import time
 
 from graph import Graph, GraphSearcher
-from ip import Problem
+from ip import GGMSTProblem, IntersectionProblem
 from util import draw_graph, make_unitary, GridShowCase, print_2d, get_adjacent
 import numpy as np
 import itertools
@@ -10,15 +11,21 @@ import multiprocessing as mp
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, fast=True, sample_random=None):
+    def __init__(self, width, height, generate_intersections=True, fast=False, ip_intersections=True, sample_random=None):
         self.width = width - 1
         self.height = height - 1
-        iterator = Iterator(self.width, self.height, raster=fast, _print=False)
+        iterator = GGMSTIterator(self.width, self.height, raster=fast, _print=False)
         self.variants = iterator.iterate()
 
         if generate_intersections:
             print(colored("Number of variants w/o intersections: {}".format(len(self.variants)), 'green'))
-            self.variants = add_join_variants(self.variants)
+            start = time.time()
+            if ip_intersections:
+                self.variants += get_join_variants_ip(self.variants)
+            else:
+                self.variants = add_join_variants(self.variants)
+            end = time.time()
+            print("Time elapsed: {:.2f}s".format(end - start))
 
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
 
@@ -53,7 +60,7 @@ class GraphModel:
         return animations_list, graph_list, helper
 
 
-class Iterator:
+class GGMSTIterator:
     def __init__(self, width, height, raster=True, _print=False):
         self.width = width
         self.height = height
@@ -129,7 +136,7 @@ class Iterator:
                 continue
             # print("Child sequence: {}".format(_sequence))
             # problem = Problem(width, height, [free[i] for i in _sequence])
-            problem = Problem(self.width, self.height, [self.free[i] for i in _sequence], raster=self.raster)
+            problem = GGMSTProblem(self.width, self.height, [self.free[i] for i in _sequence], raster=self.raster)
             solution, feasible = problem.solve()
             # solution, status = (0, 1)
             if feasible:
@@ -146,6 +153,87 @@ class Iterator:
             leaf, content = element
             if leaf:
                 self.variants.append(content)
+            else:
+                add_to_queue.append(content)
+
+        return add_to_queue
+
+
+class IntersectionIterator:
+    def __init__(self, non_zero_indices, allow_adjacent=False, n=None, _print=False):
+        self.non_zero_indices = non_zero_indices
+        self.n = n
+        self.allow_adjacent = allow_adjacent
+        self._print = _print
+        self.counter = 0
+        self.solutions = []
+
+    def iterate(self, multi_processing=True):
+        queue = [[]]
+
+        while len(queue) > 0:
+            if self._print:
+                print("Processed elements {}, queue size: {}".format(self.counter, len(queue)))
+            if multi_processing:
+                pool = mp.Pool(mp.cpu_count())
+                full_iteration = pool.map(self.next, queue)
+                pool.close()
+                queue = []
+                for next_elements in full_iteration:
+                    add_to_queue = self.unpack_next(next_elements)
+                    queue += add_to_queue
+                    self.counter += len(add_to_queue)
+
+            else:
+                next_elements = self.next(queue.pop(0))
+                add_to_queue = self.unpack_next(next_elements)
+                queue += add_to_queue
+                self.counter += 1
+
+        return self.solutions
+
+    def next(self, sequence):
+        _next = []
+        if len(sequence) == 0:
+            last_element = -1
+        else:
+            last_element = sequence[-1]
+        next_choices = np.arange(last_element + 1, len(self.non_zero_indices), 1)  # since order is irrelevant, we always choose elements in ascending order
+        # print("Parent sequence: {}, available options: {}".format(sequence, next_choices))
+        for index in next_choices:
+            _sequence = sequence + [index]
+            # print("Evaluating sequence: {}".format(_sequence))
+            if self.n is not None:
+                if len(self.non_zero_indices) - index < self.n - len(_sequence):  # not enough indices left to satisfy n
+                    # print("PREEMPTIVE DENY")
+                    continue
+                if len(_sequence) > self.n:  # sequence has more intersection than n
+                    # print("PREEMPTIVE DENY")
+                    continue
+            problem = IntersectionProblem(self.non_zero_indices, n=self.n, allow_adjacent=self.allow_adjacent, extra_constraints=_sequence)
+            solution, feasible = problem.solve()
+            # solution, feasible = ([0], 1)
+            if feasible:
+                # print("FEASIBLE")
+                if self.n is None:
+                    _next.append((True, solution))
+                    _next.append((False, _sequence))
+                else:
+                    if len(_sequence) == self.n:
+                        _next.append((True, solution))
+                    elif len(_sequence) < self.n:
+                        _next.append((False, _sequence))
+            # else:
+                # print("NOT FEASIBLE")
+
+        return _next
+
+    def unpack_next(self, next_elements):
+        add_to_queue = []
+        for element in next_elements:
+            leaf, content = element
+            if leaf:
+                self.solutions.append(content)
             else:
                 add_to_queue.append(content)
 
@@ -296,7 +384,7 @@ def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
     return intersect_matrix, np.count_nonzero(intersect_matrix)
 
 
-def generate_join_variants(solution, allow_intersect_at_stubs=False):
+def generate_join_variants(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
     variants = []
     intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
     combinations = [list(i) for i in itertools.product([0, 1], repeat=n)]
@@ -313,18 +401,54 @@ def generate_join_variants(solution, allow_intersect_at_stubs=False):
     return variants
 
 
+def generate_join_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
+    variants = []
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
+    non_zero_indices = np.argwhere(intersect_matrix > 0)
+    iterator = IntersectionIterator(non_zero_indices, allow_adjacent=allow_adjacent_intersections, n=n_intersections, _print=False)
+    combinations = iterator.iterate()
+
+    for variation in combinations:
+        variant = np.copy(intersect_matrix)
+        for index, joint_decision in enumerate(variation):
+            x, y = non_zero_indices[index]
+            variant[x][y] = joint_decision
+
+        variant = variant + np.array(solution)
+        variants.append(variant)
+
+    return variants
+
+
 def add_join_variants(solutions, allow_intersect_at_stubs=False):
     complete_list = []
     for solution in solutions:
-        complete_list += generate_join_variants(solution, allow_intersect_at_stubs)
+        complete_list += generate_join_variants(solution, allow_intersect_at_stubs=allow_intersect_at_stubs)
     return complete_list
 
 
+def get_join_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersections=None):
+    join_variants = []
+    for solution in solutions:
+        join_variants += generate_join_variants_ip(solution, n_intersections=n_intersections, allow_intersect_at_stubs=allow_intersect_at_stubs)
+    return join_variants
+
+
 def get_problem(graph_width, graph_height):
-    return Problem(graph_width - 1, graph_height - 1)
+    return GGMSTProblem(graph_width - 1, graph_height - 1)
 
 
 if __name__ == '__main__':
     # 6x6 complete with intersections: 52960
     # 8x4 complete with intersections: 12796
-    GraphModel(6, 4, generate_intersections=True, fast=False)
+    GraphModel(6, 6, generate_intersections=True, fast=False)
+    # p = GGMSTProblem(3, 3)
+    # solution_grid, success = p.solve(_print=False)
+    # print_2d(solution_grid)
+    # intersect_matrix, n = get_intersect_matrix(solution_grid, False)
+    # print_2d(intersect_matrix)
+    # non_zero_indices = np.argwhere(intersect_matrix > 0)
+    # print("Intersections possible at: {}".format(non_zero_indices))
+    # p2 = IntersectionProblem(non_zero_indices, n=None, extra_constraints=[0, 2])
+    # selection, feasible = p2.solve()
+    # print("Intersections selected at: {}".format(selection))
