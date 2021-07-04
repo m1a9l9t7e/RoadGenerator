@@ -1,7 +1,7 @@
 from manim import *
 from anim_sequence import AnimationObject
-from util import Converter, transform_coords, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d
-import copy
+from util import GraphTour, transform_coords, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d
+import random
 
 xvec = [1, 0, -1, 0]
 yvec = [0, 1, 0, -1]
@@ -462,6 +462,59 @@ class HorizontalJoint(Joint):
         return self._create_animation_sequence([[edge1_old.drawable, edge1_new.drawable], [edge2_old.drawable, edge2_new.drawable]])
 
 
+def custom_joins(graph):
+    """
+    Takes a unitary! graph and applies predefined joins. These predefined joins are specifically
+    designed to resemble the example circuit from ruleset starting from 4x4 grid
+    """
+    animation_sequence = []
+    searcher = GraphSearcher(graph)
+    joints = searcher.walk_graph()
+
+    animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+
+    indices = [0, 3, 2]
+    operations = ['intersect', 'merge', 'intersect']
+
+    for loop_index, index_from_list in enumerate(indices):
+        joint = joints[index_from_list]
+        animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
+        operation = operations[loop_index]
+        if operation == 'intersect':
+            animation_sequence += joint.intersect()
+        elif operation == 'merge':
+            animation_sequence += joint.merge()
+        else:
+            raise ValueError('operation "{}" is undefined!'.format(operation))
+
+    animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
+    return animation_sequence
+
+
+def random_joins(graph):
+    """
+    Takes a unitary! graph and applies random joins, until only a single cycle remains.
+    """
+    animation_sequence = []
+    searcher = GraphSearcher(graph)
+
+    while True:
+        joints = searcher.walk_graph()
+        if len(joints) == 0:
+            break
+
+        animation_sequence.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
+        joint = joints[0]
+        animation_sequence.append(AnimationObject(type='remove', content=joint.drawable))
+        if random.choice([True, False]):
+            animation_sequence += joint.merge()
+        else:
+            animation_sequence += joint.intersect()
+        animation_sequence.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints]))
+
+    return animation_sequence
+
+
 if __name__ == '__main__':
     # init graph
     g = Graph(4, 4)
@@ -469,15 +522,15 @@ if __name__ == '__main__':
     g.init_cycles()
 
     # find joints and merge until single cycle
-    searcher = GraphSearcher(g)
+    _searcher = GraphSearcher(g)
     while True:
-        joints = searcher.walk_graph()
-        if len(joints) == 0:
+        _joints = _searcher.walk_graph()
+        if len(_joints) == 0:
             break
         # join first joint
-        joint = joints[0]
-        joint.merge()
+        _joint = _joints[0]
+        _joint.merge()
 
-    # Convert to geometrics
-    converter = Converter(g, 2, 1)
-    converter.extract_tour()
+    # Convert to tour
+    graph_tour = GraphTour(g)
+    node_list = graph_tour.get_nodes()

@@ -1,5 +1,6 @@
-from manim import *
+import random
 import math
+from manim import *
 from anim_sequence import AnimationObject
 
 
@@ -12,10 +13,8 @@ class GraphTour:
     This class converts a given graph containing a single cycle to a tour.
     The tour can be retrieved as a sequence of nodes or edges.
     """
-    def __init__(self, graph, square_size, track_width):
+    def __init__(self, graph):
         self.graph = graph
-        self.square_size = square_size
-        self.track_width = track_width
         self.nodes = list()
         self.edges = list()
         self.extract_tour()
@@ -256,11 +255,105 @@ class TrackPoint:
         return [x, y, dx, dy]
 
 
+def generate_track_points(graph, track_width):
+    """
+    Generate track points resulting from tour found in given graph.
+    For each edge in the tour, three points are generated.
+    (in the center, orthogonal to the right of the edge, orthogonal to the left of the edge)
+    How far away from the center, left and right are is based on the given track width.
+    :return: animations for track points creation, animations for track points removal, track points
+    """
+    track_points = []
+    graph_tour = GraphTour(graph)
+    nodes = graph_tour.get_nodes()
+    nodes.append(nodes[0])
+
+    line_drawables = []
+    point_drawables = []
+
+    for idx in range(len(nodes) - 1):
+        node1 = nodes[idx]
+        node2 = nodes[idx + 1]
+        coord1 = node1.get_real_coords()
+        coord2 = node2.get_real_coords()
+        right, left, center = get_track_points(coord1, coord2, track_width)
+        track_points.append((right, left, center))
+        line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
+        line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
+        point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
+        point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
+
+    track_points_creation = [
+        AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
+        AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+        AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
+    ]
+
+    track_points_removal = [
+        AnimationObject(type='play', content=[FadeOut(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+    ]
+
+    return track_points_creation, track_points_removal, track_points
+
+
+def get_track_points(coord1, coord2, track_width):
+    """
+    :returns right and left point of center of track between two coordinates
+    """
+    center = find_center(coord1, coord2)
+    direction = get_direction(coord1, coord2)
+    orth_vec = np.array(get_orthogonal_vec(direction))
+    right = np.add(center, track_width * orth_vec)
+    left = np.subtract(center, track_width * orth_vec)
+    return [TrackPoint(coords, direction) for coords in [right, left, center]]
+
+
+def alter_track_point_directions(track_points):
+    for points in track_points:
+        degrees_20 = 0.349066
+        angle = degrees_20 * random.uniform(0, 1) - degrees_20/2
+        [point.alter_direction(angle) for point in points]
+
+
+def find_center(coord1, coord2):
+    x1, y1, _ = coord1
+    x2, y2, _ = coord2
+    return (x1 + x2) / 2, (y1 + y2) / 2, 0
+
+
+def get_direction(coord1, coord2):
+    """
+    Calculate norm vector between two points coord1 and coord2
+    """
+    coord1 = np.array(coord1[:2])
+    coord2 = np.array(coord2[:2])
+    vec = np.subtract(coord2, coord1)
+    vec_norm = vec / np.linalg.norm(vec)
+    return np.array(vec_norm)
+
+
+def get_orthogonal_vec(vec):
+    """
+    Calculate vector that is orthogonal to vec
+    """
+    vec_copy = np.copy(vec)
+    vec_norm = vec_copy[::-1]  # change the indexing to reverse the vector to swap x and y (note that this doesn't do any copying)
+    # print("change indexing: {}".format(vec_norm))
+    vec_norm[0] = -vec_norm[0]
+    # print("make first axis negative: {}".format(vec_norm))
+    orth_vec = list(vec_norm) + [0]
+    return np.array(orth_vec)
+
+
 def transform_coords(coords, shift, scale):
     x, y = coords
     x_shift, y_shift = shift
     return x_shift + x * scale, y_shift + y * scale, 0
 
+
+#######################
+#### GRID SHOWCASE ####
+#######################
 
 class GridShowCase:
     """

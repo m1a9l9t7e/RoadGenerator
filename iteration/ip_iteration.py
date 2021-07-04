@@ -3,7 +3,7 @@ import time
 
 from graph import Graph, GraphSearcher
 from ip import GGMSTProblem, IntersectionProblem
-from util import draw_graph, make_unitary, GridShowCase, print_2d, get_adjacent
+from util import draw_graph, make_unitary, GridShowCase, get_adjacent
 import numpy as np
 import itertools
 from termcolor import colored
@@ -436,6 +436,41 @@ def get_join_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersecti
 
 def get_problem(graph_width, graph_height):
     return GGMSTProblem(graph_width - 1, graph_height - 1)
+
+
+#######################
+####### IP UTIL ######
+#######################
+
+def get_random_solution(width, height):
+    # Get Solution
+    problem = get_problem(width, height)
+    solution, status = problem.solve(_print=False)
+
+    # Add intersections
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    non_zero_indices = np.argwhere(intersect_matrix > 0)
+    for index in range(n):
+        x, y = non_zero_indices[index]
+        intersect_matrix[x][y] = random.choice([0, 1])
+    solution = intersect_matrix + np.array(solution)
+    return solution
+
+
+def get_custom_solution(width, height):
+    # Get Solution
+    problem = GGMSTProblem(width - 1, height - 1, [[0, 1], [1, 2], [2, 1]])
+    solution, status = problem.solve(_print=False)
+
+    # Add intersections
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    non_zero_indices = np.argwhere(intersect_matrix > 0)
+    custom_choice = [1, 1, 0] + [0] * (width * height)
+    for index in range(n):
+        x, y = non_zero_indices[index]
+        intersect_matrix[x][y] = custom_choice[index]
+    solution = intersect_matrix + np.array(solution)
+    return solution
 
 
 if __name__ == '__main__':

@@ -1,6 +1,6 @@
-import numpy as np
-import matplotlib.pyplot as plt
 from manim import *
+from anim_sequence import AnimationObject
+import numpy as np
 
 
 class Constraint:
@@ -76,13 +76,6 @@ def calculate_polynomial_values(x, rank, derivative, descending=True):
     return values
 
 
-def plot(polynomial_x, polynomial_y, n):
-    x = [polynomial_x(z) for z in np.arange(0, 1, 1/n)]
-    y = [polynomial_y(z) for z in np.arange(0, 1, 1 / n)]
-    plt.scatter(x, y)
-    plt.show()
-
-
 class Spline:
     def __init__(self, polynomials=None):
         if polynomials is None:
@@ -127,6 +120,58 @@ class Spline2d:
         return animation
 
 
+def interpolate_track_points_continuous(track_points, duration=5):
+    right_spline = Spline2d()
+    left_spline = Spline2d()
+    center_spline = Spline2d()
+    right1, left1, center1 = track_points[0]
+    track_points = track_points[1:]
+    track_points.append((right1, left1, center1))
+    for right2, left2, center2 in track_points:
+        px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
+        right_spline.add_polynomials(px, py)
+        px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
+        left_spline.add_polynomials(px, py)
+        px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
+        center_spline.add_polynomials(px, py)
+        right1, left1, center1 = (right2, left2, center2)
+
+    right_line = right_spline.get_animation()
+    left_line = left_spline.get_animation()
+    center_line = center_spline.get_animation(dashed=True, num_dashes=4)
+    animation_sequence = [AnimationObject(type='play', content=[right_line, left_line, center_line], duration=duration, bring_to_front=True)]
+    return animation_sequence
+
+
+def interpolate_track_points_piece_wise(track_points):
+    right_line_animations = []
+    left_line_animations = []
+    center_line_animations = []
+    right1, left1, center1 = track_points[0]
+    track_points = track_points[1:]
+    track_points.append((right1, left1, center1))
+    for right2, left2, center2 in track_points:
+        px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        right_line_animations.append(Create(right_line))
+        px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        left_line_animations.append(Create(left_line))
+        px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        dashed_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+        center_line_animations.append(Create(dashed_line))
+
+        right1, left1, center1 = (right2, left2, center2)
+
+    animation_sequence = []
+    for idx in range(len(right_line_animations)):
+        animation_sequence.append(AnimationObject(type='play',
+                                                  content=[right_line_animations[idx], left_line_animations[idx], center_line_animations[idx]],
+                                                  duration=0.5, bring_to_front=True))
+
+    return animation_sequence
+
+
 if __name__ == '__main__':
     px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
-    plot(px, py, 20)
