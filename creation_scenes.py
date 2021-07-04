@@ -1,8 +1,8 @@
 from manim import *
 from anim_sequence import AnimationSequenceScene
 from graph import Graph, random_joins, custom_joins
-from iteration.ip_iteration import convert_solution_to_join_sequence, GraphModel, get_custom_solution, get_random_solution
-from interpolation import interpolate_track_points_continuous
+from iteration.ip_iteration import convert_solution_to_join_sequence, GraphModel, get_custom_solution, get_random_solution, convert_solution_to_graph
+from interpolation import interpolate_track_points_continuous, interpolate_track_points_piece_wise
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points
 
 
@@ -118,9 +118,54 @@ class MultiGraph(AnimationSequenceScene):
         self.wait(5)
 
 
+class CustomTrack(AnimationSequenceScene):
+    def construct(self):
+        wishes = {
+            'n_intersections': None,
+            'allow_adjacent_intersections': False,
+            'allow_intersect_at_stubs': False,
+            # 'n_straights': 2,
+            # 'n_90_degree_turns': 3,
+            # 'n_180_degree_turns': 1,
+            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
+        }
+        width, height = (6, 6)
+        square_size = 2
+        track_width = 0.3
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+
+        # solution = get_random_solution(width, height)
+        solution = get_custom_solution(width, height, wishes)
+
+        # Animate Solution
+        graph = convert_solution_to_graph(solution, scale=square_size)
+        gen_track_points, remove_track_points, points = generate_track_points(graph, track_width=track_width)
+        # if width > 6 or height > 6:
+        #     interpolation_animation = interpolate_track_points_piece_wise(points)
+        # else:
+        #     interpolation_animation = interpolate_track_points_continuous(points)
+        interpolation_animation = interpolate_track_points_piece_wise(points)
+        grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+
+        animations_list = [
+            grid.get_animation_sequence(),
+            draw_graph(graph),
+            gen_track_points,
+            remove_graph(graph, animate=True),
+            interpolation_animation,
+            remove_track_points,
+        ]
+
+        for anim in animations_list:
+            self.play_animations(anim)
+
+        self.wait(4)
+
+
 if __name__ == '__main__':
     # scene = CircuitCreation()
     # scene = GraphModelTest()
     # scene = IPCircuitCreation()
-    scene = MultiGraphIP()
+    # scene = MultiGraphIP()
+    scene = CustomTrack()
     scene.construct()

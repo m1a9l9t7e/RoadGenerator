@@ -7,7 +7,7 @@ class GGMSTProblem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, extra_constraints=None, raster=True):
+    def __init__(self, width, height, extra_constraints=None, raster=False):
         # assert width % 2 == 1 and height % 2 == 1
         self.width = width
         self.height = height
@@ -17,7 +17,7 @@ class GGMSTProblem:
         self.add_all_constraints(raster)
 
     def init_variables(self):
-        grid = [[LpVariable("{}_{}".format(x, y), 0, 1, cat=const.LpInteger) for y in range(self.height)] for x in range(self.width)]
+        grid = [[LpVariable("{}_{}".format(x, y), cat=const.LpBinary) for y in range(self.height)] for x in range(self.width)]
         return grid
 
     def get_safe(self, x, y):
@@ -151,9 +151,6 @@ class GGMSTProblem:
         all_variables = self.get_all_variables()
         self.problem += sum(all_variables) == n
 
-        for variable in all_variables:
-            self.problem += variable <= 1
-
     def add_raster_constraint(self):
         """
         Pre determine raster shape
@@ -207,7 +204,7 @@ class IntersectionProblem:
         self.add_all_constraints(n, allow_adjacent, extra_constraints)
 
     def init_variables(self):
-        variables = [LpVariable("{}".format(index), 0, 1, cat=const.LpInteger) for index in range(len(self.non_zero_indices))]
+        variables = [LpVariable("{}".format(index), cat=const.LpBinary) for index in range(len(self.non_zero_indices))]
         return variables
 
     def add_no_adjacency_constraints(self):

@@ -457,19 +457,29 @@ def get_random_solution(width, height):
     return solution
 
 
-def get_custom_solution(width, height):
+def get_custom_solution(width, height, wishes):
     # Get Solution
-    problem = GGMSTProblem(width - 1, height - 1, [[0, 1], [1, 2], [2, 1]])
-    solution, status = problem.solve(_print=False)
+    start = time.time()
+    ggmst_problem = GGMSTProblem(width - 1, height - 1, raster=False)
+    solution, status = ggmst_problem.solve(_print=False)
+    end = time.time()
+    print(colored('GGMST solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
 
     # Add intersections
-    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    start = time.time()
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=wishes['allow_intersect_at_stubs'])
     non_zero_indices = np.argwhere(intersect_matrix > 0)
-    custom_choice = [1, 1, 0] + [0] * (width * height)
+    n_intersections = random.randint(0, n) if wishes['n_intersections'] is None else wishes['n_intersections']
+    intersection_problem = IntersectionProblem(non_zero_indices, n=n_intersections, allow_adjacent=wishes['allow_adjacent_intersections'])
+    selection, status = intersection_problem.solve()
+    end = time.time()
+    print(colored('Intersections solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
+
     for index in range(n):
         x, y = non_zero_indices[index]
-        intersect_matrix[x][y] = custom_choice[index]
+        intersect_matrix[x][y] = selection[index]
     solution = intersect_matrix + np.array(solution)
+
     return solution
 
 
@@ -477,13 +487,3 @@ if __name__ == '__main__':
     # 6x6 complete with intersections: 52960
     # 8x4 complete with intersections: 12796
     GraphModel(6, 6, generate_intersections=True, fast=False)
-    # p = GGMSTProblem(3, 3)
-    # solution_grid, success = p.solve(_print=False)
-    # print_2d(solution_grid)
-    # intersect_matrix, n = get_intersect_matrix(solution_grid, False)
-    # print_2d(intersect_matrix)
-    # non_zero_indices = np.argwhere(intersect_matrix > 0)
-    # print("Intersections possible at: {}".format(non_zero_indices))
-    # p2 = IntersectionProblem(non_zero_indices, n=None, extra_constraints=[0, 2])
-    # selection, feasible = p2.solve()
-    # print("Intersections selected at: {}".format(selection))
