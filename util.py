@@ -360,10 +360,11 @@ class GridShowCase:
     A helper class for dividing a 2d space into a grid, and keeping track of the positions of all cells.
     Size and spacing of cells are configurable. The dimensions of the grid are automatically calculated based on a given ratio.
     """
-    def __init__(self, num_elements, element_dimensions, spacing=[1, 1], space_ratio=[16, 9]):
+    def __init__(self, num_elements, element_dimensions, spacing=[1, 1], space_ratio=[16, 9], shift=[0, 0]):
         self.grid_dimensions = calculate_grid_dimensions(num_elements, ratio=space_ratio)
         self.element_width, self.element_height = element_dimensions
         self.x_spacing, self.y_spacing = spacing
+        self.shift = shift
 
     def get_global_camera_settings(self):
         """
@@ -376,7 +377,7 @@ class GridShowCase:
         height = rows * self.element_height + (rows - 1) * self.y_spacing
         size = [width, height]
         position = np.array(size) / 2
-        return position, size
+        return self.transform_coords(position), size
 
     def get_zoomed_camera_settings(self, index):
         """
@@ -387,7 +388,7 @@ class GridShowCase:
         bottom_left_x, bottom_left_y = self.get_element_coords(index)
         position = (bottom_left_x + self.element_width/2, bottom_left_y + self.element_height/2)
         size = [self.element_width, self.element_height]
-        return position, size
+        return self.transform_coords(position), size
 
     def get_element_coords(self, index):
         """
@@ -398,7 +399,12 @@ class GridShowCase:
         y = np.floor(index / cols)
         bottom_left_x = x * (self.element_width + self.x_spacing)
         bottom_left_y = y * (self.element_height + self.y_spacing)
-        return bottom_left_x, bottom_left_y
+        return self.transform_coords((bottom_left_x, bottom_left_y))
+
+    def transform_coords(self, coords):
+        x, y = coords
+        x_shift, y_shift = self.shift
+        return [x + x_shift, y + y_shift]
 
 
 def calculate_grid_dimensions(num_elements, ratio):

@@ -457,7 +457,17 @@ def get_random_solution(width, height):
     return solution
 
 
-def get_custom_solution(width, height, wishes):
+def get_custom_solution(width, height, wishes=None):
+    if wishes is None:
+        wishes = {
+            'n_intersections': 5,
+            'allow_adjacent_intersections': False,
+            'allow_intersect_at_stubs': False,
+            # 'n_straights': 2,
+            # 'n_90_degree_turns': 3,
+            # 'n_180_degree_turns': 1,
+            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
+        }
     # Get Solution
     start = time.time()
     ggmst_problem = GGMSTProblem(width - 1, height - 1, raster=False)

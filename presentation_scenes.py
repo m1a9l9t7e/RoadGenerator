@@ -1,67 +1,10 @@
 from manim import *
 import random
 from interpolation import find_polynomials
-from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel
-from util import Converter, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_square
+from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel, convert_solution_to_graph
+from util import GraphTour, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_square, get_text
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene
-
-
-class LineTest(MovingCameraScene):
-    def construct(self):
-        px, py = find_polynomials(0, 0, 1, 0, 0.1, 0.1, 0, 1)
-        _line_x = ParametricFunction(function=lambda t: (t - 2, px(t), 0), t_min=0, t_max=2, color=WHITE)
-        _line_y = ParametricFunction(function=lambda t: (t, py(t), 0), t_min=0, t_max=2, color=WHITE)
-        _line = ParametricFunction(function=lambda t: (px(t) + 2, py(t), 0), t_min=0, t_max=0.1, color=WHITE)
-        label_x = Text("fx(z)")
-        label_x.next_to(_line_x, DOWN)
-        label_y = Text("fy(z)")
-        label_y.next_to(_line_y, DOWN)
-        label = Text("fx,y(z)")
-        label.next_to(_line, DOWN)
-        # self.play(Create(label_x), Create(label_y), Create(label))
-        self.add(label_x, label_y, label)
-        self.play(Create(_line_x))
-        self.play(Create(_line_y))
-        self.play(Create(_line), run_time=2)
-        self.wait(5)
-
-
-class CircleTest(MovingCameraScene):
-    def construct(self):
-        # scale_list = [0.1, 0.5, 0.75, 1, 2, 10, 100]
-        scale_list = [0.1, 0.5, 0.75, 1, 2]
-        x_pos = 0
-        for scale_idx, scale in enumerate(scale_list):
-            circle_points = [np.array([0, 0]) * scale, np.array([1, 1]) * scale, np.array([0, 2]) * scale, np.array([-1, 1]) * scale]
-            circle_directions = [[1, 0], [0, 1], [-1, 0], [0, -1]]
-            width = scale * 5 + 1 if scale_idx > 0 else 2.2
-            spacing = 0 if scale_idx > 0 else -width * 0.9 + 1
-            current_pos = x_pos + width / 2
-            self.play(
-                self.camera.frame.animate.set_width(width),
-                run_time=0.5
-            )
-            self.play(
-                self.camera.frame.animate.move_to((current_pos, scale / 1.5, 0)),
-                run_time=1
-            )
-            label = Text("r={}".format(scale), size=0.5)
-            label.next_to((current_pos, 0, 0), DOWN)
-            self.add(label)
-
-            x_pos += spacing + width
-
-            for idx in range(len(circle_points)):
-                next_idx = (idx + 1) % len(circle_points)
-                point1, direction1 = (circle_points[idx], circle_directions[idx])
-                point2, direction2 = (circle_points[next_idx], circle_directions[next_idx])
-                px, py = find_polynomials(*point1, *direction1, *point2, *direction2)
-                _line = ParametricFunction(function=lambda t: (current_pos + px(t), py(t), 0), t_min=0, t_max=1, color=WHITE,
-                                           stroke_width=2 if scale < 10 else (np.log10(scale) + 2) * 5)
-                self.play(Create(_line), run_time=0.5)
-
-        self.wait(3)
 
 
 class Basics(AnimationSequenceScene):
@@ -100,20 +43,25 @@ class Basics(AnimationSequenceScene):
 
 class IP(AnimationSequenceScene):
     def construct(self):
-        width, height = (3, 3)
-        square_size = 1
+        width, height = (6, 6)
+        scale = 1
         # track_width = 0.4
+        show_graph = True
 
         ip_width, ip_height = (width - 1, height - 1)
         num_elements = ip_width * ip_height
-        helper = GridShowCase(num_elements, [square_size, square_size], spacing=[0, 0], space_ratio=[1, 1])
+        helper = GridShowCase(num_elements, [scale, scale], spacing=[0, 0], space_ratio=[1, 1])
         camera_position, camera_size = helper.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=[-square_size/2, -square_size/2])
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=[-scale/2, -scale/2])
 
         problem = get_problem(width, height)
         solution, status = problem.solve()
-        solution_flat = np.ravel(solution, order='F')
 
+        graph = convert_solution_to_graph(solution, shift=[-scale/2, -scale/2])
+
+        solution_flat = np.ravel(solution, order='F')
+        # solution_flat = [0, 1, 0, 1, 1, 1, 0, 1, 0]
+        # solution_flat = [0, 1, 1, 0]
         squares = []
         captions = []
         for i in range(num_elements):
@@ -121,34 +69,55 @@ class IP(AnimationSequenceScene):
 
             coords = helper.get_element_coords(i)
             if solution_flat[i] > 0:
-                square = get_square(coords, square_size, BLUE, BLUE_E, border_width=1)
+                square = get_square(coords, scale, GREEN_E, DARK_GREY, border_width=2)
+                # if x == 1 and y == 1:
+                squares.append(square)
+                # else:
+                #     square = get_square(coords, square_size, BLACK, BLUE_E, border_width=2)
+                #     squares.append(square)
+                # captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords))
+            else:
+                square = get_square(coords, scale, BLACK, DARK_GREY, border_width=2)
                 squares.append(square)
 
             captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords))
 
-        animation_sequence = [
+        animation_sequence = []
+
+        if show_graph:
+            animation_sequence += draw_graph(graph)
+
+        animation_sequence += [
             AnimationObject('add', content=squares, bring_to_back=True),
             AnimationObject('play', content=[Create(text) for text in captions], duration=1, bring_to_front=True)
         ]
 
+        animation_sequence += [
+            get_legend([
+                (GREEN_E, DARK_GREY, 'Positive Cell'),
+                (BLACK, DARK_GREY, 'Negative Cell')
+            ], shift=[camera_size[0] + scale/4, scale/2], scale=0.3)
+        ]
+
         self.play_animations(animation_sequence)
 
-
-        # TODO: draw graph
-        # join_sequence = convert_solution_to_join_sequence(solution)
-        # animation, graph = join_sequence.get_animations(scale=square_size, shift=[0, 0])
-        # self.play_animations(draw_graph(graph))
         self.wait(5)
 
 
-def get_text(text, coords, scale=1):
-    x, y = coords
-    text = Tex(text).scale(scale)
-    text.set_x(coords[0])
-    text.set_y(coords[1])
-    return text
+def get_legend(legend_list, shift, scale=1.0):
+    drawables = []
+    helper = GridShowCase(len(legend_list) * 2, [scale, scale], spacing=[scale*1.5, scale/2], space_ratio=[2, len(legend_list)], shift=shift)
+    for index, (_color, _secondary_color, label) in enumerate(legend_list):
+        element_coords = helper.get_element_coords(index * 2)
+        text_coords = helper.get_element_coords(index * 2 + 1)
+        drawables += [
+            get_square(element_coords, scale, _color, _secondary_color, border_width=2 * scale),
+            get_text(label, text_coords, scale=scale)
+        ]
+
+    return AnimationObject('add', content=drawables, bring_to_front=True)
 
 
 if __name__ == '__main__':
-    scene = Basics()
+    scene = IP()
     scene.construct()

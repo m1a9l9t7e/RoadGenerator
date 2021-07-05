@@ -164,6 +164,18 @@ class GGMSTProblem:
             for (x, y) in self.extra_constraints:
                 self.problem += self.grid[x][y] == 1
 
+    def add_90_degree_turn_constraint(self, n):
+        # TODO
+        pass
+
+    def add_180_degree_turn_constraint(self, n):
+        # TODO
+        pass
+
+    def add_straights_constraint(self, length, n):
+        # TODO
+        pass
+
     def add_all_constraints(self, add_raster_constraint):
         self.add_coverage_constraints()
         self.add_local_adjacency_constraints()   # needed?
@@ -225,6 +237,14 @@ class IntersectionProblem:
                 self.problem += self.variables[index] == 1
             else:
                 self.problem += self.variables[index] == 0
+
+    def add_diagonal_constraint(self, n):
+        # TODO
+        pass  # This could also be formulated as an objective
+
+    def add_no_stub_intersection_constraint(self, max_n):
+        # TODO
+        pass
 
     def add_all_constraints(self, n, allow_adjacent, extra_constraints):
         if not allow_adjacent:

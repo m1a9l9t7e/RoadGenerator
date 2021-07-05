@@ -121,7 +121,7 @@ class MultiGraph(AnimationSequenceScene):
 class CustomTrack(AnimationSequenceScene):
     def construct(self):
         wishes = {
-            'n_intersections': None,
+            'n_intersections': 5,
             'allow_adjacent_intersections': False,
             'allow_intersect_at_stubs': False,
             # 'n_straights': 2,
@@ -163,9 +163,5 @@ class CustomTrack(AnimationSequenceScene):
 
 
 if __name__ == '__main__':
-    # scene = CircuitCreation()
-    # scene = GraphModelTest()
-    # scene = IPCircuitCreation()
-    # scene = MultiGraphIP()
     scene = CustomTrack()
     scene.construct()
