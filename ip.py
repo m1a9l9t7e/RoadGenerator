@@ -116,6 +116,16 @@ class GGMSTProblem:
         for square in squares:
             self.problem += (square[0] + square[3]) / 2 <= square[1] + square[2]
             self.problem += (square[1] + square[2]) / 2 <= square[0] + square[3]
+            # print("({} + {}) / 2 <= {} + {}".format(square[1], square[2], square[0], square[3]))
+
+    def check_no_diagonal_only_constraints(self):
+        """
+        For each square, the diagonal must not be covered exclusively
+        """
+        squares = self.get_squares()
+        for square in squares:
+            print("({} + {}) / 2 <= {} + {} ({})".format(square[1], square[2], square[0], square[3],
+                                                         (value(square[1]) + value(square[2])) / 2 <= value(square[0]) + value(square[3])))
 
     def add_local_adjacency_constraints(self):
         """
@@ -263,6 +273,9 @@ class IntersectionProblem:
 
 
 if __name__ == '__main__':
-    # p = Problem(3, 3, [[0, 1], [1, 0]])
-    p = GGMSTProblem(3, 3)
-    solution_grid, success = p.solve(_print=False)
+    # p = GGMSTProblem(5, 5, [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4], [1, 4], [0, 4], [0, 3]])
+    p = GGMSTProblem(5, 5, [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    _, feasible = p.solve(_print=True)
+    # p.check_no_diagonal_only_constraints()
+    # p = GGMSTProblem(3, 3)
+    # solution_grid, success = p.solve(_print=False)

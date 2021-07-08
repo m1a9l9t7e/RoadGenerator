@@ -2,7 +2,7 @@ import random
 import time
 
 from graph import Graph, GraphSearcher
-from ip import GGMSTProblem, IntersectionProblem
+from ip_reformulation import GGMSTProblem, IntersectionProblem
 from util import draw_graph, make_unitary, GridShowCase, get_adjacent
 import numpy as np
 import itertools
@@ -14,20 +14,23 @@ class GraphModel:
     def __init__(self, width, height, generate_intersections=True, fast=False, ip_intersections=True, sample_random=None):
         self.width = width - 1
         self.height = height - 1
-        iterator = GGMSTIterator(self.width, self.height, raster=fast, _print=False)
+        iterator = GGMSTIterator(self.width, self.height, raster=fast, _print=True)
+        start = time.time()
         self.variants = iterator.iterate()
+        end = time.time()
 
         if generate_intersections:
             print(colored("Number of variants w/o intersections: {}".format(len(self.variants)), 'green'))
+            print(colored("Time elapsed: {:.2f}s".format(end - start), 'blue'))
             start = time.time()
             if ip_intersections:
                 self.variants += get_join_variants_ip(self.variants)
             else:
                 self.variants = add_join_variants(self.variants)
             end = time.time()
-            print("Time elapsed: {:.2f}s".format(end - start))
 
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
+        print(colored("Time elapsed: {:.2f}s".format(end - start), 'blue'))
 
         if sample_random is not None and sample_random < len(self.variants):
             self.variants = random.sample(self.variants, sample_random)
@@ -460,18 +463,18 @@ def get_random_solution(width, height):
 def get_custom_solution(width, height, wishes=None):
     if wishes is None:
         wishes = {
-            'n_intersections': 5,
+            'n_intersections': 2,
             'allow_adjacent_intersections': False,
             'allow_intersect_at_stubs': False,
             # 'n_straights': 2,
             # 'n_90_degree_turns': 3,
             # 'n_180_degree_turns': 1,
-            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
+            'hard_constraints': [[0, 1], [1, 2], [2, 1]]
         }
     # Get Solution
     start = time.time()
-    ggmst_problem = GGMSTProblem(width - 1, height - 1, raster=False)
-    solution, status = ggmst_problem.solve(_print=False)
+    ggmst_problem = GGMSTProblem(width - 1, height - 1, extra_constraints=wishes['hard_constraints'])
+    solution, status = ggmst_problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored('GGMST solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
 
@@ -496,4 +499,5 @@ def get_custom_solution(width, height, wishes=None):
 if __name__ == '__main__':
     # 6x6 complete with intersections: 52960
     # 8x4 complete with intersections: 12796
-    GraphModel(6, 6, generate_intersections=True, fast=False)
+    GraphModel(4, 4, generate_intersections=False, fast=False)
+    # solution = get_custom_solution(4, 4)

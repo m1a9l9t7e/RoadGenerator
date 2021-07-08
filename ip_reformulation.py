@@ -1,6 +1,6 @@
 from pulp import *
 import numpy as np
-from util import is_adjacent, add_to_list_in_dict
+from util import is_adjacent, add_to_list_in_dict, time
 from termcolor import colored
 
 
@@ -20,7 +20,6 @@ class GGMSTProblem:
         self.nodes_intersections = []  # binary
         self.edges = []  # binary
         self.edges_values = []  # integer
-        self.inverse_edges = []
 
         # Same variables stored in different data structures for easier access
         self.node_grid = [[None for y in range(self.height)] for x in range(self.width)]
@@ -52,7 +51,6 @@ class GGMSTProblem:
                     edge_from_above_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y+1, x, y), 0, self.get_n(), cat=const.LpInteger)
                     self.edges += [edge_to_above, edge_from_above]
                     self.edges_values += [edge_to_above_value, edge_from_above_value]
-                    self.inverse_edges.append((edge_to_above, edge_from_above))
                     add_to_list_in_dict(self.e_out, (x, y), edge_to_above)
                     add_to_list_in_dict(self.e_in, (x, y), edge_from_above)
                     add_to_list_in_dict(self.e_out, (x, y+1), edge_from_above)
@@ -69,7 +67,6 @@ class GGMSTProblem:
                     edge_from_right_value = LpVariable("e{}_{}to{}_{}(value)".format(x+1, y, x, y), 0, self.get_n(), cat=const.LpInteger)
                     self.edges += [edge_to_right, edge_from_right]
                     self.edges_values += [edge_to_right_value, edge_from_right_value]
-                    self.inverse_edges.append((edge_to_right, edge_from_right))
                     add_to_list_in_dict(self.e_out, (x, y), edge_to_right)
                     add_to_list_in_dict(self.e_in, (x, y), edge_from_right)
                     add_to_list_in_dict(self.e_out, (x+1, y), edge_from_right)
@@ -78,13 +75,13 @@ class GGMSTProblem:
                     add_to_list_in_dict(self.e_in_values, (x, y), edge_from_right_value)
                     add_to_list_in_dict(self.e_out_values, (x+1, y), edge_from_right_value)
                     add_to_list_in_dict(self.e_in_values, (x+1, y), edge_to_right_value)
-        
+
         # Init Problem
         self.problem = LpProblem("GGMSTProblem", LpMinimize)
-        
+
         # Add constraints to the Problem
-        self.add_all_constraints(raster)
-        
+        self.add_all_constraints()
+
     def get_safe(self, x, y):
         if x >= len(self.node_grid) or y >= len(self.node_grid[x]) or x < 0 or y < 0:
             return None
@@ -108,23 +105,6 @@ class GGMSTProblem:
                 variables.append(self.node_grid[x][y])
 
         return variables
-
-    def get_adjacent_nodes(self):
-        """
-        Get variables adjacent to each pixel as list
-        :return: [pixel, adjacent_top, adjacent_bottom, adjacent_right, adjacent_left]
-        """
-        variables_list = []
-        for x in range(len(self.node_grid)):
-            for y in range(len(self.node_grid[x])):
-                adjacent = [self.get_safe(x + _x, y + _y) for _x, _y in [(0, 1), (0, -1), (1, 0), (-1, 0)]]
-                variables = [self.node_grid[x][y]]
-                for v in adjacent:
-                    if v is not None:
-                        variables.append(v)
-                variables_list.append(variables)
-
-        return variables_list
 
     def get_squares(self, size=2):
         """
@@ -171,60 +151,6 @@ class GGMSTProblem:
         for square in squares:
             self.problem += sum(square) >= 1
 
-    def add_no_square_cycle_constraints(self):
-        """
-        For each square, not all 4 pixels can be 1
-        """
-        squares = self.get_squares()
-        for square in squares:
-            self.problem += sum(square) <= 3
-
-    def add_no_diagonal_only_constraints(self):
-        """
-        TODO: this constraint includes more than it was intended to! Rewrite!
-        For each square, the diagonal must not be covered exclusively
-        """
-        squares = self.get_squares()
-        for square in squares:
-            self.problem += (square[0] + square[3]) / 2 <= square[1] + square[2]
-            self.problem += (square[1] + square[2]) / 2 <= square[0] + square[3]
-            # print("({} + {}) / 2 <= {} + {}".format(square[1], square[2], square[0], square[3]))
-
-    def check_no_diagonal_only_constraints(self):
-        """
-        For each square, the diagonal must not be covered exclusively
-        """
-        squares = self.get_squares()
-        for square in squares:
-            print("({} + {}) / 2 <= {} + {} ({})".format(square[1], square[2], square[0], square[3],
-                                                         (value(square[1]) + value(square[2])) / 2 <= value(square[0]) + value(square[3])))
-
-    def add_local_adjacency_constraints(self):
-        """
-        For each pixel, there must be at least one adjacent pixel
-        """
-        adjacent_list = self.get_adjacent_nodes()
-        for adjacent in adjacent_list:
-            pixel = adjacent[0]
-            adjacent_pixels = adjacent[1:]
-            self.problem += pixel <= sum(adjacent_pixels)
-
-    def add_global_adjacency_constraints(self):
-        """
-        For each row and each column, there must be at least one pixel with positive value
-        """
-        for x in range(self.width):
-            column = []
-            for y in range(self.height):
-                column.append(self.node_grid[x][y])
-            self.problem += sum(column) >= 1
-
-        for y in range(self.height):
-            row = []
-            for x in range(self.width):
-                row.append(self.node_grid[x][y])
-            self.problem += sum(row) >= 1
-
     def add_n_constraint(self):
         """
         All pixels combined must have a value of n
@@ -234,14 +160,6 @@ class GGMSTProblem:
 
     def get_n(self):
         return np.ceil(self.width/2) * self.height + np.floor(self.width/2)
-
-    def add_raster_constraint(self):
-        """
-        Pre determine raster shape
-        """
-        for x in range(0, self.width, 2):
-            for y in range(0, self.height, 2):
-                self.problem += self.node_grid[x][y] == 1
 
     def add_extra_constraints(self):
         if self.extra_constraints is not None:
@@ -264,9 +182,10 @@ class GGMSTProblem:
 
         # Nodes can only have values > 0, if they are selected
         # In other words: if a nodes selection is zero, the nodes value is also zero
-        # for x in range(self.width):
-        #     for y in range(self.height):
-        #         self.problem += self.node_grid_values[x][y] <= self.node_grid[x][y] * self.get_n()
+        # This constraint is technically not needed
+        for x in range(self.width):
+            for y in range(self.height):
+                self.problem += self.node_grid_values[x][y] <= self.node_grid[x][y] * self.get_n()
 
         # Edges can only be selected if their value is >= 1
         # In other words: if a nodes value is zero, the selection must also be zero
@@ -294,12 +213,6 @@ class GGMSTProblem:
             for y in range(self.height):
                 if not (x == 0 and y == 0):
                     self.problem += sum(self.e_in[(x, y)]) * 4 >= sum(self.e_out[(x, y)])
-
-        # Inverse edges may not be picked at the same time.
-        # e.g. 0,0 -> 1,0 AND 1,0 -> 0,0 is not allowed
-        # TODO: constraint should be obsolete once decreasing flow works
-        for (e_forward, e_backward) in self.inverse_edges:
-            self.problem += e_forward + e_backward <= 1
 
         # TODO: enable decreasing flow criteria
         # Edges going out of node have value of node - 1
@@ -331,24 +244,26 @@ class GGMSTProblem:
         # TODO
         pass
 
-    def add_all_constraints(self, add_raster_constraint):
+    def add_all_constraints(self):
+        self.add_no_square_cycle_constraints()  # This is only needed for performance!
         self.add_coverage_constraints()
-        self.add_no_square_cycle_constraints()  # needed?
-        # self.add_no_diagonal_only_constraints()
-        # self.add_local_adjacency_constraints()   # needed?
-        # self.add_global_adjacency_constraints()
         self.add_n_constraint()
         self.add_flow_constraints()
-        # if add_raster_constraint:
-        #     self.add_raster_constraint()
         self.add_extra_constraints()
-        # self.problem += self.node_grid[2][0] == 0
+
+    def add_no_square_cycle_constraints(self):
+        """
+        For each square, not all 4 pixels can be 1
+        """
+        squares = self.get_squares()
+        for square in squares:
+            self.problem += sum(square) <= 3
 
     def solve(self, _print=False, print_zeros=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
-        # status = self.problem.solve()
-        # status = self.problem.solve(GLPK(msg = 0))  # Alternative Solver
         status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        # status = self.problem.solve(CPLEX_PY(msg=0))
+
         if _print:
             print("{} Solution:".format(LpStatus[status]))
         for y in range(self.height-1, -1, -1):
@@ -492,10 +407,10 @@ def print_dict(_dict, values=False, binary=False):
 
 
 if __name__ == '__main__':
-    # p = GGMSTProblem(5, 5, [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4], [1, 4], [0, 4], [0, 3]])
-    # _, feasible = p.solve(_print=True)
-    # p.check_no_diagonal_only_constraints()
-    p = GGMSTProblem(7, 7)
-    solution, status = p.solve()
+    p = GGMSTProblem(5, 5)
+    start = time.time()
+    solution, status = p.solve(_print=True)
+    end = time.time()
     p.print_all_variables(values=True)
-    print(colored("Solution {}".format(LpStatus[status-1]), "blue"))
+    print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "blue"))
+

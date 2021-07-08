@@ -8,9 +8,9 @@ from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, genera
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        width, height = (4, 4)
+        width, height = (6, 6)
         square_size = 2
-        graph_model = GraphModel(width, height, generate_intersections=True, sample_random=6 * 4)
+        graph_model = GraphModel(width, height, generate_intersections=False, sample_random=None)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[6, 4])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
@@ -41,15 +41,14 @@ class IPCircuitCreation(AnimationSequenceScene):
         solution = get_custom_solution(width, height)
 
         # Animate Solution
-        sequence = convert_solution_to_join_sequence(solution)
-        animations, graph = sequence.get_animations(square_size, (0, 0))
+        graph = convert_solution_to_graph(solution, scale=square_size)
         gen_track_points, remove_track_points, points = generate_track_points(graph, track_width=track_width)
         interpolation_animation = interpolate_track_points_continuous(points)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
 
         animations_list = [
             grid.get_animation_sequence(),
-            animations,
+            draw_graph(graph),
             gen_track_points,
             remove_graph(graph, animate=True),
             interpolation_animation,

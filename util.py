@@ -442,6 +442,13 @@ def print_2d(grid, print_zeros=True):
     print()
 
 
+def add_to_list_in_dict(_dict, key, element):
+    if key not in _dict.keys():
+        _dict[key] = [element]
+    else:
+        _dict[key].append(element)
+
+
 if __name__ == '__main__':
     num = 15
     gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
