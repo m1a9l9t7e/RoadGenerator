@@ -14,6 +14,7 @@ class GGMSTProblem:
         self.height = height
         self.extra_constraints = extra_constraints
         self.n_intersections = n_intersections
+        self.n_straights = n_straights
 
         # variables
         self.nodes = []  # binary
@@ -32,6 +33,11 @@ class GGMSTProblem:
         self.e_out = dict()
         self.e_out_values = dict()
 
+        # extras
+        self.straights = []
+        self.degree_90s = []
+        self.degree_180s = []
+
         for x in range(self.width):
             for y in range(self.height):
                 # Init node variables at (x, y)
@@ -45,37 +51,37 @@ class GGMSTProblem:
                 self.node_grid_values[x][y] = v_value
                 self.node_grid_intersections[x][y] = v_intersection
                 # Init variables for edges with node above
-                if self.check_bounds(x, y+1):
-                    edge_to_above = LpVariable("e{}_{}to{}_{}".format(x, y, x, y+1), cat=const.LpBinary)
-                    edge_from_above = LpVariable("e{}_{}to{}_{}".format(x, y+1, x, y), cat=const.LpBinary)
-                    edge_to_above_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y, x, y+1), 0, self.get_n(), cat=const.LpInteger)
-                    edge_from_above_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y+1, x, y), 0, self.get_n(), cat=const.LpInteger)
+                if self.check_bounds(x, y + 1):
+                    edge_to_above = LpVariable("e{}_{}to{}_{}".format(x, y, x, y + 1), cat=const.LpBinary)
+                    edge_from_above = LpVariable("e{}_{}to{}_{}".format(x, y + 1, x, y), cat=const.LpBinary)
+                    edge_to_above_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y, x, y + 1), 0, self.get_n(), cat=const.LpInteger)
+                    edge_from_above_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y + 1, x, y), 0, self.get_n(), cat=const.LpInteger)
                     self.edges += [edge_to_above, edge_from_above]
                     self.edges_values += [edge_to_above_value, edge_from_above_value]
                     add_to_list_in_dict(self.e_out, (x, y), edge_to_above)
                     add_to_list_in_dict(self.e_in, (x, y), edge_from_above)
-                    add_to_list_in_dict(self.e_out, (x, y+1), edge_from_above)
-                    add_to_list_in_dict(self.e_in, (x, y+1), edge_to_above)
+                    add_to_list_in_dict(self.e_out, (x, y + 1), edge_from_above)
+                    add_to_list_in_dict(self.e_in, (x, y + 1), edge_to_above)
                     add_to_list_in_dict(self.e_out_values, (x, y), edge_to_above_value)
                     add_to_list_in_dict(self.e_in_values, (x, y), edge_from_above_value)
-                    add_to_list_in_dict(self.e_out_values, (x, y+1), edge_from_above_value)
-                    add_to_list_in_dict(self.e_in_values, (x, y+1), edge_to_above_value)
+                    add_to_list_in_dict(self.e_out_values, (x, y + 1), edge_from_above_value)
+                    add_to_list_in_dict(self.e_in_values, (x, y + 1), edge_to_above_value)
                 # Init variables for edges with node to the right
-                if self.check_bounds(x+1, y):
-                    edge_to_right = LpVariable("e{}_{}to{}_{}".format(x, y, x+1, y), cat=const.LpBinary)
-                    edge_from_right = LpVariable("e{}_{}to{}_{}".format(x+1, y, x, y), cat=const.LpBinary)
-                    edge_to_right_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y, x+1, y), 0, self.get_n(), cat=const.LpInteger)
-                    edge_from_right_value = LpVariable("e{}_{}to{}_{}(value)".format(x+1, y, x, y), 0, self.get_n(), cat=const.LpInteger)
+                if self.check_bounds(x + 1, y):
+                    edge_to_right = LpVariable("e{}_{}to{}_{}".format(x, y, x + 1, y), cat=const.LpBinary)
+                    edge_from_right = LpVariable("e{}_{}to{}_{}".format(x + 1, y, x, y), cat=const.LpBinary)
+                    edge_to_right_value = LpVariable("e{}_{}to{}_{}(value)".format(x, y, x + 1, y), 0, self.get_n(), cat=const.LpInteger)
+                    edge_from_right_value = LpVariable("e{}_{}to{}_{}(value)".format(x + 1, y, x, y), 0, self.get_n(), cat=const.LpInteger)
                     self.edges += [edge_to_right, edge_from_right]
                     self.edges_values += [edge_to_right_value, edge_from_right_value]
                     add_to_list_in_dict(self.e_out, (x, y), edge_to_right)
                     add_to_list_in_dict(self.e_in, (x, y), edge_from_right)
-                    add_to_list_in_dict(self.e_out, (x+1, y), edge_from_right)
-                    add_to_list_in_dict(self.e_in, (x+1, y), edge_to_right)
+                    add_to_list_in_dict(self.e_out, (x + 1, y), edge_from_right)
+                    add_to_list_in_dict(self.e_in, (x + 1, y), edge_to_right)
                     add_to_list_in_dict(self.e_out_values, (x, y), edge_to_right_value)
                     add_to_list_in_dict(self.e_in_values, (x, y), edge_from_right_value)
-                    add_to_list_in_dict(self.e_out_values, (x+1, y), edge_from_right_value)
-                    add_to_list_in_dict(self.e_in_values, (x+1, y), edge_to_right_value)
+                    add_to_list_in_dict(self.e_out_values, (x + 1, y), edge_from_right_value)
+                    add_to_list_in_dict(self.e_in_values, (x + 1, y), edge_to_right_value)
 
         # Init Problem
         self.problem = LpProblem("GGMSTProblem", LpMinimize)
@@ -141,12 +147,50 @@ class GGMSTProblem:
         pass
 
     def add_180_degree_turn_constraint(self, n):
-        # TODO
-        pass
+        for x in range(self.width):
+            for y in range(self.height):
+                if not (x == 0 and y == 0):
+                    self.problem += sum(self.e_in[(x, y)]) == self.node_grid[x][y]
+                else:
+                    self.problem += sum(self.e_in[(x, y)]) == 0
+                    self.problem += sum(self.e_out[(x, y)]) >= 1
 
-    def add_straights_constraint(self, length, n):
-        # TODO
-        pass
+    def add_straights_constraints(self, length):
+        indices = []
+        for x in range(self.width):
+            for y in range(self.height):
+                indices.append((x, y))
+        for (x, y) in indices:
+            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
+            parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            if not any(elem is None for elem in horizontal):
+                # 0 if no straights, 1 or 2 for each side
+                straight_var = LpVariable("horizontal_straight{}_{}".format(x, y), cat=const.LpInteger)
+                # This term will be 2 if all cells are 1. If any of the cells are zero, it will be (0-1) * 10 * zero cells + 2
+                self.problem += straight_var <= 2 - sum([(cell - 1) * 10 for cell in horizontal])
+                # This constraints enforces, that straight vars can be 2 if all pieces for a straight are there, else 0
+                # This term will limit the variable depending on adjacent cells that are connected to the sides of the straight,
+                # leading to a curve on one or both sides. The value shall be limited to 2, 1, 0, depending on if there are
+                # adjacent cells on both, one or none of the sides
+                # For any combination of elements from left/right. If one is true, value can be at most 1, if two are true, value must be zero
+                for i in range(length):
+                    for j in range(length):
+                        self.problem += straight_var <= 2 - parallel_top[i] + parallel_bottom[j]
+                self.straights.append(straight_var)
+            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
+            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            if not any(elem is None for elem in vertical):
+                straight_var = LpVariable("vertical_straight{}_{}".format(x, y), 0, 2, cat=const.LpInteger)
+                self.problem += straight_var <= sum([(cell - 1) * 10 for cell in vertical]) + 2
+                for i in range(length):
+                    for j in range(length):
+                        self.problem += straight_var <= 2 - parallel_right[i] + parallel_left[j]
+                self.straights.append(straight_var)
+
+        self.problem += sum(self.straights) >= self.n_straights
+        return self.straights
 
     def get_squares_fractured(self):
         """
@@ -183,7 +227,7 @@ class GGMSTProblem:
         self.problem += sum(all_variables) == self.get_n()
 
     def get_n(self):
-        return np.ceil(self.width/2) * self.height + np.floor(self.width/2)
+        return np.ceil(self.width / 2) * self.height + np.floor(self.width / 2)
 
     def add_extra_constraints(self):
         if self.extra_constraints is not None:
@@ -295,16 +339,19 @@ class GGMSTProblem:
         self.add_n_constraint()
         self.add_flow_constraints()
         self.add_extra_constraints()
-        self.add_intersection_constraints()
+        if self.n_intersections is not None:
+            self.add_intersection_constraints()
+        if self.n_straights is not None:
+            self.add_straights_constraints(3)
 
-    def solve(self, _print=False, print_zeros=False, intersections=True):
+    def solve(self, _print=False, print_zeros=False, intersections=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
         status = self.problem.solve(PULP_CBC_CMD(msg=0))
         # status = self.problem.solve(CPLEX_PY(msg=0))
 
         if _print:
             print("{} Solution:".format(LpStatus[status]))
-        for y in range(self.height-1, -1, -1):
+        for y in range(self.height - 1, -1, -1):
             row = ""
             for x in range(self.width):
                 solution_x_y = int(value(self.node_grid[x][y]))
@@ -316,7 +363,7 @@ class GGMSTProblem:
                 row += "{} ".format(solution_x_y)
             if _print:
                 print(row)
-        return solution, status+1
+        return solution, status + 1
 
     def print_all_variables(self, values=True):
         print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
@@ -341,6 +388,11 @@ class GGMSTProblem:
         print_dict(self.e_out, values=values, binary=True)
         print("Edge Out (values) dict:")
         print_dict(self.e_out_values, values=values)
+
+        print("Extras:")
+        # print("Straights: {}".format(self.straights))
+        print_list(self.straights, values=True, binary=True)
+        print_list(self.straights, values=True)
 
 
 class IntersectionProblem:
@@ -394,14 +446,14 @@ class IntersectionProblem:
         solution = [value(variable) for variable in self.variables]
         if _print:
             print("{} Solution: {}".format(LpStatus[status], solution))
-        return solution, status+1
+        return solution, status + 1
 
 
 def print_grid(grid, values=True, print_zeros=True, binary=False):
     if values and value(grid[2][2]) is None:
         print("Values None, switching to names...")
         values = False
-    for y in range(len(grid[0])-1, -1, -1):
+    for y in range(len(grid[0]) - 1, -1, -1):
         row = ""
         for x in range(len(grid)):
             if values and binary:
@@ -446,11 +498,26 @@ def print_dict(_dict, values=False, binary=False):
     print(_str)
 
 
+def print_list(_list, values=False, binary=False):
+    list_str = ""
+    for variable in _list:
+        if values and binary:
+            if int(value(variable)) > 0:
+                _print = colored(str(variable), 'green')
+            else:
+                _print = variable
+        elif values:
+            _print = int(value(variable))
+        else:
+            _print = variable
+        list_str += "{} ".format(_print)
+    print(list_str)
+
+
 if __name__ == '__main__':
-    p = GGMSTProblem(5, 5, n_intersections=4)
+    p = GGMSTProblem(5, 5, n_intersections=None, n_straights=0)
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
     p.print_all_variables(values=True)
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "blue"))
-
