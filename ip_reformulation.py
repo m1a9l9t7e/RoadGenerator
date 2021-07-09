@@ -8,11 +8,12 @@ class GGMSTProblem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, extra_constraints=None, raster=False):
+    def __init__(self, width, height, extra_constraints=None, n_intersections=0):
         # arguments
         self.width = width
         self.height = height
         self.extra_constraints = extra_constraints
+        self.n_intersections = n_intersections
 
         # variables
         self.nodes = []  # binary
@@ -82,9 +83,12 @@ class GGMSTProblem:
         # Add constraints to the Problem
         self.add_all_constraints()
 
-    def get_safe(self, x, y):
+    def get_safe(self, x, y, nonexistent=None):
+        """
+        :param nonexistent: What to return if requested cell does not exist 
+        """
         if x >= len(self.node_grid) or y >= len(self.node_grid[x]) or x < 0 or y < 0:
-            return None
+            return nonexistent
         else:
             return self.node_grid[x][y]
 
@@ -123,6 +127,26 @@ class GGMSTProblem:
                 variables_list.append(variables)
 
         return variables_list
+
+    def add_no_square_cycle_constraints(self):
+        """
+        For each square, not all 4 pixels can be 1
+        """
+        squares = self.get_squares()
+        for square in squares:
+            self.problem += sum(square) <= 3
+
+    def add_90_degree_turn_constraint(self, n):
+        # TODO
+        pass
+
+    def add_180_degree_turn_constraint(self, n):
+        # TODO
+        pass
+
+    def add_straights_constraint(self, length, n):
+        # TODO
+        pass
 
     def get_squares_fractured(self):
         """
@@ -214,7 +238,6 @@ class GGMSTProblem:
                 if not (x == 0 and y == 0):
                     self.problem += sum(self.e_in[(x, y)]) * 4 >= sum(self.e_out[(x, y)])
 
-        # TODO: enable decreasing flow criteria
         # Edges going out of node have value of node - 1
         # but only if edge exists? <=??
         for x in range(self.width):
@@ -230,36 +253,51 @@ class GGMSTProblem:
                 if not (x == 0 and y == 0):
                     self.problem += self.node_grid_values[x][y] == sum(self.e_in_values[(x, y)]) - self.node_grid[x][y]
 
-        # self.problem += self.node_grid_values[1][1] == 7
+    def add_intersection_constraints(self):
+        # Intersections can only be exist at selected cells.
+        for index in range(len(self.nodes_intersections)):
+            self.problem += self.nodes_intersections[index] <= self.nodes[index]
 
-    def add_90_degree_turn_constraint(self, n):
-        # TODO
-        pass
+        # No adjacency constraints:
+        indices = []
+        for x in range(self.width):
+            for y in range(self.height):
+                indices.append((x, y))
 
-    def add_180_degree_turn_constraint(self, n):
-        # TODO
-        pass
+        # Two adjacent intersection vars can not both be selected
+        for (x1, y1) in indices:
+            for (x2, y2) in indices:
+                if is_adjacent((x1, y1), (x2, y2)):
+                    self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
 
-    def add_straights_constraint(self, length, n):
-        # TODO
-        pass
+        # Number of intersections == n
+        self.problem += sum(self.nodes_intersections) == self.n_intersections
+
+        # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
+        # an intersection to exist. This implies that the degree of the cell must be 2
+        for (x, y) in indices:
+            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, 1), (0, -1), (1, 0), (-1, 0)]]
+            # Exclude the following cases:
+            # Right adjacent, but not left
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[0] * 1 + adjacent[1] * - 1 + 1
+            # Left adjacent, but not right
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[1] * 1 + adjacent[0] * - 1 + 1
+            # Top adjacent, but not bottom
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[2] * 1 + adjacent[3] * - 1 + 1
+            # Bottom adjacent, but not top
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[3] * 1 + adjacent[2] * - 1 + 1
+            # Not more than 2 adjacent
+            self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
 
     def add_all_constraints(self):
-        self.add_no_square_cycle_constraints()  # This is only needed for performance!
+        self.add_no_square_cycle_constraints()  # This is only needed for CBM performance!
         self.add_coverage_constraints()
         self.add_n_constraint()
         self.add_flow_constraints()
         self.add_extra_constraints()
+        self.add_intersection_constraints()
 
-    def add_no_square_cycle_constraints(self):
-        """
-        For each square, not all 4 pixels can be 1
-        """
-        squares = self.get_squares()
-        for square in squares:
-            self.problem += sum(square) <= 3
-
-    def solve(self, _print=False, print_zeros=False):
+    def solve(self, _print=False, print_zeros=False, intersections=True):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
         status = self.problem.solve(PULP_CBC_CMD(msg=0))
         # status = self.problem.solve(CPLEX_PY(msg=0))
@@ -270,6 +308,8 @@ class GGMSTProblem:
             row = ""
             for x in range(self.width):
                 solution_x_y = int(value(self.node_grid[x][y]))
+                if intersections:
+                    solution_x_y += int(value(self.node_grid_intersections[x][y]))
                 solution[x][y] = solution_x_y
                 if not print_zeros:
                     solution_x_y = " " if solution_x_y == 0 else solution_x_y
@@ -282,7 +322,7 @@ class GGMSTProblem:
         print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
         print("Nodes:              {}".format(self.nodes))
         print("Node Values:        {}".format(self.nodes_values))
-        # print("Node Intersections: {}".format(self.nodes_intersections))
+        print("Node Intersections: {}".format(self.nodes_intersections))
         print("Edges:              {}".format(self.edges))
         print("Edges Values:       {}".format(self.edges_values))
 
@@ -290,8 +330,8 @@ class GGMSTProblem:
         print_grid(self.node_grid, values=values, binary=True)
         print("Node Value Grid:")
         print_grid(self.node_grid_values, values=values)
-        # print("Node Intersection Grid:")
-        # print_grid(self.node_grid_intersections, values=values, binary=True)
+        print("Node Intersection Grid:")
+        print_grid(self.node_grid_intersections, values=values, binary=True)
 
         print("Edges In dict:")
         print_dict(self.e_in, values=values, binary=True)
@@ -357,7 +397,7 @@ class IntersectionProblem:
         return solution, status+1
 
 
-def print_grid(grid, values=False, print_zeros=True, binary=False):
+def print_grid(grid, values=True, print_zeros=True, binary=False):
     if values and value(grid[2][2]) is None:
         print("Values None, switching to names...")
         values = False
@@ -407,7 +447,7 @@ def print_dict(_dict, values=False, binary=False):
 
 
 if __name__ == '__main__':
-    p = GGMSTProblem(5, 5)
+    p = GGMSTProblem(5, 5, n_intersections=4)
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()

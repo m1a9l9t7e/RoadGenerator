@@ -139,7 +139,7 @@ class GGMSTIterator:
                 continue
             # print("Child sequence: {}".format(_sequence))
             # problem = Problem(width, height, [free[i] for i in _sequence])
-            problem = GGMSTProblem(self.width, self.height, [self.free[i] for i in _sequence], raster=self.raster)
+            problem = GGMSTProblem(self.width, self.height, [self.free[i] for i in _sequence])
             solution, feasible = problem.solve()
             # solution, status = (0, 1)
             if feasible:
