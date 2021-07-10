@@ -8,7 +8,7 @@ class GGMSTProblem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, extra_constraints=None, n_intersections=0):
+    def __init__(self, width, height, extra_constraints=None, n_intersections=None, n_straights=None):
         # arguments
         self.width = width
         self.height = height
@@ -155,7 +155,18 @@ class GGMSTProblem:
                     self.problem += sum(self.e_in[(x, y)]) == 0
                     self.problem += sum(self.e_out[(x, y)]) >= 1
 
-    def add_straights_constraints(self, length):
+    def add_straights_constraints(self, length, n_straights):
+        """
+        The Idea is to represent a straight sequence of "length" cells as a new variable.
+        This variable is either 2, 1 or 0.
+        0: One of the cells is not selected OR there are adjacent cells on BOTH sides of the sequence
+        1: All cells are selected and there are adjacent cells one ONE side of the sequence
+        2: All cells are selected and there are no adjacent cells on either side of the sequence
+        The value of the variable represents the number of resulting straights.
+        :param length:
+        :param n_straights:
+        :return:
+        """
         indices = []
         for x in range(self.width):
             for y in range(self.height):
@@ -165,15 +176,11 @@ class GGMSTProblem:
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                # 0 if no straights, 1 or 2 for each side
-                straight_var = LpVariable("horizontal_straight{}_{}".format(x, y), cat=const.LpInteger)
-                # This term will be 2 if all cells are 1. If any of the cells are zero, it will be (0-1) * 10 * zero cells + 2
-                self.problem += straight_var <= 2 - sum([(cell - 1) * 10 for cell in horizontal])
-                # This constraints enforces, that straight vars can be 2 if all pieces for a straight are there, else 0
-                # This term will limit the variable depending on adjacent cells that are connected to the sides of the straight,
-                # leading to a curve on one or both sides. The value shall be limited to 2, 1, 0, depending on if there are
-                # adjacent cells on both, one or none of the sides
-                # For any combination of elements from left/right. If one is true, value can be at most 1, if two are true, value must be zero
+                straight_var = LpVariable("horizontal_straight{}_{}".format(x, y), 0, 2, cat=const.LpInteger)
+                # Limit value of var to 0 if any cells are missing, otherwise leave maximum at 2!
+                for cell in horizontal:
+                    self.problem += straight_var <= 2 - 2 * (1 - cell)
+                # Limit the value of var to 1 if any adjacent cell is selected and to 0 if any combination of cells from both sides are selected
                 for i in range(length):
                     for j in range(length):
                         self.problem += straight_var <= 2 - parallel_top[i] + parallel_bottom[j]
@@ -183,13 +190,17 @@ class GGMSTProblem:
             parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in vertical):
                 straight_var = LpVariable("vertical_straight{}_{}".format(x, y), 0, 2, cat=const.LpInteger)
-                self.problem += straight_var <= sum([(cell - 1) * 10 for cell in vertical]) + 2
+                # Limit value of var to 0 if any cells are missing, otherwise leave maximum at 2!
+                for cell in vertical:
+                    self.problem += straight_var <= 2 - 2 * (1 - cell)
+                # Limit the value of var to 1 if any adjacent cell is selected and to 0 if any combination of cells from both sides are selected
                 for i in range(length):
                     for j in range(length):
                         self.problem += straight_var <= 2 - parallel_right[i] + parallel_left[j]
                 self.straights.append(straight_var)
 
-        self.problem += sum(self.straights) >= self.n_straights
+        # Set number of straights via defined vars
+        self.problem += sum(self.straights) == n_straights
         return self.straights
 
     def get_squares_fractured(self):
@@ -342,15 +353,15 @@ class GGMSTProblem:
         if self.n_intersections is not None:
             self.add_intersection_constraints()
         if self.n_straights is not None:
-            self.add_straights_constraints(3)
+            self.add_straights_constraints(3, self.n_straights)
 
     def solve(self, _print=False, print_zeros=False, intersections=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
-        status = self.problem.solve(PULP_CBC_CMD(msg=0))
-        # status = self.problem.solve(CPLEX_PY(msg=0))
+        # status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        status = self.problem.solve(CPLEX_PY(msg=0))
 
         if _print:
-            print("{} Solution:".format(LpStatus[status]))
+            print("{} Solutionk:".format(LpStatus[status]))
         for y in range(self.height - 1, -1, -1):
             row = ""
             for x in range(self.width):
@@ -515,7 +526,7 @@ def print_list(_list, values=False, binary=False):
 
 
 if __name__ == '__main__':
-    p = GGMSTProblem(5, 5, n_intersections=None, n_straights=0)
+    p = GGMSTProblem(7, 7, n_intersections=None, n_straights=1)
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
