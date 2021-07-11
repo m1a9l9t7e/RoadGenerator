@@ -163,6 +163,12 @@ def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
     return line
 
 
+def get_arrow(coord1, coord2, scale=1, color=WHITE):
+    arrow = Arrow(coord1, coord2)
+    arrow.set_color(color)
+    return arrow
+
+
 def get_square(coords, size, color, secondary_color, border_width=2):
     square = Square(side_length=size)
     square.set_fill(color, opacity=1)

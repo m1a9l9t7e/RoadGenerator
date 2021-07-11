@@ -176,7 +176,7 @@ class GGMSTProblem:
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                straight_var = LpVariable("horizontal_straight{}_{}".format(x, y), 0, 2, cat=const.LpInteger)
+                straight_var = LpVariable("horizontal_straight{}_{}_n{}".format(x, y, length), 0, 2, cat=const.LpInteger)
                 # Limit value of var to 0 if any cells are missing, otherwise leave maximum at 2!
                 for cell in horizontal:
                     self.problem += straight_var <= 2 - 2 * (1 - cell)
@@ -189,7 +189,7 @@ class GGMSTProblem:
             parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in vertical):
-                straight_var = LpVariable("vertical_straight{}_{}".format(x, y), 0, 2, cat=const.LpInteger)
+                straight_var = LpVariable("vertical_straight{}_{}_n{}".format(x, y, length), 0, 2, cat=const.LpInteger)
                 # Limit value of var to 0 if any cells are missing, otherwise leave maximum at 2!
                 for cell in vertical:
                     self.problem += straight_var <= 2 - 2 * (1 - cell)
@@ -272,7 +272,7 @@ class GGMSTProblem:
             self.problem += self.edges[index] <= self.edges_values[index]
 
         # Edges can only have values > 0, if they are selected
-        # # In other words: if an edges selection is zero, the edges values is also zero
+        # In other words: if an edges selection is zero, the edges values is also zero
         for index in range(len(self.edges)):
             self.problem += self.edges_values[index] <= self.edges[index] * self.get_n()
 
@@ -293,8 +293,7 @@ class GGMSTProblem:
                 if not (x == 0 and y == 0):
                     self.problem += sum(self.e_in[(x, y)]) * 4 >= sum(self.e_out[(x, y)])
 
-        # Edges going out of node have value of node - 1
-        # but only if edge exists? <=??
+        # Edges going out of node have value of node
         for x in range(self.width):
             for y in range(self.height):
                 for edge_value in self.e_out_values[(x, y)]:
@@ -361,7 +360,7 @@ class GGMSTProblem:
         status = self.problem.solve(CPLEX_PY(msg=0))
 
         if _print:
-            print("{} Solutionk:".format(LpStatus[status]))
+            print("{} Solution:".format(LpStatus[status]))
         for y in range(self.height - 1, -1, -1):
             row = ""
             for x in range(self.width):
@@ -405,6 +404,19 @@ class GGMSTProblem:
         print_list(self.straights, values=True, binary=True)
         print_list(self.straights, values=True)
 
+    def get_all_variables(self, values=True):
+        _dict = {
+            'node_grid': export_grid(self.node_grid),
+            'node_grid_values': export_grid(self.node_grid_values),
+            'node_grid_intersections': export_grid(self.node_grid_intersections),
+            'edges_in': export_dict(self.e_in, save_name=True),
+            'edges_in_values': export_dict(self.e_in_values, save_name=True),
+            'edges_out': export_dict(self.e_out, save_name=True),
+            'edges_out_values': export_dict(self.e_out_values, save_name=True),
+            'straights': export_list(self.straights, save_name=True)
+        }
+        return _dict
+
 
 class IntersectionProblem:
     def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
@@ -435,14 +447,6 @@ class IntersectionProblem:
                 self.problem += self.variables[index] == 1
             else:
                 self.problem += self.variables[index] == 0
-
-    def add_diagonal_constraint(self, n):
-        # TODO
-        pass  # This could also be formulated as an objective
-
-    def add_no_stub_intersection_constraint(self, max_n):
-        # TODO
-        pass
 
     def add_all_constraints(self, n, allow_adjacent, extra_constraints):
         if not allow_adjacent:
@@ -523,6 +527,32 @@ def print_list(_list, values=False, binary=False):
             _print = variable
         list_str += "{} ".format(_print)
     print(list_str)
+
+
+def export_grid(grid, save_name=False):
+    return [[export_variable(grid[x][y], save_name=save_name) for y in range(len(grid[x]))] for x in range(len(grid))]
+
+
+def export_dict(_dict, save_name=False):
+    export = dict()
+    for key in _dict.keys():
+        _list = _dict[key]
+        export[key] = export_list(_list, save_name=save_name)
+    return export
+
+
+def export_list(_list, save_name=False):
+    export = []
+    for variable in _list:
+        export.append(export_variable(variable, save_name=save_name))
+    return export
+
+
+def export_variable(var, save_name=False):
+    if save_name:
+        return int(value(var)), str(var)
+    else:
+        return int(value(var))
 
 
 if __name__ == '__main__':

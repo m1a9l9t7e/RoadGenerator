@@ -1,10 +1,11 @@
 from manim import *
 import random
 from interpolation import find_polynomials
-from ip import GGMSTProblem
+# from ip import GGMSTProblem
+from ip_reformulation import GGMSTProblem
 from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel, convert_solution_to_graph, \
     get_custom_solution
-from util import GraphTour, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_square, get_text
+from util import GraphTour, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_square, get_text, get_arrow
 from graph import Graph, GraphSearcher
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
@@ -127,6 +128,146 @@ class IP(AnimationSequenceScene):
         self.wait(5)
 
 
+class IPExtra(AnimationSequenceScene):
+    def construct(self):
+        viz = IPVisualization(8, 8, show_text='values', show_edges=True, show_intersections=False)
+        camera_position, camera_size, shift = viz.get_camera_settings()
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=shift)
+        self.play_animations(viz.get_animation_sequence())
+        self.wait(5)
+
+
+class IPVisualization:
+    def __init__(self, width, height, show_graph=True, show_text='names', show_intersections=True, show_edges=False, show_straights=False):
+        if show_text not in ['names', 'values']:
+            raise ValueError('Unknown value for show_text: {}'.format(show_text))
+        self.width, self.height = (width, height)
+        self.ip_width, self.ip_height = (width - 1, height - 1)
+        self.show_graph = show_graph
+        self.show_intersections = show_intersections
+        self.show_straights = show_straights
+        self.show_edges = show_edges
+        self.show_root = show_edges
+        self.show_text = show_text
+        self.n = np.ceil(self.ip_width / 2) * self.ip_height + np.floor(self.ip_width / 2)
+        self.scale = 1
+        self.num_elements = self.ip_width * self.ip_height
+        self.helper = GridShowCase(self.num_elements, [self.scale, self.scale], spacing=[0, 0], space_ratio=[1, 1])
+        self.problem = GGMSTProblem(self.ip_width, self.ip_height, n_intersections=0, n_straights=None)
+        self.solution, self.feasible = self.problem.solve(_print=True)
+        # self.problem.print_all_variables()
+        self.problem_dict = self.problem.get_all_variables()
+        self.animation_sequence = []
+
+        # Descriptors
+        self.negative_cell_desc = (BLACK, DARK_GREY, 'Negative Cell')
+        self.positive_cell_desc = (GREEN_E, DARK_GREY, 'Positive Cell')
+        self.intersection_cell_desc = (YELLOW_E, DARK_GREY, 'Intersection')
+        self.root_cell_desc = (DARK_BROWN, DARK_GREY, 'Root Cell')
+
+    def get_animation_sequence(self):
+        if self.show_graph:
+            self.add_graph()
+        self.add_squares()
+        if self.show_edges:
+            self.add_edges()
+        self.add_legend()
+        return self.animation_sequence
+
+    def add_squares(self):
+        # unpack primary and secondary colors
+        pc1, sc1, _ = self.positive_cell_desc
+        pc2, sc2, _ = self.negative_cell_desc
+        pc3, sc3, _ = self.intersection_cell_desc
+        pc4, sc4, _ = self.root_cell_desc
+
+        node_grid_values = self.problem_dict['node_grid_values']
+
+        if self.show_intersections:
+            intersect_matrix, n = get_intersect_matrix(self.solution, allow_intersect_at_stubs=False)
+        else:
+            intersect_matrix = np.zeros_like(self.solution)
+
+        solution_flat = np.ravel(self.solution, order='F')
+        intersect_matrix_flat = np.ravel(intersect_matrix, order='F')
+        squares = []
+        captions = []
+        for index in range(self.num_elements):
+            x, y = (index % self.ip_width, int(np.floor(index / self.ip_width)))
+            coords = self.helper.get_element_coords(index)
+            if solution_flat[index] > 0:
+                if intersect_matrix_flat[index] > 0:
+                    square = get_square(coords, self.scale, pc3, sc3, border_width=2 * self.scale)
+                else:
+                    if x == 0 and y == 0 and self.show_root:
+                        square = get_square(coords, self.scale, pc4, sc4, border_width=2 * self.scale)
+                    else:
+                        square = get_square(coords, self.scale, pc1, sc1, border_width=2 * self.scale)
+
+                squares.append(square)
+                if self.show_text == 'values':
+                    captions.append(get_text('{}'.format(node_grid_values[x][y]), coords))
+            else:
+                square = get_square(coords, self.scale, pc2, sc2, border_width=2)
+                squares.append(square)
+
+            if self.show_text == 'names':
+                captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords))
+
+        self.animation_sequence += [
+            AnimationObject('add', content=squares, bring_to_back=True),
+            AnimationObject('play', content=[Create(text) for text in captions], duration=1, bring_to_front=True)
+        ]
+
+    def add_edges(self):
+        edges_out = self.problem_dict['edges_out']
+
+        arrows = []
+        for index in range(self.num_elements):
+            x, y = (index % self.ip_width, int(np.floor(index / self.ip_width)))
+            coords = self.helper.get_element_coords(index)
+            edge_list = edges_out[(x, y)]
+            for edge in edge_list:
+                value, name = edge
+                coords1, coords2 = name[1:].split('to')
+                coords1 = np.array([int(elem) for elem in coords1.split('_') + [0]])
+                coords2 = np.array([int(elem) for elem in coords2.split('_') + [0]])
+                if value > 0:
+                    arrow = get_arrow(coords1 * self.scale, coords2 * self.scale, scale=0.5, color=RED)
+                    arrows.append(arrow)
+                # else:
+                #     arrow = get_arrow(coords1 * self.scale, coords2 * self.scale, scale=0.5, color=GREY)
+                #     arrows.append(arrow)
+
+        self.animation_sequence += [
+            AnimationObject('add', content=arrows, bring_to_front=True),
+        ]
+
+    def add_graph(self):
+        graph = convert_solution_to_graph(self.solution, shift=[-self.scale / 2, -self.scale / 2])
+        self.animation_sequence += draw_graph(graph)
+
+    def add_legend(self):
+        legend_entries = [
+            self.negative_cell_desc,
+            self.positive_cell_desc
+        ]
+        if self.show_intersections:
+            legend_entries.insert(0, self.intersection_cell_desc)
+        if self.show_root:
+            legend_entries.insert(0, self.root_cell_desc)
+
+        _, camera_size, _ = self.get_camera_settings()
+        self.animation_sequence += [
+            get_legend(legend_entries, shift=[camera_size[0] + self.scale/4, self.scale/2], scale=self.scale * 0.5)
+        ]
+
+    def get_camera_settings(self):
+        camera_position, camera_size = self.helper.get_global_camera_settings()
+        shift = [-self.scale/2, -self.scale/2]
+        return camera_position, camera_size, shift
+
+
 def get_legend(legend_list, shift, scale=1.0):
     drawables = []
     helper = GridShowCase(len(legend_list) * 2, [scale, scale], spacing=[scale, scale/2], space_ratio=[2, len(legend_list)], shift=shift)
@@ -142,5 +283,5 @@ def get_legend(legend_list, shift, scale=1.0):
 
 
 if __name__ == '__main__':
-    scene = IP()
+    scene = IPExtra()
     scene.construct()
