@@ -120,21 +120,54 @@ class Spline2d:
         return animation
 
 
-def interpolate_track_points_continuous(track_points, duration=5):
-    right_spline = Spline2d()
-    left_spline = Spline2d()
-    center_spline = Spline2d()
+def interpolate_track_points_piece_wise(track_points):
+    right_line_polynomials = []
+    left_line_polynomials = []
+    center_line_polynomials = []
     right1, left1, center1 = track_points[0]
     track_points = track_points[1:]
     track_points.append((right1, left1, center1))
     for right2, left2, center2 in track_points:
         px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
-        right_spline.add_polynomials(px, py)
+        right_line_polynomials.append((px, py))
         px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
-        left_spline.add_polynomials(px, py)
+        left_line_polynomials.append((px, py))
         px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
-        center_spline.add_polynomials(px, py)
+        center_line_polynomials.append((px, py))
         right1, left1, center1 = (right2, left2, center2)
+
+    return right_line_polynomials, left_line_polynomials, center_line_polynomials
+
+
+def get_interpolation_animation_piece_wise(track_points):
+    r_polynomials, l_polynomials, c_polynomials = interpolate_track_points_piece_wise(track_points)
+    animation_sequence = []
+    for idx in range(len(r_polynomials)):
+        px, py = r_polynomials[idx]
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        px, py = l_polynomials[idx]
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        px, py = c_polynomials[idx]
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+        animation_sequence.append(AnimationObject(type='play',
+                                                  content=[Create(right_line), Create(left_line), Create(center_line)],
+                                                  duration=0.5, bring_to_front=True))
+    return animation_sequence
+
+
+def get_interpolation_animation_continuous(points, duration=5):
+    right_spline = Spline2d()
+    left_spline = Spline2d()
+    center_spline = Spline2d()
+    right, left, center = interpolate_track_points_piece_wise(points)
+    for index in range(len(right)):
+        px, py = right[index]
+        right_spline.add_polynomials(px, py)
+        px, py = left[index]
+        left_spline.add_polynomials(px, py)
+        px, py = center[index]
+        center_spline.add_polynomials(px, py)
 
     right_line = right_spline.get_animation()
     left_line = left_spline.get_animation()
@@ -143,35 +176,6 @@ def interpolate_track_points_continuous(track_points, duration=5):
     return animation_sequence
 
 
-def interpolate_track_points_piece_wise(track_points):
-    right_line_animations = []
-    left_line_animations = []
-    center_line_animations = []
-    right1, left1, center1 = track_points[0]
-    track_points = track_points[1:]
-    track_points.append((right1, left1, center1))
-    for right2, left2, center2 in track_points:
-        px, py = find_polynomials(*(right1.as_list() + right2.as_list()))
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
-        right_line_animations.append(Create(right_line))
-        px, py = find_polynomials(*(left1.as_list() + left2.as_list()))
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
-        left_line_animations.append(Create(left_line))
-        px, py = find_polynomials(*(center1.as_list() + center2.as_list()))
-        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
-        dashed_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
-        center_line_animations.append(Create(dashed_line))
-
-        right1, left1, center1 = (right2, left2, center2)
-
-    animation_sequence = []
-    for idx in range(len(right_line_animations)):
-        animation_sequence.append(AnimationObject(type='play',
-                                                  content=[right_line_animations[idx], left_line_animations[idx], center_line_animations[idx]],
-                                                  duration=0.5, bring_to_front=True))
-
-    return animation_sequence
-
-
 if __name__ == '__main__':
-    px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
+    # px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
+    pass

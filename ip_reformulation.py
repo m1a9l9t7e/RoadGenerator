@@ -356,8 +356,8 @@ class GGMSTProblem:
 
     def solve(self, _print=False, print_zeros=False, intersections=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
-        # status = self.problem.solve(PULP_CBC_CMD(msg=0))
-        status = self.problem.solve(CPLEX_PY(msg=0))
+        status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        # status = self.problem.solve(CPLEX_PY(msg=0))
 
         if _print:
             print("{} Solution:".format(LpStatus[status]))
