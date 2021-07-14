@@ -1,12 +1,8 @@
 from manim import *
-import random
-from interpolation import find_polynomials
-# from ip import GGMSTProblem
-from ip_reformulation import GGMSTProblem
-from iteration.ip_iteration import get_problem, get_intersect_matrix, convert_solution_to_join_sequence, GraphModel, convert_solution_to_graph, \
-    get_custom_solution
-from util import GraphTour, Grid, TrackPoint, GridShowCase, draw_graph, remove_graph, make_unitary, print_2d, get_square, get_text, get_arrow
-from graph import Graph, GraphSearcher
+from ip.problem import GGMSTProblem
+from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution
+from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow
+from graph import Graph
 from anim_sequence import AnimationObject, AnimationSequenceScene
 
 
@@ -128,15 +124,6 @@ class IP(AnimationSequenceScene):
         self.wait(5)
 
 
-class IPExtra(AnimationSequenceScene):
-    def construct(self):
-        viz = IPVisualization(8, 8, show_text='values', show_edges=True, show_intersections=False)
-        camera_position, camera_size, shift = viz.get_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=shift)
-        self.play_animations(viz.get_animation_sequence())
-        self.wait(5)
-
-
 class IPVisualization:
     def __init__(self, width, height, show_graph=True, show_text='names', show_intersections=True, show_edges=False, show_straights=False):
         if show_text not in ['names', 'values']:
@@ -153,7 +140,7 @@ class IPVisualization:
         self.scale = 1
         self.num_elements = self.ip_width * self.ip_height
         self.helper = GridShowCase(self.num_elements, [self.scale, self.scale], spacing=[0, 0], space_ratio=[1, 1])
-        self.problem = GGMSTProblem(self.ip_width, self.ip_height, n_intersections=0, n_straights=None)
+        self.problem = GGMSTProblem(self.ip_width, self.ip_height)
         self.solution, self.feasible = self.problem.solve(_print=True)
         # self.problem.print_all_variables()
         self.problem_dict = self.problem.get_all_variables()
@@ -280,6 +267,15 @@ def get_legend(legend_list, shift, scale=1.0):
         ]
 
     return AnimationObject('add', content=drawables, bring_to_front=True)
+
+
+class IPExtra(AnimationSequenceScene):
+    def construct(self):
+        viz = IPVisualization(8, 8, show_text='values', show_edges=True, show_intersections=False)
+        camera_position, camera_size, shift = viz.get_camera_settings()
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=shift)
+        self.play_animations(viz.get_animation_sequence())
+        self.wait(5)
 
 
 if __name__ == '__main__':

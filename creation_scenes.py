@@ -1,14 +1,14 @@
 from manim import *
 from anim_sequence import AnimationSequenceScene
 from graph import Graph, random_joins, custom_joins
-from iteration.ip_iteration import convert_solution_to_join_sequence, GraphModel, get_custom_solution, get_random_solution, convert_solution_to_graph
+from ip.iteration import GraphModel, get_custom_solution, get_random_solution, convert_solution_to_graph
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points
 
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        width, height = (6, 6)
+        width, height = (4, 4)
         square_size = 2
         graph_model = GraphModel(width, height, generate_intersections=False, sample_random=None)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[6, 4])
@@ -33,8 +33,8 @@ class MultiGraphIP(AnimationSequenceScene):
 class IPCircuitCreation(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
-        square_size = 2
-        track_width = 0.3
+        square_size = 1
+        track_width = 0.1
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
         # solution = get_random_solution(width, height)
@@ -121,18 +121,18 @@ class MultiGraph(AnimationSequenceScene):
 class CustomTrack(AnimationSequenceScene):
     def construct(self):
         wishes = {
-            'n_intersections': 0,
+            'n_intersections': 4,
             'allow_adjacent_intersections': False,
             'allow_intersect_at_stubs': False,
             # 'n_straights': 2,
             # 'n_90_degree_turns': 3,
             # 'n_180_degree_turns': 1,
-            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
-            'hard_constraints': []
+            'hard_constraints': [[0, 0], [0, 1], [0, 2], [0, 3]]
+            # 'hard_constraints': []
         }
-        width, height = (4, 4)
-        square_size = 2
-        track_width = 0.2
+        width, height = (6, 6)
+        # square_size, track_width = (2, 0.2)
+        square_size, track_width = (2, 0.4)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
         # solution = get_random_solution(width, height)
@@ -160,5 +160,6 @@ class CustomTrack(AnimationSequenceScene):
 
 
 if __name__ == '__main__':
-    scene = CustomTrack()
+    # scene = CustomTrack()
+    scene = IPCircuitCreation()
     scene.construct()

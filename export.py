@@ -1,6 +1,6 @@
 import pickle
 from interpolation import interpolate_track_points_piece_wise
-from iteration.ip_iteration import get_custom_solution, convert_solution_to_graph
+from ip.iteration import get_custom_solution, convert_solution_to_graph
 from util import generate_track_points
 
 

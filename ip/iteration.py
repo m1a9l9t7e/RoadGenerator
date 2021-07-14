@@ -1,9 +1,9 @@
 import random
 import time
-
 from graph import Graph, GraphSearcher
-from ip_reformulation import GGMSTProblem, IntersectionProblem
-from util import draw_graph, make_unitary, GridShowCase, get_adjacent
+from ip.ip_util import get_intersect_matrix
+from ip.problem import GGMSTProblem, IntersectionProblem
+from util import GridShowCase, get_adjacent
 import numpy as np
 import itertools
 from termcolor import colored
@@ -11,10 +11,10 @@ import multiprocessing as mp
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, fast=False, ip_intersections=True, sample_random=None):
+    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None):
         self.width = width - 1
         self.height = height - 1
-        iterator = GGMSTIterator(self.width, self.height, raster=fast, _print=True)
+        iterator = GGMSTIterator(self.width, self.height, _print=False)
         start = time.time()
         self.variants = iterator.iterate()
         end = time.time()
@@ -23,7 +23,7 @@ class GraphModel:
             print(colored("Number of variants w/o intersections: {}".format(len(self.variants)), 'green'))
             print(colored("Time elapsed: {:.2f}s".format(end - start), 'blue'))
             start = time.time()
-            if ip_intersections:
+            if intersections_ip:
                 self.variants += get_join_variants_ip(self.variants)
             else:
                 self.variants = add_join_variants(self.variants)
@@ -47,63 +47,34 @@ class GraphModel:
             graph_list.append(graph)
         return graph_list, helper
 
-    def get_animations(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
-        helper = GridShowCase(num_elements=len(self.variants),
-                              element_dimensions=(scale * self.width, scale * self.height),
-                              spacing=spacing, space_ratio=ratio)
-        animations_list = []
-        graph_list = []
-        for index, variant in enumerate(self.variants):
-            shift = helper.get_element_coords(index)
-            sequence = convert_solution_to_join_sequence(variant)
-            animations, graph = sequence.get_animations(scale=scale, shift=shift)
-            animations_list.append(animations)
-            graph_list.append(graph)
-
-        return animations_list, graph_list, helper
-
 
 class GGMSTIterator:
-    def __init__(self, width, height, raster=True, _print=False):
+    def __init__(self, width, height, _print=False):
         self.width = width
         self.height = height
-        self.raster = raster
         self._print = _print
         self.variants = []
         self.counter = 0
 
         cells = []
-        raster = []
+        corners = []
         self.free = []
         n_cells = width * height
 
-        if raster:
-            for x in range(width):
-                for y in range(height):
-                    cells.append([x, y])
-                    if x % 2 == 0 and y % 2 == 0:  # complete raster
-                        raster.append([x, y])
-                    else:
-                        self.free.append([x, y])
+        for x in range(width):
+            for y in range(height):
+                cells.append([x, y])
+                if x % (width-1) == 0 and y % (height-1) == 0:  # only corners
+                    corners.append([x, y])
+                else:
+                    self.free.append([x, y])
 
-            n_preoccupied = len(raster)
-            self.n_free = n_cells - n_preoccupied
-            self.n_choice = n_preoccupied - 1
-        else:
-            for x in range(width):
-                for y in range(height):
-                    cells.append([x, y])
-                    if x % (width-1) == 0 and y % (height-1) == 0:  # only corners
-                        raster.append([x, y])
-                    else:
-                        self.free.append([x, y])
-
-            n_preoccupied = len(raster)
-            self.n_free = n_cells - n_preoccupied
-            self.n_choice = int(np.ceil(width / 2) * np.ceil(height / 2)) * 2 - 1 - n_preoccupied
+        n_preoccupied = len(corners)
+        self.n_free = n_cells - n_preoccupied
+        self.n_choice = int(np.ceil(width / 2) * np.ceil(height / 2)) * 2 - 1 - n_preoccupied
 
         if _print:
-            print("Total Cells: {}, Occupied by Raster: {}, Free : {}, Choice: {}".format(n_cells, n_preoccupied, self.n_free, self.n_choice))
+            print("Total Cells: {}, Occupied by Corners: {}, Free : {}, Choice: {}".format(n_cells, n_preoccupied, self.n_free, self.n_choice))
 
     def iterate(self, multi_processing=True):
         queue = [[i] for i in range(self.n_free - self.n_choice + 1)]
@@ -243,80 +214,6 @@ class IntersectionIterator:
         return add_to_queue
 
 
-class JoinSequence:
-    def __init__(self, width, height, sequence):
-        self.width = width
-        self.height = height
-        self.sequence = sequence
-
-    def __str__(self):
-        _str = "Join Sequence: "
-        for idx, (x, y, operation) in enumerate(self.sequence):
-            _str += "{}.({}|{}, {});".format(idx, x, y, operation)
-        return _str
-
-    def generate_graph(self, scale=1, shift=[0, 0]):
-        graph = Graph(width=self.width, height=self.height, scale=scale, shift=shift)
-        graph.init_cycles()
-        for (x, y, operation) in self.sequence:
-            searcher = GraphSearcher(graph)
-            joint = searcher.evaluate_position((x, y))
-            if operation == 'intersect':
-                joint.intersect()
-            elif operation == 'merge':
-                joint.merge()
-            else:
-                raise ValueError('operation "{}" is undefined!'.format(operation))
-        return graph
-
-    def get_animations(self, scale, shift):
-        animations = []
-        graph = Graph(width=self.width, height=self.height, scale=scale, shift=shift)
-        animations += draw_graph(graph)
-        animations += make_unitary(graph)
-        graph.init_cycles()
-        for (x, y, operation) in self.sequence:
-            searcher = GraphSearcher(graph)
-            # joints = searcher.walk_graph()
-            # animations.append(AnimationObject(type='add', content=[joint.drawable for joint in joints], wait_after=1))
-            # joint = joints[index]
-            joint = searcher.evaluate_position((x, y))
-            # animations.append(AnimationObject(type='remove', content=joint.drawable))
-            if operation == 'intersect':
-                animations += joint.intersect()
-            elif operation == 'merge':
-                animations += joint.merge()
-            else:
-                raise ValueError('operation "{}" is undefined!'.format(operation))
-            # animations.append(AnimationObject(type='remove', content=[joint.drawable for joint in joints], wait_after=1))
-        return animations, graph
-
-
-def convert_solution_to_join_sequence(ip_solution):
-    width = len(ip_solution)
-    height = len(ip_solution[0])
-    sequence = []
-    for x in range(0, width, 2):
-        for y in range(1, height, 2):
-            if ip_solution[x][y] == 1:
-                sequence.append((x, y, 'merge'))
-            elif ip_solution[x][y] == 2:
-                sequence.append((x, y, 'intersect'))
-    for y in range(0, height, 2):
-        for x in range(1, width, 2):
-            if ip_solution[x][y] == 1:
-                sequence.append((x, y, 'merge'))
-            elif ip_solution[x][y] == 2:
-                sequence.append((x, y, 'intersect'))
-    for x in range(1, width, 2):
-        for y in range(1, height, 2):
-            if ip_solution[x][y] == 1:
-                sequence.append((x, y, 'merge'))
-            elif ip_solution[x][y] == 2:
-                sequence.append((x, y, 'intersect'))
-    return JoinSequence(width + 1, height + 1, sequence)
-
-
 def convert_solution_to_graph(ip_solution, shift=[0, 0], scale=1):
     width = len(ip_solution)
     height = len(ip_solution[0])
@@ -348,43 +245,6 @@ def get_edges_adjacent_to_cell(coords):
     edge_top = ((x, y+1), (x+1, y+1))
 
     return [edge_right, edge_top, edge_left, edge_bottom]
-
-
-def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
-    """
-    Given a matrix where each entry is either 1 or 0, return a matrix of equal size where each entry describes how many of the bordering cells are 1
-    :param value_at_none: Defines value of degree matrix, where there is no graph. If None, degree is still calculated. Otherwise only positive
-                          entries are given a degree and none entries are set as value_at_none
-    """
-    degree_matrix = np.zeros(np.shape(matrix), dtype=int)
-    shift_left = matrix[1:]
-    shift_left.append([0] * len(matrix[0]))
-    shift_right = matrix[:-1]
-    shift_right.insert(0, [0] * len(matrix[0]))
-    shift_up = np.array(matrix, dtype=int)[:, :-1]
-    shift_up = np.concatenate([np.zeros([len(matrix), 1], dtype=int), shift_up], axis=1)
-    shift_down = np.array(matrix, dtype=int)[:, 1:]
-    shift_down = np.concatenate([shift_down, np.zeros([len(matrix), 1], dtype=int)], axis=1)
-
-    if multipliers is None:
-        degree_matrix += np.array(shift_left) + np.array(shift_right) + np.array(shift_down) + np.array(shift_up)
-    else:
-        ml, mr, md, mu = multipliers
-        degree_matrix += np.array(shift_left) * ml + np.array(shift_right) * mr + np.array(shift_down) * md + np.array(shift_up) * mu
-
-    if value_at_none is not None:
-        degree_matrix = np.where(np.array(matrix) > 0, degree_matrix, np.ones_like(degree_matrix) * value_at_none)
-    return degree_matrix
-
-
-def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
-    direction_matrix = np.absolute(get_degree_matrix(ip_solution, multipliers=[1, 1, -1, -1]))
-    intersect_matrix = np.where(direction_matrix > 1, np.ones_like(ip_solution), np.zeros_like(ip_solution))
-    if allow_intersect_at_stubs:
-        degree_matrix = get_degree_matrix(ip_solution)
-        intersect_matrix = np.where(degree_matrix == 1, np.ones_like(ip_solution), intersect_matrix)
-
-    return intersect_matrix, np.count_nonzero(intersect_matrix)
 
 
 def generate_join_variants(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
@@ -437,14 +297,6 @@ def get_join_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersecti
     return join_variants
 
 
-def get_problem(graph_width, graph_height):
-    return GGMSTProblem(graph_width - 1, graph_height - 1)
-
-
-#######################
-####### IP UTIL ######
-#######################
-
 def get_random_solution(width, height):
     # Get Solution
     problem = get_problem(width, height)
@@ -463,17 +315,18 @@ def get_random_solution(width, height):
 def get_custom_solution(width, height, wishes=None):
     if wishes is None:
         wishes = {
-            'n_intersections': 2,
+            'n_intersections': 0,
             'allow_adjacent_intersections': False,
             'allow_intersect_at_stubs': False,
             # 'n_straights': 2,
             # 'n_90_degree_turns': 3,
             # 'n_180_degree_turns': 1,
-            'hard_constraints': [[0, 1], [1, 2], [2, 1]]
+            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
+            'hard_constraints': []
         }
     # Get Solution
     start = time.time()
-    ggmst_problem = GGMSTProblem(width - 1, height - 1, extra_constraints=wishes['hard_constraints'])
+    ggmst_problem = GGMSTProblem(width - 1, height - 1, iteration_constraints=wishes['hard_constraints'])
     solution, status = ggmst_problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored('GGMST solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
@@ -494,6 +347,10 @@ def get_custom_solution(width, height, wishes=None):
     solution = intersect_matrix + np.array(solution)
 
     return solution
+
+
+def get_problem(graph_width, graph_height):
+    return GGMSTProblem(graph_width - 1, graph_height - 1)
 
 
 if __name__ == '__main__':
