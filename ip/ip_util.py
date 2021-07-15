@@ -1,12 +1,11 @@
 from enum import Enum, auto
 from pulp import *
-import random
-import time
 import numpy as np
 from termcolor import colored
 
 
 def print_grid(grid, values=True, print_zeros=True, binary=False):
+    grid_str = ""
     if values and value(grid[2][2]) is None:
         print("Values None, switching to names...")
         values = False
@@ -25,8 +24,9 @@ def print_grid(grid, values=True, print_zeros=True, binary=False):
             if not print_zeros:
                 print_x_y = " " if print_x_y == 0 else print_x_y
             row += "{} ".format(print_x_y)
-        print(row)
-    print()
+        grid_str += row + '\n'
+    grid_str += '\n'
+    return grid_str
 
 
 def print_dict(_dict, values=False, binary=False):
@@ -41,34 +41,32 @@ def print_dict(_dict, values=False, binary=False):
         _list = _dict[key]
         list_str = "{}: ".format(key)
         for variable in _list:
-            if values and binary:
-                if int(value(variable)) > 0:
-                    _print = colored(str(variable), 'green')
-                else:
-                    _print = variable
-            elif values:
-                _print = int(value(variable))
-            else:
-                _print = variable
+            _print = variable_to_string(variable, values, binary)
             list_str += "{} ".format(_print)
         _str += "{}\n".format(list_str)
-    print(_str)
+    return _str
 
 
 def print_list(_list, values=False, binary=False):
     list_str = ""
     for variable in _list:
-        if values and binary:
-            if int(value(variable)) > 0:
-                _print = colored(str(variable), 'green')
-            else:
-                _print = variable
-        elif values:
-            _print = int(value(variable))
+        _print = variable_to_string(variable, values, binary)
+        list_str += "{} ".format(_print)
+    return list_str
+
+
+def variable_to_string(variable, values, binary):
+    if values and binary:
+        if int(value(variable)) > 0:
+            _print = colored(str(variable), 'green')
         else:
             _print = variable
-        list_str += "{} ".format(_print)
-    print(list_str)
+    elif values:
+        _print = int(value(variable))
+    else:
+        _print = variable
+
+    return _print
 
 
 def export_grid(grid, save_name=False):
