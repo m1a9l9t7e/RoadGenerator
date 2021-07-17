@@ -316,27 +316,44 @@ class GGMSTProblem:
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                bottom_straight = self.single_straight_constraint(x, y, horizontal, parallel_bottom, 'bottom')
+                bottom_straight = self.single_straight_constraint(x, y, horizontal, parallel_bottom, 'horizontal', 'bottom')
                 self.nodes_straights.append(bottom_straight)
-                top_straight = self.single_straight_constraint(x, y, horizontal, parallel_top, 'top')
+                top_straight = self.single_straight_constraint(x, y, horizontal, parallel_top, 'horizontal', 'top')
                 self.nodes_straights.append(top_straight)
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
+            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             if not any(elem is None for elem in vertical):
-                left_straight = self.single_straight_constraint(x, y, vertical, parallel_left, 'left')
+                left_straight = self.single_straight_constraint(x, y, vertical, parallel_left, 'vertical', 'left')
                 self.nodes_straights.append(left_straight)
-                right_straight = self.single_straight_constraint(x, y, vertical, parallel_right, 'right')
+                right_straight = self.single_straight_constraint(x, y, vertical, parallel_right, 'vertical', 'right')
                 self.nodes_straights.append(right_straight)
 
         return self.nodes_straights
 
-    def single_straight_constraint(self, x, y, cells, parallel, identifier=""):
-        straight_var = LpVariable("vertical_straight_n{}_x{}_y{}_{}".format(len(cells), x, y, identifier), cat=const.LpBinary)
-        # If any core cell is 0, the straight var must also be zero
+    def single_straight_constraint(self, x, y, cells, parallel, direction, side=""):
+        # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
+        straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells), x, y), cat=const.LpBinary)
+        # --> If any core cell is 0, the straight var must also be zero
         self.problem += straight_var <= sum(cells) / len(cells)
-        # If any of the parallel cells are positive, the straight var must be zero
+        # --> If any of the parallel cells are positive, the straight var must be zero
         self.problem += straight_var <= 1 - sum(parallel) / len(parallel)
+        # --> There must be an edge going in or out of the first and last cell in the direction of the straight.
+        if direction == 'horizontal':
+            edges_left = self.get_edges_between_safe((x - 1, y), (x, y))
+            edges_right = self.get_edges_between_safe((x + len(cells) - 1, y), (x + len(cells), y))
+            edges_in, edges_out = (edges_left, edges_right)
+        elif direction == 'vertical':
+            edges_bottom = self.get_edges_between_safe((x, y - 1), (x, y))
+            edges_top = self.get_edges_between_safe((x, y + len(cells) - 1), (x, y + len(cells)))
+            edges_in, edges_out = (edges_bottom, edges_top)
+        else:
+            raise ValueError('Direction must be horizontal or vertical. Received: {}'.format(direction))
+
+        self.problem += straight_var <= (sum(edges_in) + sum(edges_out)) / 2
+
+        # Reverse direction must also hold: var is 0 => at least one condition not satisfied
+        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + 2 - (sum(edges_in) + sum(edges_out))
         return straight_var
 
     ################################
@@ -478,6 +495,17 @@ class GGMSTProblem:
 
         return variables_list
 
+    def get_edges_between_safe(self, coords1, coords2):
+        if self.get_safe(*coords1) is None or self.get_safe(*coords2) is None:
+            return [0, 0]
+        else:
+            return self.get_edges_between(coords1, coords2)
+
+    def get_edges_between(self, coords1, coords2):
+        edge1 = set.intersection(set(self.e_out[coords1]), set(self.e_in[coords2]))
+        edge2 = set.intersection(set(self.e_out[coords2]), set(self.e_in[coords1]))
+        return list(edge1) + list(edge2)
+
     def debug_straights_constraints(self, length):
         """
         The Idea is to represent a straight sequence of "length" cells as a new variable.
@@ -499,44 +527,35 @@ class GGMSTProblem:
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                self.debug_single_straight_constraint(x, y, horizontal, parallel_bottom, 'horizontal_bottom')
-                if value(self.nodes_straights[counter]) > 0:
-                    print(colored('-> Selected by Solution', 'red'))
-                else:
-                    print('-> Not Selected by Solution')
+                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, horizontal, parallel_bottom, 'horizontal_bottom')
                 counter += 1
-                self.debug_single_straight_constraint(x, y, horizontal, parallel_top, 'horizontal_top')
-                if value(self.nodes_straights[counter]) > 0:
-                    print(colored('-> Selected by Solution', 'red'))
-                else:
-                    print('-> Not Selected by Solution')
+                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, horizontal, parallel_top, 'horizontal_top')
                 counter += 1
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
+            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             if not any(elem is None for elem in vertical):
-                self.debug_single_straight_constraint(x, y, vertical, parallel_left, 'vertical_left')
-                if value(self.nodes_straights[counter]) > 0:
-                    print(colored('-> Selected by Solution', 'red'))
-                else:
-                    print('-> Not Selected by Solution')
+                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, vertical, parallel_left, 'vertical_left')
                 counter += 1
-                self.debug_single_straight_constraint(x, y, vertical, parallel_right, 'vertical_right')
-                if value(self.nodes_straights[counter]) > 0:
-                    print(colored('-> Selected by Solution', 'red'))
-                else:
-                    print('-> Not Selected by Solution')
+                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, vertical, parallel_right, 'vertical_right')
                 counter += 1
 
         return self.nodes_straights
 
     @staticmethod
-    def debug_single_straight_constraint(x, y, cells, parallel, identifier=""):
-        print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
-        # If any core cell is 0, the straight var must also be zero
-        print("var <= sum({}) / {}".format(print_list(cells, binary=True, values=True)[:-1], len(cells)))
-        # If any of the parallel cells are positive, the straight var must be zero
-        print("var <= 1 - sum({}) / {}".format(print_list(parallel, binary=True, values=True)[:-1], len(parallel)))
+    def debug_single_straight_constraint(straight_var, x, y, cells, parallel, identifier=""):
+        # print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
+        # # If any core cell is 0, the straight var must also be zero
+        # print("var <= sum({}) / {}".format(print_list(cells, binary=True, values=True)[:-1], len(cells)))
+        # # If any of the parallel cells are positive, the straight var must be zero
+        # print("var <= 1 - sum({}) / {}".format(print_list(parallel, binary=True, values=True)[:-1], len(parallel)))
+        # print("1 - var <= {} - sum({}) + sum({})".format(len(cells), print_list(cells, binary=True, values=True)[:-1], print_list(parallel, binary=True, values=True)[:-1]))
+        # if value(straight_var) > 0:
+        #     print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
+        # else:
+        #     print('-> Not Selected by Solution')
+        if value(straight_var) > 0:
+            print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
 
 
 class IntersectionProblem:
@@ -587,12 +606,13 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     intersection_constraint = QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2)
-    straight_constraint = QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 1)
+    straight_constraint = QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2)
     # p = GGMSTProblem(5, 5, quantity_constraints=[intersection_constraint, straight_constraint])
     p = GGMSTProblem(5, 5, quantity_constraints=[straight_constraint])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
     # p.print_all_variables(values=True)
+    print("Selected straights:")
     p.debug_straights_constraints(3)
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "blue"))
