@@ -599,11 +599,11 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     quantity_constraints = [
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
-        # QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 4),
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
     ]
-    p = GGMSTProblem(3, 3, quantity_constraints=quantity_constraints)
+    p = GGMSTProblem(5, 5, quantity_constraints=quantity_constraints)
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()

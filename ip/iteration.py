@@ -1,7 +1,7 @@
 import random
 import time
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes
 from ip.problem import GGMSTProblem, IntersectionProblem
 from util import GridShowCase, get_adjacent
 import numpy as np
@@ -312,40 +312,13 @@ def get_random_solution(width, height):
     return solution
 
 
-def get_custom_solution(width, height, wishes=None):
-    if wishes is None:
-        wishes = {
-            'n_intersections': 0,
-            'allow_adjacent_intersections': False,
-            'allow_intersect_at_stubs': False,
-            # 'n_straights': 2,
-            # 'n_90_degree_turns': 3,
-            # 'n_180_degree_turns': 1,
-            # 'hard_constraints': [[0, 1], [1, 2], [2, 1]]
-            'hard_constraints': []
-        }
+def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None):
     # Get Solution
     start = time.time()
-    ggmst_problem = GGMSTProblem(width - 1, height - 1, iteration_constraints=wishes['hard_constraints'])
+    ggmst_problem = GGMSTProblem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints)
     solution, status = ggmst_problem.solve(_print=False, print_zeros=False)
     end = time.time()
-    print(colored('GGMST solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
-
-    # Add intersections
-    start = time.time()
-    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=wishes['allow_intersect_at_stubs'])
-    non_zero_indices = np.argwhere(intersect_matrix > 0)
-    n_intersections = random.randint(0, n) if wishes['n_intersections'] is None else wishes['n_intersections']
-    intersection_problem = IntersectionProblem(non_zero_indices, n=n_intersections, allow_adjacent=wishes['allow_adjacent_intersections'])
-    selection, status = intersection_problem.solve()
-    end = time.time()
-    print(colored('Intersections solved in {:.2f}s. {}easible solution found!'.format(end - start, 'No f' if status < 1 else 'F'), 'green'))
-
-    for index in range(n):
-        x, y = non_zero_indices[index]
-        intersect_matrix[x][y] = selection[index]
-    solution = intersect_matrix + np.array(solution)
-
+    print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
     return solution
 
 

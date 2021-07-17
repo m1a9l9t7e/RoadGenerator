@@ -1,6 +1,7 @@
 from manim import *
 from anim_sequence import AnimationSequenceScene
 from graph import Graph, random_joins, custom_joins
+from ip.ip_util import QuantityConstraint, TrackProperties, ConditionTypes
 from ip.iteration import GraphModel, get_custom_solution, get_random_solution, convert_solution_to_graph
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points
@@ -120,23 +121,18 @@ class MultiGraph(AnimationSequenceScene):
 
 class CustomTrack(AnimationSequenceScene):
     def construct(self):
-        wishes = {
-            'n_intersections': 4,
-            'allow_adjacent_intersections': False,
-            'allow_intersect_at_stubs': False,
-            # 'n_straights': 2,
-            # 'n_90_degree_turns': 3,
-            # 'n_180_degree_turns': 1,
-            'hard_constraints': [[0, 0], [0, 1], [0, 2], [0, 3]]
-            # 'hard_constraints': []
-        }
+        quantity_constraints = [
+            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
+            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2),
+            QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
+        ]
         width, height = (6, 6)
         # square_size, track_width = (2, 0.2)
         square_size, track_width = (2, 0.4)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
         # solution = get_random_solution(width, height)
-        solution = get_custom_solution(width, height, wishes)
+        solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints)
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, scale=square_size)
@@ -160,6 +156,5 @@ class CustomTrack(AnimationSequenceScene):
 
 
 if __name__ == '__main__':
-    # scene = CustomTrack()
-    scene = IPCircuitCreation()
+    scene = CustomTrack()
     scene.construct()
