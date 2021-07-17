@@ -313,25 +313,27 @@ class GGMSTProblem:
                 indices.append((x, y))
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                bottom_straight = self.single_straight_constraint(x, y, horizontal, parallel_bottom, 'horizontal', 'bottom')
+                bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
                 self.nodes_straights.append(bottom_straight)
-                top_straight = self.single_straight_constraint(x, y, horizontal, parallel_top, 'horizontal', 'top')
+                top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
                 self.nodes_straights.append(top_straight)
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i) for i in range(length)]]
             parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             if not any(elem is None for elem in vertical):
-                left_straight = self.single_straight_constraint(x, y, vertical, parallel_left, 'vertical', 'left')
+                left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
                 self.nodes_straights.append(left_straight)
-                right_straight = self.single_straight_constraint(x, y, vertical, parallel_right, 'vertical', 'right')
+                right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
                 self.nodes_straights.append(right_straight)
 
         return self.nodes_straights
 
-    def single_straight_constraint(self, x, y, cells, parallel, direction, side=""):
+    def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
         straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells), x, y), cat=const.LpBinary)
         # --> If any core cell is 0, the straight var must also be zero
@@ -351,9 +353,11 @@ class GGMSTProblem:
             raise ValueError('Direction must be horizontal or vertical. Received: {}'.format(direction))
 
         self.problem += straight_var <= (sum(edges_in) + sum(edges_out)) / 2
+        # --> If any core cell is an intersection, the straight var must also be zero
+        self.problem += straight_var <= 1 - sum(intersections) / len(intersections)
 
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
-        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + 2 - (sum(edges_in) + sum(edges_out))
+        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + 2 - (sum(edges_in) + sum(edges_out)) + sum(intersections)
         return straight_var
 
     ################################
@@ -424,14 +428,21 @@ class GGMSTProblem:
 
         return _dict
 
-    def get_safe(self, x, y, nonexistent=None):
+    def get_safe(self, x, y, nonexistent=None, grid=None):
         """
         :param nonexistent: What to return if requested cell does not exist
+        :param grid: Which grid to get the result from. If none, use self.node_grid
         """
-        if x >= len(self.node_grid) or y >= len(self.node_grid[x]) or x < 0 or y < 0:
+        if grid is None:
+            grid = self.node_grid
+
+        if x >= len(grid) or y >= len(grid[x]) or x < 0 or y < 0:
             return nonexistent
         else:
-            return self.node_grid[x][y]
+            if grid[x][y] is None:
+                return nonexistent
+            else:
+                return grid[x][y]
 
     def check_bounds(self, x, y):
         if x >= len(self.node_grid) or y >= len(self.node_grid[x]) or x < 0 or y < 0:
@@ -524,6 +535,7 @@ class GGMSTProblem:
                 indices.append((x, y))
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
@@ -532,6 +544,7 @@ class GGMSTProblem:
                 self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, horizontal, parallel_top, 'horizontal_top')
                 counter += 1
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i) for i in range(length)]]
             parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             if not any(elem is None for elem in vertical):
@@ -607,12 +620,10 @@ class IntersectionProblem:
 if __name__ == '__main__':
     intersection_constraint = QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2)
     straight_constraint = QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2)
-    # p = GGMSTProblem(5, 5, quantity_constraints=[intersection_constraint, straight_constraint])
-    p = GGMSTProblem(5, 5, quantity_constraints=[straight_constraint])
+    p = GGMSTProblem(5, 5, quantity_constraints=[intersection_constraint, straight_constraint])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    # p.print_all_variables(values=True)
     print("Selected straights:")
     p.debug_straights_constraints(3)
-    print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "blue"))
+    print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green"))
