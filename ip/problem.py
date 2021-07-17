@@ -291,7 +291,16 @@ class GGMSTProblem:
 
         # There must be no outgoing edges for an 180 turn to exist
         for (x, y) in indices:
-            self.problem += self.node_grid_180s[x][y] <= - sum(self.e_out[(x, y)]) / 3 + 1
+            if not (x == 0 and y == 0):
+                self.problem += self.node_grid_180s[x][y] <= 1 - sum(self.e_out[(x, y)]) / 3
+                # The reverse must also be true: if a 180 turn does not exist there must be an outgoing edge
+                # self.problem += sum(self.e_out[(x, y)]) >= 1 - self.node_grid_180s[x][y] - (1 - self.node_grid[x][y])
+                self.problem += sum(self.e_out[(x, y)]) >= self.node_grid[x][y] - self.node_grid_180s[x][y]
+
+        # Except when root is a leaf node, in that case there must be no more than one outgoing edge
+        self.problem += self.node_grid_180s[0][0] <= 2 - sum(self.e_out[(0, 0)])
+        # The reverse must also be true: if a 180 turn does not exist there must 2 outgoing edges
+        self.problem += sum(self.e_out[(0, 0)]) >= 2 - self.node_grid_180s[0][0]
 
         return self.nodes_180s
 
@@ -397,9 +406,8 @@ class GGMSTProblem:
         # print("Edge Out (values) dict:")
         # print_dict(self.e_out_values, values=values)
 
-        print("Extras:")
-        print_list(self.nodes_straights, values=True, binary=True)
-        print_list(self.nodes_straights, values=True)
+        print("180s Grid:")
+        print(print_grid(self.node_grid_180s, values=values, binary=True))
 
     def get_all_variables(self, values=True):
         # export base variables
@@ -517,17 +525,8 @@ class GGMSTProblem:
         edge2 = set.intersection(set(self.e_out[coords2]), set(self.e_in[coords1]))
         return list(edge1) + list(edge2)
 
-    def debug_straights_constraints(self, length):
-        """
-        The Idea is to represent a straight sequence of "length" cells as a new variable.
-        This variable is either 2, 1 or 0.
-        0: One of the cells is not selected OR there are adjacent cells on BOTH sides of the sequence
-        1: All cells are selected and there are adjacent cells one ONE side of the sequence
-        2: All cells are selected and there are no adjacent cells on either side of the sequence
-        The value of the variable represents the number of resulting straights.
-        :param length:
-        :return:
-        """
+    def print_selected_straights(self, length):
+        print("Selected straights:")
         counter = 0
         indices = []
         for x in range(self.width):
@@ -535,40 +534,21 @@ class GGMSTProblem:
                 indices.append((x, y))
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
             if not any(elem is None for elem in horizontal):
-                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, horizontal, parallel_bottom, 'horizontal_bottom')
+                if value(self.nodes_straights[counter]) > 0:
+                    print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('horizontal_bottom', 'yellow')))
                 counter += 1
-                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, horizontal, parallel_top, 'horizontal_top')
+                if value(self.nodes_straights[counter]) > 0:
+                    print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('horizontal_top', 'yellow')))
                 counter += 1
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
             if not any(elem is None for elem in vertical):
-                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, vertical, parallel_left, 'vertical_left')
+                if value(self.nodes_straights[counter]) > 0:
+                    print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('vertical_left', 'yellow')))
                 counter += 1
-                self.debug_single_straight_constraint(self.nodes_straights[counter], x, y, vertical, parallel_right, 'vertical_right')
+                if value(self.nodes_straights[counter]) > 0:
+                    print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('vertical_right', 'yellow')))
                 counter += 1
-
-        return self.nodes_straights
-
-    @staticmethod
-    def debug_single_straight_constraint(straight_var, x, y, cells, parallel, identifier=""):
-        # print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
-        # # If any core cell is 0, the straight var must also be zero
-        # print("var <= sum({}) / {}".format(print_list(cells, binary=True, values=True)[:-1], len(cells)))
-        # # If any of the parallel cells are positive, the straight var must be zero
-        # print("var <= 1 - sum({}) / {}".format(print_list(parallel, binary=True, values=True)[:-1], len(parallel)))
-        # print("1 - var <= {} - sum({}) + sum({})".format(len(cells), print_list(cells, binary=True, values=True)[:-1], print_list(parallel, binary=True, values=True)[:-1]))
-        # if value(straight_var) > 0:
-        #     print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
-        # else:
-        #     print('-> Not Selected by Solution')
-        if value(straight_var) > 0:
-            print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored(identifier, 'yellow')))
 
 
 class IntersectionProblem:
@@ -618,12 +598,15 @@ class IntersectionProblem:
 
 
 if __name__ == '__main__':
-    intersection_constraint = QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2)
-    straight_constraint = QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2)
-    p = GGMSTProblem(5, 5, quantity_constraints=[intersection_constraint, straight_constraint])
+    quantity_constraints = [
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
+        # QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 4),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
+    ]
+    p = GGMSTProblem(3, 3, quantity_constraints=quantity_constraints)
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    print("Selected straights:")
-    p.debug_straights_constraints(3)
-    print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green"))
+    p.print_all_variables()
+    # p.print_selected_straights(3)
+    print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
