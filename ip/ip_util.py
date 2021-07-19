@@ -133,6 +133,21 @@ class QuantityConstraint:
             return sum(variables) == self.quantity
 
 
+def sort_quantity_constraints(constraints):
+    """
+    If intersection constraint is present put it first and return list
+    """
+    constraints = list(constraints)
+    sorted_constraints = []
+    for constraint in constraints:
+        if constraint.property_type == TrackProperties.intersection:
+            sorted_constraints.append(constraint)
+            constraints.remove(constraint)
+            break
+
+    return sorted_constraints + constraints
+
+
 def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
     """
     Given a matrix where each entry is either 1 or 0, return a matrix of equal size where each entry describes how many of the bordering cells are 1

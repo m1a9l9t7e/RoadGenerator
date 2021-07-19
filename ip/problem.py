@@ -1,6 +1,6 @@
 from pulp import *
 import numpy as np
-from ip.ip_util import TrackProperties, print_grid, print_dict, print_list, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes
+from ip.ip_util import TrackProperties, print_grid, print_dict, print_list, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints
 from util import is_adjacent, add_to_list_in_dict, time, Capturing
 from termcolor import colored
 
@@ -14,7 +14,7 @@ class Problem:
         self.width = width
         self.height = height
         self.iteration_constraints = iteration_constraints
-        self.quantity_constraints = quantity_constraints
+        self.quantity_constraints = sort_quantity_constraints(quantity_constraints)
 
         # variables
         self.nodes = []  # binary
@@ -312,15 +312,27 @@ class Problem:
 
         # 180 also exists when cell is zero and exactly 3 adjacent cells are positive
         # 4 adjacent cells need not be checked, because that would form a circle
-        # INTERSECTION HAVE TO BE FACTORED IN!
+
+        # Additionally: If intersections are being included in problem:
+        # None of the adjacent cells may be intersections
+        # Reverse: any of the adjacent cells must be intersection or not positive
         for (x, y) in indices:
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
             v_180_u = LpVariable("v{}_{}(180_u)".format(x, y), cat=const.LpBinary)
             self.node_grid_180s_u[x][y] = v_180_u
+            # u-turns may only exist where there is no cell
             self.problem += v_180_u <= (1 - self.node_grid[x][y])
+            # u-turns must have 3 orthogonally adjacent cells
             self.problem += v_180_u <= sum(adjacent) / 3
-            # The reverse must also be true
-            self.problem += sum(adjacent) <= 2 + v_180_u
+            # If intersection are included, none of the adjacent cells may be intersections.
+            if len(self.nodes_intersections) > 0:
+                adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
+                self.problem += v_180_u <= 1 - sum(adjacent_intersections) / 3
+                # The reverse must also be true
+                self.problem += sum(adjacent) <= 2 + v_180_u + sum(adjacent_intersections)
+            else:
+                # The reverse must also be true
+                self.problem += sum(adjacent) <= 2 + v_180_u
             self.nodes_180s.append(v_180_u)
         return self.nodes_180s
 
@@ -657,8 +669,8 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     quantity_constraints = [
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
         # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3),
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 6)
     ]
     p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[])
