@@ -126,13 +126,17 @@ class CustomTrack(AnimationSequenceScene):
             QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2),
             QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
         ]
-        width, height = (6, 6)
+        quantity_constraints = [
+            # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 2)
+        ]
+        width, height = (4, 4)
         # square_size, track_width = (2, 0.2)
         square_size, track_width = (2, 0.4)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
         # solution = get_random_solution(width, height)
-        solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints)
+        # solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints)
+        solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints, iteration_constraints=[(1, 1)])
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, scale=square_size)

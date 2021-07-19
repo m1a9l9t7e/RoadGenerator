@@ -47,10 +47,13 @@ def print_dict(_dict, values=False, binary=False):
     return _str
 
 
-def print_list(_list, values=False, binary=False):
+def print_list(_list, values=False, binary=False, only_positives=False):
     list_str = ""
     for variable in _list:
-        _print = variable_to_string(variable, values, binary)
+        if only_positives and value(variable) < 1:
+            _print = ""
+        else:
+            _print = variable_to_string(variable, values, binary)
         list_str += "{} ".format(_print)
     return list_str
 

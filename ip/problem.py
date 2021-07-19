@@ -302,6 +302,19 @@ class GGMSTProblem:
         # The reverse must also be true: if a 180 turn does not exist there must 2 outgoing edges
         self.problem += sum(self.e_out[(0, 0)]) >= 2 - self.node_grid_180s[0][0]
 
+        # TODO: Sadly we need a second set of variables to represent u-turns :(
+        # U-turn exists when cell is zero and exactly 3 adjacent cells are positive
+        # 4 adjacent cells need not be checked, because that would form a circle
+        # INTERSECTION HAVE TO BE FACTORED IN!
+        for (x, y) in indices:
+            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
+            v_180_u = LpVariable("v{}_{}(180_u)".format(x, y), cat=const.LpBinary)
+            self.problem += v_180_u <= (1 - self.node_grid[x][y])
+            self.problem += v_180_u <= sum(adjacent) / 3
+            # The reverse must also be true
+            # self.problem += sum(adjacent) >= v_180_u * 3
+            self.problem += sum(adjacent) <= 2 + v_180_u
+            self.nodes_180s.append(v_180_u)
         return self.nodes_180s
 
     def add_straights_constraints(self, length):
@@ -408,6 +421,7 @@ class GGMSTProblem:
 
         print("180s Grid:")
         print(print_grid(self.node_grid_180s, values=values, binary=True))
+        print(print_list(self.nodes_180s, only_positives=True))
 
     def get_all_variables(self, values=True):
         # export base variables
@@ -599,11 +613,11 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     quantity_constraints = [
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
-        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
+        # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 6)
     ]
-    p = GGMSTProblem(5, 5, quantity_constraints=quantity_constraints)
+    p = GGMSTProblem(3, 3, quantity_constraints=quantity_constraints, iteration_constraints=[(1, 1)])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
