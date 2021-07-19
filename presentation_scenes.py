@@ -1,5 +1,5 @@
 from manim import *
-from ip.problem import GGMSTProblem
+from ip.problem import Problem
 from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution
 from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow
 from graph import Graph
@@ -62,7 +62,7 @@ class IP(AnimationSequenceScene):
         # p = GGMSTProblem(5, 5, [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0], [4, 1], [4, 2], [4, 3], [4, 4], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4], [1, 4], [0, 4], [0, 3]])
         # p = GGMSTProblem(5, 5, [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3],
         #                         [4, 4]])
-        p = GGMSTProblem(ip_width, ip_height)
+        p = Problem(ip_width, ip_height)
         solution, feasible = p.solve(_print=True)
         # solution = [[0, 1], [1, 1]]
 
@@ -140,7 +140,7 @@ class IPVisualization:
         self.scale = 1
         self.num_elements = self.ip_width * self.ip_height
         self.helper = GridShowCase(self.num_elements, [self.scale, self.scale], spacing=[0, 0], space_ratio=[1, 1])
-        self.problem = GGMSTProblem(self.ip_width, self.ip_height)
+        self.problem = Problem(self.ip_width, self.ip_height)
         self.solution, self.feasible = self.problem.solve(_print=True)
         # self.problem.print_all_variables()
         self.problem_dict = self.problem.get_all_variables()

@@ -1,11 +1,11 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import TrackProperties, print_grid, print_dict, print_list, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes
-from util import is_adjacent, add_to_list_in_dict, time
+from util import is_adjacent, add_to_list_in_dict, time, Capturing
 from termcolor import colored
 
 
-class GGMSTProblem:
+class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
@@ -39,6 +39,7 @@ class GGMSTProblem:
         self.node_grid_intersections = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_90s = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_180s = [[None for y in range(self.height)] for x in range(self.width)]
+        self.node_grid_180s_u = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_straights_horizontal = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_straights_vertical = [[None for y in range(self.height)] for x in range(self.width)]
 
@@ -117,8 +118,15 @@ class GGMSTProblem:
 
     def solve(self, _print=False, print_zeros=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
-        status = self.problem.solve(PULP_CBC_CMD(msg=0))
-        # status = self.problem.solve(CPLEX_PY(msg=0))
+        try:
+            with Capturing() as output:
+                status = self.problem.solve(GUROBI(msg=0))
+        except:
+            print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
+            status = self.problem.solve(PULP_CBC_CMD(msg=0))
+
+        if status <= 0:
+            return None, status + 1
 
         if _print:
             print("{} Solution:".format(LpStatus[status]))
@@ -302,20 +310,55 @@ class GGMSTProblem:
         # The reverse must also be true: if a 180 turn does not exist there must 2 outgoing edges
         self.problem += sum(self.e_out[(0, 0)]) >= 2 - self.node_grid_180s[0][0]
 
+        # 180 also exists when cell is zero and exactly 3 adjacent cells are positive
+        # 4 adjacent cells need not be checked, because that would form a circle
+        # INTERSECTION HAVE TO BE FACTORED IN!
+        for (x, y) in indices:
+            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
+            v_180_u = LpVariable("v{}_{}(180_u)".format(x, y), cat=const.LpBinary)
+            self.node_grid_180s_u[x][y] = v_180_u
+            self.problem += v_180_u <= (1 - self.node_grid[x][y])
+            self.problem += v_180_u <= sum(adjacent) / 3
+            # The reverse must also be true
+            self.problem += sum(adjacent) <= 2 + v_180_u
+            self.nodes_180s.append(v_180_u)
+        return self.nodes_180s
+
+    def add_180_degree_turn_constraint_debug(self):
+        indices = []
+        for x in range(self.width):
+            for y in range(self.height):
+                indices.append((x, y))
+
+        print(colored('180 leaf constraints for ({}|{})'.format(0, 0), 'yellow'))
+        print("1. v{}_{}(180) <= {}".format(0, 0, int(value(self.nodes[0]))))
+        # Except when root is a leaf node, in that case there must be exactly one outgoing edge
+        print("2. v{}_{}(180) <= 2 - sum({})".format(0, 0, print_list(self.e_out[(0, 0)], values=True, binary=True)))
+        # The reverse must also be true: if a 180 turn does not exist there must 2 outgoing edges
+        print("R. sum({}) >= 2 - v{}_{}(180)".format(print_list(self.e_out[(0, 0)], values=True, binary=True), 0, 0))
+
+        for index, (x, y) in enumerate(indices):
+            if not (x == 0 and y == 0):
+                print(colored('180 leaf constraints for ({}|{})'.format(x, y), 'yellow'))
+                # 180 degree turns can only exist at selected cells.
+                print("1. v{}_{}(180) <= {}".format(*indices[index], int(value(self.nodes[index]))))
+                # There must be no outgoing edges for an 180 turn to exist
+                print("2. v{}_{}(180) <= 1 - sum({}) / 3".format(x, y, print_list(self.e_out[(x, y)], values=True, binary=True)))
+                # The reverse must also be true: if a 180 turn does not exist there must be an outgoing edge
+                print("R. sum({}) >= {} - v{}_{}(180)".format(print_list(self.e_out[(x, y)], values=True, binary=True), int(value(self.node_grid[x][y])), x, y))
+
         # TODO: Sadly we need a second set of variables to represent u-turns :(
         # U-turn exists when cell is zero and exactly 3 adjacent cells are positive
         # 4 adjacent cells need not be checked, because that would form a circle
         # INTERSECTION HAVE TO BE FACTORED IN!
         for (x, y) in indices:
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
-            v_180_u = LpVariable("v{}_{}(180_u)".format(x, y), cat=const.LpBinary)
-            self.problem += v_180_u <= (1 - self.node_grid[x][y])
-            self.problem += v_180_u <= sum(adjacent) / 3
-            # The reverse must also be true
+            print(colored('180 u-turn constraints for ({}|{})'.format(x, y), 'blue'))
+            print("1. v{}_{}(180_u) <= 1 - {}".format(x, y, int(value(self.node_grid[x][y]))))
+            print("2. v{}_{}(180_u) <= sum({}) / 3".format(x, y, print_list(adjacent, values=True, binary=True)))
             # self.problem += sum(adjacent) >= v_180_u * 3
-            self.problem += sum(adjacent) <= 2 + v_180_u
-            self.nodes_180s.append(v_180_u)
-        return self.nodes_180s
+            print("R. sum({}) <= 2 + v{}_{}(180_u)".format(print_list(adjacent, values=True, binary=True), x, y))
+            # self.problem += sum(adjacent) <= 2 + v_180_u
 
     def add_straights_constraints(self, length):
         """
@@ -421,7 +464,8 @@ class GGMSTProblem:
 
         print("180s Grid:")
         print(print_grid(self.node_grid_180s, values=values, binary=True))
-        print(print_list(self.nodes_180s, only_positives=True))
+        print("180s U-turns Grid:")
+        print(print_grid(self.node_grid_180s_u, values=values, binary=True))
 
     def get_all_variables(self, values=True):
         # export base variables
@@ -614,13 +658,14 @@ class IntersectionProblem:
 if __name__ == '__main__':
     quantity_constraints = [
         # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
-        # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
+        # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 6)
     ]
-    p = GGMSTProblem(3, 3, quantity_constraints=quantity_constraints, iteration_constraints=[(1, 1)])
+    p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    p.print_all_variables()
+    # p.print_all_variables()
     # p.print_selected_straights(3)
+    # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))

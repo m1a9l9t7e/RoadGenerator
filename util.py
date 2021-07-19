@@ -2,6 +2,8 @@ import random
 import math
 from manim import *
 from anim_sequence import AnimationObject
+from io import StringIO
+import sys
 
 
 #######################
@@ -453,6 +455,17 @@ def add_to_list_in_dict(_dict, key, element):
         _dict[key] = [element]
     else:
         _dict[key].append(element)
+
+
+class Capturing(list):
+    def __enter__(self):
+        self._stdout = sys.stdout
+        sys.stdout = self._stringio = StringIO()
+        return self
+    def __exit__(self, *args):
+        self.extend(self._stringio.getvalue().splitlines())
+        del self._stringio    # free up some memory
+        sys.stdout = self._stdout
 
 
 if __name__ == '__main__':

@@ -41,6 +41,17 @@ Options:
 * -p : __play__
 * -ql : __quick load__
 
+## GUROBI
+
+GUROBI is the best solver if you have an academic license
+
+Install license with tools from [here](https://support.gurobi.com/hc/en-us/articles/360059842732)
+
+License key can be found [here]([https://www.gurobi.com/downloads/free-academic-license/)
+
+Then install gurobi for python via
+`python -m pip install gurobipy`
+
 ## CPLEX
 
 If you want to use CPlEX (CPLEX ILOG must be installed):

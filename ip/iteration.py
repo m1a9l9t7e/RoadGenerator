@@ -2,7 +2,7 @@ import random
 import time
 from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes
-from ip.problem import GGMSTProblem, IntersectionProblem
+from ip.problem import Problem, IntersectionProblem
 from util import GridShowCase, get_adjacent
 import numpy as np
 import itertools
@@ -110,7 +110,7 @@ class GGMSTIterator:
                 continue
             # print("Child sequence: {}".format(_sequence))
             # problem = Problem(width, height, [free[i] for i in _sequence])
-            problem = GGMSTProblem(self.width, self.height, [self.free[i] for i in _sequence])
+            problem = Problem(self.width, self.height, [self.free[i] for i in _sequence])
             solution, feasible = problem.solve()
             # solution, status = (0, 1)
             if feasible:
@@ -315,7 +315,7 @@ def get_random_solution(width, height):
 def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None):
     # Get Solution
     start = time.time()
-    ggmst_problem = GGMSTProblem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints)
+    ggmst_problem = Problem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints)
     solution, status = ggmst_problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
@@ -323,11 +323,11 @@ def get_custom_solution(width, height, quantity_constraints=[], iteration_constr
 
 
 def get_problem(graph_width, graph_height):
-    return GGMSTProblem(graph_width - 1, graph_height - 1)
+    return Problem(graph_width - 1, graph_height - 1)
 
 
 if __name__ == '__main__':
     # 6x6 complete with intersections: 52960
     # 8x4 complete with intersections: 12796
-    GraphModel(4, 4, generate_intersections=False, fast=False)
+    GraphModel(6, 6, generate_intersections=False)
     # solution = get_custom_solution(4, 4)
