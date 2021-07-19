@@ -122,9 +122,10 @@ class MultiGraph(AnimationSequenceScene):
 class CustomTrack(AnimationSequenceScene):
     def construct(self):
         quantity_constraints = [
-            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
-            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 2),
-            QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 4)
+            # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
+            # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
+            # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 2)
+            QuantityConstraint(TrackProperties.turn_90, ConditionTypes.equals, 6)
         ]
         width, height = (6, 6)
         # square_size, track_width = (2, 0.2)
@@ -133,7 +134,7 @@ class CustomTrack(AnimationSequenceScene):
 
         # solution = get_random_solution(width, height)
         # solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints)
-        solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints, iteration_constraints=[(1, 1)])
+        solution = get_custom_solution(width, height, quantity_constraints=quantity_constraints, iteration_constraints=[])
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, scale=square_size)

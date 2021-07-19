@@ -37,7 +37,7 @@ class Problem:
         self.nodes_180s = []
         self.nodes_straights = []
         self.node_grid_intersections = [[None for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_90s = [[None for y in range(self.height)] for x in range(self.width)]
+        self.node_grid_90s = [[[] for y in range(self.height)] for x in range(self.width)]
         self.node_grid_180s = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_180s_u = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_straights_horizontal = [[None for y in range(self.height)] for x in range(self.width)]
@@ -281,17 +281,47 @@ class Problem:
         return self.nodes_intersections
 
     def add_90_degree_turn_constraint(self):
-        # TODO
+        indices = self.get_grid_indices()
+
+        for (x, y) in indices:
+            self.node_grid_90s[x][y] = list()
+            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
+            adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
+            for s in [(0, 1), (1, 2), (2, 3), (3, 0)]:
+                idx1, idx2 = s
+                v_90 = LpVariable("v{}_{}(90_{}_{})".format(x, y, *s), cat=const.LpBinary)
+                self.node_grid_90s[x][y].append(v_90)
+                self.nodes_90s.append(v_90)
+                # 90 degree turns can only exist at selected cells.
+                self.problem += v_90 <= self.node_grid[x][y]
+                # the two cells adjacent to the corner must both exist
+                self.problem += v_90 <= (adjacent[idx1] + adjacent[idx2]) / 2
+                # None of the two adjacent cells may be intersections
+                self.problem += v_90 <= 1 - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) / 2
+                # The reverse must also hold
+                self.problem += adjacent[idx1] + adjacent[idx2] - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) >= 2 * v_90
+
+        # If two adjacent 90s result in a 180, they may not exist at the same time
+        # Vertical -> 0 and 1, 2 and 3
+        # Horizontal -> 0 and 3, 1 and 2
+        for (x, y) in indices:
+            v_list = self.node_grid_90s[x][y]
+            v_right_list = self.get_safe(x, y, grid=self.node_grid_90s)
+            if v_right_list is not None:
+                self.problem += v_list[0] + v_right_list[3] <= 1
+                self.problem += v_list[1] + v_right_list[2] <= 1
+            v_top_list = self.get_safe(x, y, grid=self.node_grid_90s)
+            if v_right_list is not None:
+                self.problem += v_list[0] + v_top_list[1] <= 1
+                self.problem += v_list[2] + v_top_list[3] <= 1
         return self.nodes_90s
 
     def add_180_degree_turn_constraint(self):
-        indices = []
-        for x in range(self.width):
-            for y in range(self.height):
-                v_180 = LpVariable("v{}_{}(180)".format(x, y), cat=const.LpBinary)
-                self.node_grid_180s[x][y] = v_180
-                self.nodes_180s.append(v_180)
-                indices.append((x, y))
+        indices = self.get_grid_indices()
+        for (x, y) in indices:
+            v_180 = LpVariable("v{}_{}(180)".format(x, y), cat=const.LpBinary)
+            self.node_grid_180s[x][y] = v_180
+            self.nodes_180s.append(v_180)
 
         # 180 degree turns can only exist at selected cells.
         for index in range(len(self.nodes_180s)):
@@ -312,7 +342,6 @@ class Problem:
 
         # 180 also exists when cell is zero and exactly 3 adjacent cells are positive
         # 4 adjacent cells need not be checked, because that would form a circle
-
         # Additionally: If intersections are being included in problem:
         # None of the adjacent cells may be intersections
         # Reverse: any of the adjacent cells must be intersection or not positive
@@ -336,42 +365,6 @@ class Problem:
             self.nodes_180s.append(v_180_u)
         return self.nodes_180s
 
-    def add_180_degree_turn_constraint_debug(self):
-        indices = []
-        for x in range(self.width):
-            for y in range(self.height):
-                indices.append((x, y))
-
-        print(colored('180 leaf constraints for ({}|{})'.format(0, 0), 'yellow'))
-        print("1. v{}_{}(180) <= {}".format(0, 0, int(value(self.nodes[0]))))
-        # Except when root is a leaf node, in that case there must be exactly one outgoing edge
-        print("2. v{}_{}(180) <= 2 - sum({})".format(0, 0, print_list(self.e_out[(0, 0)], values=True, binary=True)))
-        # The reverse must also be true: if a 180 turn does not exist there must 2 outgoing edges
-        print("R. sum({}) >= 2 - v{}_{}(180)".format(print_list(self.e_out[(0, 0)], values=True, binary=True), 0, 0))
-
-        for index, (x, y) in enumerate(indices):
-            if not (x == 0 and y == 0):
-                print(colored('180 leaf constraints for ({}|{})'.format(x, y), 'yellow'))
-                # 180 degree turns can only exist at selected cells.
-                print("1. v{}_{}(180) <= {}".format(*indices[index], int(value(self.nodes[index]))))
-                # There must be no outgoing edges for an 180 turn to exist
-                print("2. v{}_{}(180) <= 1 - sum({}) / 3".format(x, y, print_list(self.e_out[(x, y)], values=True, binary=True)))
-                # The reverse must also be true: if a 180 turn does not exist there must be an outgoing edge
-                print("R. sum({}) >= {} - v{}_{}(180)".format(print_list(self.e_out[(x, y)], values=True, binary=True), int(value(self.node_grid[x][y])), x, y))
-
-        # TODO: Sadly we need a second set of variables to represent u-turns :(
-        # U-turn exists when cell is zero and exactly 3 adjacent cells are positive
-        # 4 adjacent cells need not be checked, because that would form a circle
-        # INTERSECTION HAVE TO BE FACTORED IN!
-        for (x, y) in indices:
-            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
-            print(colored('180 u-turn constraints for ({}|{})'.format(x, y), 'blue'))
-            print("1. v{}_{}(180_u) <= 1 - {}".format(x, y, int(value(self.node_grid[x][y]))))
-            print("2. v{}_{}(180_u) <= sum({}) / 3".format(x, y, print_list(adjacent, values=True, binary=True)))
-            # self.problem += sum(adjacent) >= v_180_u * 3
-            print("R. sum({}) <= 2 + v{}_{}(180_u)".format(print_list(adjacent, values=True, binary=True), x, y))
-            # self.problem += sum(adjacent) <= 2 + v_180_u
-
     def add_straights_constraints(self, length):
         """
         The Idea is to represent a straight sequence of "length" cells as a new variable.
@@ -384,10 +377,7 @@ class Problem:
         :param n_straights:
         :return:
         """
-        indices = []
-        for x in range(self.width):
-            for y in range(self.height):
-                indices.append((x, y))
+        indices = self.get_grid_indices()
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
             intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i, 0) for i in range(length)]]
@@ -451,33 +441,34 @@ class Problem:
     ################################
 
     def print_all_variables(self, values=True):
-        # print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
-        # print("Nodes:              {}".format(self.nodes))
-        # print("Node Values:        {}".format(self.nodes_values))
-        # print("Node Intersections: {}".format(self.nodes_intersections))
-        # print("Edges:              {}".format(self.edges))
-        # print("Edges Values:       {}".format(self.edges_values))
-        #
-        # print("\nNode Grid:")
-        # print_grid(self.node_grid, values=values, binary=True)
-        # print("Node Value Grid:")
-        # print_grid(self.node_grid_values, values=values)
-        # print("Node Intersection Grid:")
-        # print_grid(self.node_grid_intersections, values=values, binary=True)
-        #
-        # print("Edges In dict:")
-        # print_dict(self.e_in, values=values, binary=True)
-        # print("Edge In (values) dict:")
-        # print_dict(self.e_in_values, values=values)
-        # print("Edges Out dict:")
-        # print_dict(self.e_out, values=values, binary=True)
-        # print("Edge Out (values) dict:")
-        # print_dict(self.e_out_values, values=values)
+        print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
+        print("\nNode Grid:")
+        print_grid(self.node_grid, values=values, binary=True)
+        print("Node Value Grid:")
+        print_grid(self.node_grid_values, values=values)
 
-        print("180s Grid:")
-        print(print_grid(self.node_grid_180s, values=values, binary=True))
-        print("180s U-turns Grid:")
-        print(print_grid(self.node_grid_180s_u, values=values, binary=True))
+        print("Edges In dict:")
+        print_dict(self.e_in, values=values, binary=True)
+        print("Edge In (values) dict:")
+        print_dict(self.e_in_values, values=values)
+        print("Edges Out dict:")
+        print_dict(self.e_out, values=values, binary=True)
+        print("Edge Out (values) dict:")
+        print_dict(self.e_out_values, values=values)
+
+        if len(self.nodes_intersections) > 0:
+            print("Node Intersection Grid:")
+            print_grid(self.node_grid_intersections, values=values, binary=True)
+
+        if len(self.nodes_90s) > 0:
+            print("90s Grid:")
+            print(print_grid(self.node_grid_90s, values=values, binary=True))
+
+        if len(self.nodes_180s) > 0:
+            print("180s Grid:")
+            print(print_grid(self.node_grid_180s, values=values, binary=True))
+            print("180s U-turns Grid:")
+            print(print_grid(self.node_grid_180s_u, values=values, binary=True))
 
     def get_all_variables(self, values=True):
         # export base variables
@@ -620,6 +611,13 @@ class Problem:
                     print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('vertical_right', 'yellow')))
                 counter += 1
 
+    def get_grid_indices(self):
+        indices = []
+        for x in range(self.width):
+            for y in range(self.height):
+                indices.append((x, y))
+        return indices
+
 
 class IntersectionProblem:
     def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
@@ -670,14 +668,15 @@ class IntersectionProblem:
 if __name__ == '__main__':
     quantity_constraints = [
         # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3),
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
-        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 6)
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 6),
+        # QuantityConstraint(TrackProperties.turn_90, ConditionTypes.equals, 6)
     ]
-    p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[])
+    p = Problem(3, 3, quantity_constraints=quantity_constraints, iteration_constraints=[])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    # p.print_all_variables()
+    p.print_all_variables()
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
