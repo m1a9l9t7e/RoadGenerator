@@ -4,7 +4,25 @@ import numpy as np
 from termcolor import colored
 
 
-def print_grid(grid, values=True, print_zeros=True, binary=False):
+def list_grid_as_str(grid, values=True, print_zeros=True, binary=False, only_positives=False):
+    grid_str = ""
+    if len(grid[0][0]) == 0:
+        print("Grid empty! Skipping.")
+        return ""
+    if values and value(grid[0][0][0]) is None:
+        print("Values None, switching to names...")
+        values = False
+    for y in range(len(grid[0]) - 1, -1, -1):
+        row = ""
+        for x in range(len(grid)):
+            pass
+            print_x_y = list_as_str(grid[x][y], values=values, binary=binary, only_positives=only_positives)
+            row += "[{}] ".format(print_x_y)
+        grid_str += row + '\n'
+    return grid_str
+
+
+def grid_as_str(grid, values=True, print_zeros=True, binary=False):
     grid_str = ""
     if values and value(grid[2][2]) is None:
         print("Values None, switching to names...")
@@ -25,11 +43,10 @@ def print_grid(grid, values=True, print_zeros=True, binary=False):
                 print_x_y = " " if print_x_y == 0 else print_x_y
             row += "{} ".format(print_x_y)
         grid_str += row + '\n'
-    grid_str += '\n'
     return grid_str
 
 
-def print_dict(_dict, values=False, binary=False):
+def dict_as_str(_dict, values=False, binary=False):
     if values:
         for key in _dict.keys():
             if value(_dict[key][0]) is None:
@@ -41,24 +58,24 @@ def print_dict(_dict, values=False, binary=False):
         _list = _dict[key]
         list_str = "{}: ".format(key)
         for variable in _list:
-            _print = variable_to_string(variable, values, binary)
+            _print = variable_as_str(variable, values, binary)
             list_str += "{} ".format(_print)
         _str += "{}\n".format(list_str)
     return _str
 
 
-def print_list(_list, values=False, binary=False, only_positives=False):
+def list_as_str(_list, values=False, binary=False, only_positives=False):
     list_str = ""
     for variable in _list:
         if only_positives and value(variable) < 1:
             _print = ""
         else:
-            _print = variable_to_string(variable, values, binary)
+            _print = variable_as_str(variable, values, binary)
         list_str += "{} ".format(_print)
     return list_str
 
 
-def variable_to_string(variable, values, binary):
+def variable_as_str(variable, values, binary):
     if values and binary:
         if int(value(variable)) > 0:
             _print = colored(str(variable), 'green')
