@@ -316,7 +316,7 @@ class Problem:
                 # the two cells adjacent to the corner must both not exist
                 self.problem += v_90 <= 1 - (adjacent[idx1] + adjacent[idx2]) / 2
                 # The reverse must also hold)
-                self.problem += adjacent[idx1] + adjacent[idx2] >= 1 - v_90
+                self.problem += adjacent[idx1] + adjacent[idx2] >= self.node_grid[x][y] - v_90
 
         # Two inner 90s result in a 180
         # Adjacent inner 90s between corners of adjacent cells
@@ -339,11 +339,11 @@ class Problem:
             v_top_list = self.get_safe(x, y + 2, grid=self.node_grid_90s_inner)
             if v_top_list is not None:
                 right_180 = LpVariable("v{}_{}(180_vertical_right)".format(x, y), cat=const.LpBinary)
-                self.problem += right_180 <= (v_corners[0] + v_top_list[1]) / 2
+                self.problem += right_180 <= (v_corners[1] + v_top_list[0]) / 2
                 left_180 = LpVariable("v{}_{}(180_vertical_left)".format(x, y), cat=const.LpBinary)
                 self.problem += left_180 <= (v_corners[2] + v_top_list[3]) / 2
                 # Reverse must hold
-                self.problem += v_corners[0] + v_top_list[1] <= 1 + right_180
+                self.problem += v_corners[1] + v_top_list[0] <= 1 + right_180
                 self.problem += v_corners[2] + v_top_list[3] <= 1 + left_180
                 _180s += [right_180, left_180]
             self.node_grid_180s_inner[x][y] = _180s
@@ -643,6 +643,30 @@ class Problem:
 
         return self.nodes_180s
 
+    def get_stats(self):
+        num_intersections = 0
+        num_90s = "?"
+        num_180s = "?"
+        num_straights = "?"
+
+        if len(self.nodes_intersections) > 0:
+            num_intersections = sum([int(value(v)) for v in self.nodes_intersections])
+
+        if len(self.nodes_90s) > 0:
+            num_90s = sum([int(value(v)) for v in self.nodes_90s])
+
+        if len(self.nodes_180s) > 0:
+            num_180s = sum([int(value(v)) for v in self.nodes_180s])
+
+        if len(self.nodes_straights) > 0:
+            num_straights = sum([int(value(v)) for v in self.nodes_straights])
+
+        intersection_str = colored('{} intersections'.format(num_intersections), 'yellow')
+        _90_str = colored('{} 90 degree turns'.format(num_90s), 'blue')
+        _180_str = colored('{} 180 degree turns'.format(num_180s), 'magenta')
+        straights_str = colored('{} straights of length 3'.format(num_straights), 'cyan')
+        print("Solution has {}, {}, {} and {}".format(intersection_str, _90_str, _180_str, straights_str))
+
 
 class IntersectionProblem:
     def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
@@ -692,16 +716,17 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     quantity_constraints = [
-        # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3),
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 2),
-        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 3),
-        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.equals, 2)
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
+        # QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
+        # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
     ]
-    p = Problem(3, 3, quantity_constraints=quantity_constraints, iteration_constraints=[])
+    p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    p.print_all_variables()
+    # p.print_all_variables()
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
+    p.get_stats()

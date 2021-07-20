@@ -122,12 +122,12 @@ class MultiGraph(AnimationSequenceScene):
 class CustomTrack(AnimationSequenceScene):
     def construct(self):
         quantity_constraints = [
-            # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
+            # QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 10),
             # QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
-            # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.equals, 2)
-            QuantityConstraint(TrackProperties.turn_90, ConditionTypes.equals, 6)
+            # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 6)
+            QuantityConstraint(TrackProperties.turn_90, ConditionTypes.equals, 0)
         ]
-        width, height = (6, 6)
+        width, height = (8, 8)
         # square_size, track_width = (2, 0.2)
         square_size, track_width = (2, 0.4)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
