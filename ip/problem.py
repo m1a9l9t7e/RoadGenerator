@@ -279,7 +279,6 @@ class Problem:
             self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
 
         # Add quantity condition
-        # self.problem += quantity_constraint.get_condition(self.nodes_intersections)
         return self.nodes_intersections
 
     def add_turn_constraints(self):
@@ -289,7 +288,7 @@ class Problem:
         for (x, y) in indices:
             self.node_grid_90s_inner[x][y] = list()
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
-            adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
+            adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
             for (idx1, idx2) in [(0, 1), (1, 2), (2, 3), (3, 0)]:
                 v_90 = LpVariable("v{}_{}(90_inner_{}_{})".format(x, y, idx1, idx2), cat=const.LpBinary)
                 self.node_grid_90s_inner[x][y].append(v_90)

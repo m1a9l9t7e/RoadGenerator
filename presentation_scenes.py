@@ -271,7 +271,7 @@ def get_legend(legend_list, shift, scale=1.0):
 
 class IPExtra(AnimationSequenceScene):
     def construct(self):
-        viz = IPVisualization(8, 8, show_text='values', show_edges=True, show_intersections=False)
+        viz = IPVisualization(8, 8, show_text='names', show_edges=True, show_intersections=False)
         camera_position, camera_size, shift = viz.get_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=shift)
         self.play_animations(viz.get_animation_sequence())
