@@ -89,6 +89,10 @@ def variable_as_str(variable, values, binary):
     return _print
 
 
+def export_list_grid(grid, save_name=False):
+    return [[export_list(grid[x][y], save_name=save_name) for y in range(len(grid[x]))] for x in range(len(grid))]
+
+
 def export_grid(grid, save_name=False):
     return [[export_variable(grid[x][y], save_name=save_name) for y in range(len(grid[x]))] for x in range(len(grid))]
 
@@ -200,3 +204,11 @@ def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
         intersect_matrix = np.where(degree_matrix == 1, np.ones_like(ip_solution), intersect_matrix)
 
     return intersect_matrix, np.count_nonzero(intersect_matrix)
+
+
+def get_grid_indices(width, height):
+    indices = []
+    for x in range(width):
+        for y in range(height):
+            indices.append((x, y))
+    return indices

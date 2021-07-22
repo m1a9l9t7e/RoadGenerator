@@ -8,9 +8,9 @@ def write():
     width, height = (4, 4)
     square_size = 2
     track_width = 0.2
-    solution = get_custom_solution(width, height)
+    solution, _ = get_custom_solution(width, height)
     graph = convert_solution_to_graph(solution, scale=square_size)
-    _, _, points = generate_track_points(graph, track_width=track_width)
+    _, _, points, track_properties = generate_track_points(graph, track_width=track_width)
     r_polynomials, l_polynomials, c_polynomials = interpolate_track_points_piece_wise(points)
     data = {
         'right': r_polynomials,

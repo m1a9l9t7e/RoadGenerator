@@ -143,7 +143,7 @@ class IPVisualization:
         self.problem = Problem(self.ip_width, self.ip_height)
         self.solution, self.feasible = self.problem.solve(_print=True)
         # self.problem.print_all_variables()
-        self.problem_dict = self.problem.get_all_variables()
+        self.problem_dict = self.problem.export_variables()
         self.animation_sequence = []
 
         # Descriptors

@@ -19,6 +19,7 @@ class Node:
         self.adjacent_nodes = []
         self.drawable = self._create_drawable()
         self.cycle_id = None
+        self.track_property = None
 
     def __str__(self):
         adjacent = "adjacent:\n"

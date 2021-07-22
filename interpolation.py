@@ -139,16 +139,18 @@ def interpolate_track_points_piece_wise(track_points):
     return right_line_polynomials, left_line_polynomials, center_line_polynomials
 
 
-def get_interpolation_animation_piece_wise(track_points):
+def get_interpolation_animation_piece_wise(track_points, colors=None):
     r_polynomials, l_polynomials, c_polynomials = interpolate_track_points_piece_wise(track_points)
+    if colors is None:
+        colors = [WHITE] * len(r_polynomials)
     animation_sequence = []
     for idx in range(len(r_polynomials)):
         px, py = r_polynomials[idx]
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
         px, py = l_polynomials[idx]
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
         px, py = c_polynomials[idx]
-        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=WHITE, stroke_width=2)
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
         center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
         animation_sequence.append(AnimationObject(type='play',
                                                   content=[Create(right_line), Create(left_line), Create(center_line)],

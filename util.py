@@ -15,6 +15,7 @@ class GraphTour:
     This class converts a given graph containing a single cycle to a tour.
     The tour can be retrieved as a sequence of nodes or edges.
     """
+
     def __init__(self, graph):
         self.graph = graph
         self.nodes = list()
@@ -111,6 +112,7 @@ class Grid:
     """
     Creates a drawable grid, consisting of manim lines
     """
+
     def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=0.4):
         self.graph = graph
         self.width = len(graph.grid)
@@ -238,6 +240,7 @@ class TrackPoint:
     A simple point in 2d space, with a direction.
     This class is used for interpolating the track, hence the name track point.
     """
+
     def __init__(self, coords, direction):
         self.coords = coords
         self.direction = direction / np.linalg.norm(direction)
@@ -272,6 +275,7 @@ def generate_track_points(graph, track_width):
     :return: animations for track points creation, animations for track points removal, track points
     """
     track_points = []
+    track_properties = []
     graph_tour = GraphTour(graph)
     nodes = graph_tour.get_nodes()
     nodes.append(nodes[0])
@@ -286,6 +290,7 @@ def generate_track_points(graph, track_width):
         coord2 = node2.get_real_coords()
         right, left, center = get_track_points(coord1, coord2, track_width)
         track_points.append((right, left, center))
+        track_properties.append(node2.track_property)
         line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
         line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
         point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
@@ -301,7 +306,7 @@ def generate_track_points(graph, track_width):
         AnimationObject(type='play', content=[FadeOut(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
     ]
 
-    return track_points_creation, track_points_removal, track_points
+    return track_points_creation, track_points_removal, track_points, track_properties
 
 
 def get_track_points(coord1, coord2, track_width):
@@ -319,7 +324,7 @@ def get_track_points(coord1, coord2, track_width):
 def alter_track_point_directions(track_points):
     for points in track_points:
         degrees_20 = 0.349066
-        angle = degrees_20 * random.uniform(0, 1) - degrees_20/2
+        angle = degrees_20 * random.uniform(0, 1) - degrees_20 / 2
         [point.alter_direction(angle) for point in points]
 
 
@@ -368,6 +373,7 @@ class GridShowCase:
     A helper class for dividing a 2d space into a grid, and keeping track of the positions of all cells.
     Size and spacing of cells are configurable. The dimensions of the grid are automatically calculated based on a given ratio.
     """
+
     def __init__(self, num_elements, element_dimensions, spacing=[1, 1], space_ratio=[16, 9], shift=[0, 0]):
         self.grid_dimensions = calculate_grid_dimensions(num_elements, ratio=space_ratio)
         self.element_width, self.element_height = element_dimensions
@@ -394,7 +400,7 @@ class GridShowCase:
         size = (width of cell, height of cell)
         """
         bottom_left_x, bottom_left_y = self.get_element_coords(index)
-        position = (bottom_left_x + self.element_width/2, bottom_left_y + self.element_height/2)
+        position = (bottom_left_x + self.element_width / 2, bottom_left_y + self.element_height / 2)
         size = [self.element_width, self.element_height]
         return self.transform_coords(position), size
 
@@ -462,9 +468,10 @@ class Capturing(list):
         self._stdout = sys.stdout
         sys.stdout = self._stringio = StringIO()
         return self
+
     def __exit__(self, *args):
         self.extend(self._stringio.getvalue().splitlines())
-        del self._stringio    # free up some memory
+        del self._stringio  # free up some memory
         sys.stdout = self._stdout
 
 

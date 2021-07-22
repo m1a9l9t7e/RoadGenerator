@@ -1,6 +1,7 @@
 from pulp import *
 import numpy as np
-from ip.ip_util import TrackProperties, grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, list_grid_as_str
+from ip.ip_util import TrackProperties, grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, list_grid_as_str, \
+    export_list_grid
 from util import is_adjacent, add_to_list_in_dict, time, Capturing
 from termcolor import colored
 
@@ -37,12 +38,12 @@ class Problem:
         self.nodes_180s = []
         self.nodes_straights = []
         self.node_grid_intersections = [[None for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_90s_inner = [[[] for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_90s_outer = [[[] for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_180s_outer = [[[] for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_180s_inner = [[[] for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_straights_horizontal = [[None for y in range(self.height)] for x in range(self.width)]
-        self.node_grid_straights_vertical = [[None for y in range(self.height)] for x in range(self.width)]
+        self.node_grid_90s_inner = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom_right, top_right, top_left, bottom_left]
+        self.node_grid_90s_outer = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom_right, top_right, top_left, bottom_left]
+        self.node_grid_180s_outer = [[[] for y in range(self.height)] for x in range(self.width)]  # [right, top, left, bottom]
+        self.node_grid_180s_inner = [[[] for y in range(self.height)] for x in range(self.width)]  # [right_top, right_bottom, top_right, top_left]
+        self.node_grid_straights_horizontal = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom, top]
+        self.node_grid_straights_vertical = [[[] for y in range(self.height)] for x in range(self.width)]  # [left, right]
 
         for x in range(self.width):
             for y in range(self.height):
@@ -289,9 +290,8 @@ class Problem:
             self.node_grid_90s_inner[x][y] = list()
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
             adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]]
-            for s in [(0, 1), (1, 2), (2, 3), (3, 0)]:
-                idx1, idx2 = s
-                v_90 = LpVariable("v{}_{}(90_inner_{}_{})".format(x, y, *s), cat=const.LpBinary)
+            for (idx1, idx2) in [(0, 1), (1, 2), (2, 3), (3, 0)]:
+                v_90 = LpVariable("v{}_{}(90_inner_{}_{})".format(x, y, idx1, idx2), cat=const.LpBinary)
                 self.node_grid_90s_inner[x][y].append(v_90)
                 self.nodes_90s.append(v_90)
                 # 90 degree turns can only exist at selected cells.
@@ -336,6 +336,9 @@ class Problem:
                 self.problem += v_corners[1] + v_right_corners[2] <= 1 + top_180
                 self.problem += v_corners[0] + v_right_corners[3] <= 1 + bottom_180
                 _180s += [top_180, bottom_180]
+            else:
+                _180s += [0, 0]
+
             v_top_list = self.get_safe(x, y + 2, grid=self.node_grid_90s_inner)
             if v_top_list is not None:
                 right_180 = LpVariable("v{}_{}(180_vertical_right)".format(x, y), cat=const.LpBinary)
@@ -346,6 +349,9 @@ class Problem:
                 self.problem += v_corners[1] + v_top_list[0] <= 1 + right_180
                 self.problem += v_corners[2] + v_top_list[3] <= 1 + left_180
                 _180s += [right_180, left_180]
+            else:
+                _180s += [0, 0]
+
             self.node_grid_180s_inner[x][y] = _180s
             self.nodes_180s += _180s
             inner_180s += _180s
@@ -399,6 +405,10 @@ class Problem:
                 self.nodes_straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
                 self.nodes_straights.append(top_straight)
+                self.node_grid_straights_horizontal[x][y] = [bottom_straight, top_straight]
+            else:
+                self.node_grid_straights_horizontal[x][y] = [0, 0]
+
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
             intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i) for i in range(length)]]
             parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
@@ -408,6 +418,9 @@ class Problem:
                 self.nodes_straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
                 self.nodes_straights.append(right_straight)
+                self.node_grid_straights_vertical[x][y] = [left_straight, right_straight]
+            else:
+                self.node_grid_straights_vertical[x][y] = [0, 0]
 
         return self.nodes_straights
 
@@ -471,6 +484,12 @@ class Problem:
             print("Node Intersection Grid:")
             grid_as_str(self.node_grid_intersections, values=values, binary=True)
 
+        if len(self.nodes_straights) > 0:
+            print("Horizontal Straights Grid:")
+            print(list_grid_as_str(self.node_grid_straights_horizontal, values=values, binary=False))
+            print("Vertical Straights Grid:")
+            print(list_grid_as_str(self.node_grid_straights_vertical, values=values, binary=False))
+
         if len(self.nodes_90s) > 0:
             print("Inner 90s Grid:")
             print(list_grid_as_str(self.node_grid_90s_inner, values=values, binary=False))
@@ -483,7 +502,7 @@ class Problem:
             print("Inner 180s Grid:")
             print(list_grid_as_str(self.node_grid_180s_inner, values=values, binary=True))
 
-    def get_all_variables(self, values=True):
+    def export_variables(self, values=True):
         # export base variables
         _dict = {
             'node_grid': export_grid(self.node_grid),
@@ -493,18 +512,21 @@ class Problem:
             'edges_out': export_dict(self.e_out, save_name=True),
             'edges_out_values': export_dict(self.e_out_values, save_name=True),
         }
+
         # export variables from quantity constraints
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
             if _type == TrackProperties.intersection:
-                _dict['node_grid_intersections'] = export_grid(self.node_grid_intersections),
+                _dict['intersections'] = export_grid(self.node_grid_intersections)
             elif _type == TrackProperties.straight:
-                _dict['horizontal_straights'] = export_grid(self.node_grid_h_straights),
-                _dict['vertical_straights'] = export_grid(self.node_grid_v_straights),
+                _dict['horizontal_straights'] = export_list_grid(self.node_grid_straights_horizontal)
+                _dict['vertical_straights'] = export_list_grid(self.node_grid_straights_vertical)
             elif _type == TrackProperties.turn_90:
-                _dict['node_grid_90s'] = export_grid(self.node_grid_90s_inner),
+                _dict['90s_inner'] = export_list_grid(self.node_grid_90s_inner)
+                _dict['90s_outer'] = export_list_grid(self.node_grid_90s_outer)
             elif _type == TrackProperties.turn_180:
-                _dict['node_grid_180s'] = export_grid(self.node_grid_180s_outer),
+                _dict['180s_inner'] = export_list_grid(self.node_grid_180s_inner)
+                _dict['180s_outer'] = export_list_grid(self.node_grid_180s_outer)
             else:
                 raise ValueError("Track Property Type '{}' is not defined.".format(_type))
 
@@ -716,16 +738,16 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     quantity_constraints = [
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
-        # QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
-        # QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
     ]
     p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    # p.print_all_variables()
+    p.print_all_variables()
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))

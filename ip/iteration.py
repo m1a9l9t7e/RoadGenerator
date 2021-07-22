@@ -1,7 +1,7 @@
 import random
 import time
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes, get_grid_indices, list_grid_as_str
 from ip.problem import Problem, IntersectionProblem
 from util import GridShowCase, get_adjacent
 import numpy as np
@@ -214,11 +214,13 @@ class IntersectionIterator:
         return add_to_queue
 
 
-def convert_solution_to_graph(ip_solution, shift=[0, 0], scale=1):
+# TODO read straight length from dict instead of from method call?
+def convert_solution_to_graph(ip_solution, problem_dict=None, straight_length=3, shift=[0, 0], scale=1):
     width = len(ip_solution)
     height = len(ip_solution[0])
     edge_list = []
 
+    # construct base graph
     for x in range(width):
         for y in range(height):
             if ip_solution[x][y] > 0:
@@ -228,12 +230,98 @@ def convert_solution_to_graph(ip_solution, shift=[0, 0], scale=1):
                     if not adjacent_cells[index]:
                         edge_list.append(adjacent_edges[index])
     graph = Graph(width+1, height+1, edge_list=edge_list, shift=shift, scale=scale)
+
+    # construct and mark intersections
     for x in range(width):
         for y in range(height):
             if ip_solution[x][y] == 2:
                 searcher = GraphSearcher(graph)
                 joint = searcher.evaluate_position((x, y), ignore_cycles=True)
                 joint.intersect()
+                for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
+                    graph.grid[x + _x][y + _y].track_property = TrackProperties.intersection
+
+    if problem_dict is None:
+        return graph
+
+    nodes = graph.grid
+
+    # mark straights
+    if 'horizontal_straights' in problem_dict.keys():
+        horizontal_straights = problem_dict['horizontal_straights']
+        vertical_straights = problem_dict['vertical_straights']
+        for (x, y) in get_grid_indices(width, height):
+            bottom, top = horizontal_straights[x][y]
+            if bottom > 0:
+                for i in range(straight_length):
+                    nodes[x + i][y].track_property = TrackProperties.straight
+            if top > 0:
+                for i in range(straight_length):
+                    nodes[x + i][y + 1].track_property = TrackProperties.straight
+            left, right = vertical_straights[x][y]
+            if left > 0:
+                for i in range(straight_length):
+                    nodes[x][y + i].track_property = TrackProperties.straight
+            if right > 0:
+                for i in range(straight_length):
+                    nodes[x + 1][y + i].track_property = TrackProperties.straight
+
+    # mark 90s
+    if '90s_inner' in problem_dict.keys():
+        _90s_inner = problem_dict['90s_inner']
+        _90s_outer = problem_dict['90s_outer']
+        for (x, y) in get_grid_indices(width, height):
+            bottom_right, top_right, top_left, bottom_left = _90s_inner[x][y]
+            if bottom_left > 0:
+                nodes[x][y].track_property = TrackProperties.turn_90
+            if bottom_right > 0:
+                nodes[x+1][y].track_property = TrackProperties.turn_90
+            if top_left > 0:
+                nodes[x][y+1].track_property = TrackProperties.turn_90
+            if top_right > 0:
+                nodes[x+1][y+1].track_property = TrackProperties.turn_90
+            bottom_right, top_right, top_left, bottom_left = _90s_outer[x][y]
+            if bottom_left > 0:
+                nodes[x][y].track_property = TrackProperties.turn_90
+            if bottom_right > 0:
+                nodes[x+1][y].track_property = TrackProperties.turn_90
+            if top_left > 0:
+                nodes[x][y+1].track_property = TrackProperties.turn_90
+            if top_right > 0:
+                nodes[x+1][y+1].track_property = TrackProperties.turn_90
+
+    # mark 180s
+    if '180s_inner' in problem_dict.keys():
+        _180s_inner = problem_dict['180s_inner']
+        _180s_outer = problem_dict['180s_outer']
+        for (x, y) in get_grid_indices(width, height):
+            right, top, left, bottom = _180s_outer[x][y]
+            if bottom > 0:
+                nodes[x][y].track_property = TrackProperties.turn_180
+                nodes[x+1][y].track_property = TrackProperties.turn_180
+            if left > 0:
+                nodes[x][y].track_property = TrackProperties.turn_180
+                nodes[x][y+1].track_property = TrackProperties.turn_180
+            if top > 0:
+                nodes[x][y+1].track_property = TrackProperties.turn_180
+                nodes[x+1][y+1].track_property = TrackProperties.turn_180
+            if right > 0:
+                nodes[x+1][y].track_property = TrackProperties.turn_180
+                nodes[x+1][y+1].track_property = TrackProperties.turn_180
+            right_top, right_bottom, top_right, top_left = _180s_inner[x][y]
+            if right_bottom > 0:
+                nodes[x+1][y].track_property = TrackProperties.turn_180
+                nodes[x+2][y].track_property = TrackProperties.turn_180
+            if right_top > 0:
+                nodes[x+1][y+1].track_property = TrackProperties.turn_180
+                nodes[x+2][y+1].track_property = TrackProperties.turn_180
+            if top_left > 0:
+                nodes[x][y+1].track_property = TrackProperties.turn_180
+                nodes[x][y+2].track_property = TrackProperties.turn_180
+            if top_right > 0:
+                nodes[x+1][y+1].track_property = TrackProperties.turn_180
+                nodes[x+1][y+2].track_property = TrackProperties.turn_180
+
     return graph
 
 
@@ -312,14 +400,16 @@ def get_random_solution(width, height):
     return solution
 
 
-def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None):
+def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None, print_stats=True):
     # Get Solution
     start = time.time()
-    ggmst_problem = Problem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints)
-    solution, status = ggmst_problem.solve(_print=False, print_zeros=False)
+    problem = Problem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints)
+    solution, status = problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
-    return solution
+    if print_stats:
+        problem.get_stats()
+    return solution, problem.export_variables()
 
 
 def get_problem(graph_width, graph_height):
