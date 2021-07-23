@@ -395,10 +395,10 @@ class Problem:
         """
         indices = self.get_grid_indices()
         for (x, y) in indices:
-            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i, 0) for i in range(length)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
-            parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i, 0) for i in range(length)]]
+            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+            parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+            parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i-1, 0) for i in range(length+1)]]
             if not any(elem is None for elem in horizontal):
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
                 self.nodes_straights.append(bottom_straight)
@@ -408,10 +408,10 @@ class Problem:
             else:
                 self.node_grid_straights_horizontal[x][y] = [0, 0]
 
-            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i) for i in range(length)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
-            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i) for i in range(length)]]
+            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i-1) for i in range(length+1)]]
+            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i-1) for i in range(length+1)]]
+            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i-1) for i in range(length+1)]]
+            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i-1) for i in range(length+1)]]
             if not any(elem is None for elem in vertical):
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
                 self.nodes_straights.append(left_straight)
@@ -430,24 +430,11 @@ class Problem:
         self.problem += straight_var <= sum(cells) / len(cells)
         # --> If any of the parallel cells are positive, the straight var must be zero
         self.problem += straight_var <= 1 - sum(parallel) / len(parallel)
-        # --> There must be an edge going in or out of the first and last cell in the direction of the straight.
-        if direction == 'horizontal':
-            edges_left = self.get_edges_between_safe((x - 1, y), (x, y))
-            edges_right = self.get_edges_between_safe((x + len(cells) - 1, y), (x + len(cells), y))
-            edges_in, edges_out = (edges_left, edges_right)
-        elif direction == 'vertical':
-            edges_bottom = self.get_edges_between_safe((x, y - 1), (x, y))
-            edges_top = self.get_edges_between_safe((x, y + len(cells) - 1), (x, y + len(cells)))
-            edges_in, edges_out = (edges_bottom, edges_top)
-        else:
-            raise ValueError('Direction must be horizontal or vertical. Received: {}'.format(direction))
-
-        self.problem += straight_var <= (sum(edges_in) + sum(edges_out)) / 2
         # --> If any core cell is an intersection, the straight var must also be zero
         self.problem += straight_var <= 1 - sum(intersections) / len(intersections)
 
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
-        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + 2 - (sum(edges_in) + sum(edges_out)) + sum(intersections)
+        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + sum(intersections)
         return straight_var
 
     ################################
