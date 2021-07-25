@@ -31,31 +31,7 @@ class AnimationSequenceScene(MovingCameraScene):
             self.play_animation(animation)
 
     def play_concurrent(self, sequence_list):
-        """
-        It is assumed that all sequences in the list are of the same length and have the same types at each time-step
-        """
-        concurrent_sequence = []
-        first_sequence = sequence_list[0]
-        time_steps = len(first_sequence)
-        for time_step in range(time_steps):
-            reference = first_sequence[time_step]
-            animation_type = reference.type
-            duration = reference.duration
-            wait_after = reference.wait_after
-            bring_to_back = reference.bring_to_back
-            bring_to_front = reference.bring_to_front
-            content = []
-            for sequence in sequence_list:
-                animation_object = sequence[time_step]
-                if animation_type != animation_object.type:
-                    raise ValueError("Sequences type don't match at timestep {}. ({} vs {})".format(time_step, animation_type, animation_object.type))
-                if duration < animation_object.duration:
-                    duration = animation_object.duration
-                if wait_after < animation_object.wait_after:
-                    wait_after = animation_object.wait_after
-                content += animation_object.content
-            concurrent_sequence.append(AnimationObject(animation_type, content, wait_after, duration, bring_to_back, bring_to_front))
-
+        concurrent_sequence = make_concurrent(sequence_list)
         self.play_animations(concurrent_sequence)
 
     def play_animation(self, animation):
@@ -98,3 +74,31 @@ class AnimationSequenceScene(MovingCameraScene):
                 self.camera.frame.animate.set_height(camera_size[1] * border_scale),
                 run_time=duration/2
             )
+
+
+def make_concurrent(sequence_list):
+    """
+    It is assumed that all sequences in the list are of the same length and have the same types at each time-step
+    """
+    concurrent_sequence = []
+    first_sequence = sequence_list[0]
+    time_steps = len(first_sequence)
+    for time_step in range(time_steps):
+        reference = first_sequence[time_step]
+        animation_type = reference.type
+        duration = reference.duration
+        wait_after = reference.wait_after
+        bring_to_back = reference.bring_to_back
+        bring_to_front = reference.bring_to_front
+        content = []
+        for sequence in sequence_list:
+            animation_object = sequence[time_step]
+            if animation_type != animation_object.type:
+                raise ValueError("Sequences type don't match at timestep {}. ({} vs {})".format(time_step, animation_type, animation_object.type))
+            if duration < animation_object.duration:
+                duration = animation_object.duration
+            if wait_after < animation_object.wait_after:
+                wait_after = animation_object.wait_after
+            content += animation_object.content
+        concurrent_sequence.append(AnimationObject(animation_type, content, wait_after, duration, bring_to_back, bring_to_front))
+        return concurrent_sequence

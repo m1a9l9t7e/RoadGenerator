@@ -215,7 +215,7 @@ class IntersectionIterator:
 
 
 # TODO read straight length from dict instead of from method call?
-def convert_solution_to_graph(ip_solution, problem_dict=None, straight_length=3, shift=[0, 0], scale=1):
+def convert_solution_to_graph(ip_solution, problem_dict={}, straight_length=3, shift=[0, 0], scale=1, get_intersections=False):
     width = len(ip_solution)
     height = len(ip_solution[0])
     edge_list = []
@@ -232,18 +232,17 @@ def convert_solution_to_graph(ip_solution, problem_dict=None, straight_length=3,
     graph = Graph(width+1, height+1, edge_list=edge_list, shift=shift, scale=scale)
 
     # construct and mark intersections
+    intersections = []
     for x in range(width):
         for y in range(height):
             if ip_solution[x][y] == 2:
                 searcher = GraphSearcher(graph)
-                joint = searcher.evaluate_position((x, y), ignore_cycles=True)
-                joint.intersect()
+                intersection = searcher.evaluate_position((x, y), ignore_cycles=True)
+                intersections.append(intersection)
                 for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
                     graph.grid[x + _x][y + _y].track_property = TrackProperties.intersection
 
-    if problem_dict is None:
-        return graph
-
+    # Mark all nodes with track properties
     nodes = graph.grid
 
     # mark straights
@@ -322,7 +321,12 @@ def convert_solution_to_graph(ip_solution, problem_dict=None, straight_length=3,
                 nodes[x+1][y+1].track_property = TrackProperties.turn_180
                 nodes[x+1][y+2].track_property = TrackProperties.turn_180
 
-    return graph
+    if get_intersections:
+        return graph, intersections
+    else:
+        for intersection in intersections:
+            intersection.intersect()
+        return graph
 
 
 def get_edges_adjacent_to_cell(coords):
