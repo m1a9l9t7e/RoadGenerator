@@ -113,7 +113,7 @@ class Spline2d:
 
     def get_animation(self, dashed=False, num_dashes=5):
         # parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=len(self), color=WHITE, stroke_width=2)
-        parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=2, color=WHITE, stroke_width=2)
+        parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), color=WHITE, stroke_width=2)
         if dashed:
             parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes * len(self), positive_space_ratio=0.6)
         animation = Create(parametric_function)
@@ -139,22 +139,22 @@ def interpolate_track_points_piece_wise(track_points):
     return right_line_polynomials, left_line_polynomials, center_line_polynomials
 
 
-def get_interpolation_animation_piece_wise(track_points, colors=None):
+def get_interpolation_animation_piece_wise(track_points, colors=None, z_index=None):
     r_polynomials, l_polynomials, c_polynomials = interpolate_track_points_piece_wise(track_points)
     if colors is None:
         colors = [WHITE] * len(r_polynomials)
     animation_sequence = []
     for idx in range(len(r_polynomials)):
         px, py = r_polynomials[idx]
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=2)
         px, py = l_polynomials[idx]
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=2)
         px, py = c_polynomials[idx]
-        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), t_min=0, t_max=1, color=colors[idx], stroke_width=2)
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=2)
         center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
         animation_sequence.append(AnimationObject(type='play',
                                                   content=[Create(right_line), Create(left_line), Create(center_line)],
-                                                  duration=0.5, bring_to_front=True))
+                                                  duration=0.25, bring_to_front=True, z_index=z_index))
     return animation_sequence
 
 

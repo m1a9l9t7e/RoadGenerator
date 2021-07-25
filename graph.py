@@ -415,7 +415,8 @@ class Joint:
 
         animation_sequence = [
             AnimationObject(type='play', content=animations, duration=1),
-            AnimationObject(type='add', content=new_drawables, bring_to_back=True)
+            # TODO: make z_index argument!
+            AnimationObject(type='add', content=new_drawables, z_index=10)
         ]
 
         return animation_sequence

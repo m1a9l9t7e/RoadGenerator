@@ -123,9 +123,9 @@ def track_properties_to_colors(track_properties):
     colors = []
     property_to_color = {
         TrackProperties.turn_90: PINK,
-        TrackProperties.turn_180: GREEN,
+        TrackProperties.turn_180: BLUE_C,
         TrackProperties.straight: RED,
-        TrackProperties.intersection: BLUE_C
+        TrackProperties.intersection: YELLOW_E
     }
     for track_property in track_properties:
         if track_property is None:

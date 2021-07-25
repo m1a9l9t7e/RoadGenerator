@@ -733,7 +733,7 @@ if __name__ == '__main__':
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    p.print_all_variables()
+    # p.print_all_variables()
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))

@@ -143,13 +143,13 @@ class Grid:
 
         return lines
 
-    def get_animation_sequence(self, fade_in=True):
+    def get_animation_sequence(self, fade_in=True, z_index=-1):
         animation_sequence = []
         if fade_in:
             animations = [FadeIn(drawable) for drawable in self.drawable]
-            animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, bring_to_back=True))
+            animation_sequence.append(AnimationObject(type='play', content=animations, wait_after=0.5, duration=0.5, z_index=z_index))
         else:
-            animation_sequence.append(AnimationObject(type='add', content=self.drawable, bring_to_back=True))
+            animation_sequence.append(AnimationObject(type='add', content=self.drawable, bring_to_back=True, z_index=z_index))
 
         return animation_sequence
 
@@ -190,7 +190,7 @@ def get_text(text, coords, scale=1):
     return text
 
 
-def draw_graph(graph):
+def draw_graph(graph, z_index=None):
     """
     Creates manim animations for drawing a given graph.
     :returns animations
@@ -198,8 +198,12 @@ def draw_graph(graph):
     animation_sequence = []
     node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
     edge_drawables = [Create(edge.drawable) for edge in graph.edges]
-    animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-    animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+    if z_index is None:
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+    else:
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, z_index=z_index+1))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=z_index))
     return animation_sequence
 
 
@@ -266,7 +270,7 @@ class TrackPoint:
         return [x, y, dx, dy]
 
 
-def generate_track_points(graph, track_width):
+def generate_track_points(graph, track_width, z_index=None):
     """
     Generate track points resulting from tour found in given graph.
     For each edge in the tour, three points are generated.
@@ -296,14 +300,21 @@ def generate_track_points(graph, track_width):
         point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
         point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
 
-    track_points_creation = [
-        AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
-        AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
-        AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
-    ]
+    if z_index is None:
+        track_points_creation = [
+            AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, bring_to_front=True),
+            AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+            AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
+        ]
+    else:
+        track_points_creation = [
+            AnimationObject(type='play', content=[Create(line) for line in line_drawables], duration=2, z_index=z_index),
+            AnimationObject(type='play', content=[FadeIn(point) for point in point_drawables], duration=1, wait_after=1, z_index=z_index+1),
+            AnimationObject(type='play', content=[FadeOut(line) for line in line_drawables], duration=0.5)
+        ]
 
     track_points_removal = [
-        AnimationObject(type='play', content=[FadeOut(point) for point in point_drawables], duration=1, bring_to_front=True, wait_after=1),
+        AnimationObject(type='play', content=[FadeOut(point) for point in point_drawables], duration=1, wait_after=1),
     ]
 
     return track_points_creation, track_points_removal, track_points, track_properties

@@ -35,16 +35,16 @@ class AnimationSequenceScene(MovingCameraScene):
         self.play_animations(concurrent_sequence)
 
     def play_animation(self, animation):
-        if animation.bring_to_back or animation.bring_to_front:
+        if animation.bring_to_back or animation.bring_to_front or animation.z_index is not None:
             content = animation.content
             if animation.type == 'play':
                 content = [c.mobject for c in animation.content]
-            if animation.z_index is not None:
-                [c.set_z_index(animation.z_index) for c in content]
             elif animation.bring_to_front:
                 self.bring_to_front(*content)
             elif animation.bring_to_back:
                 self.bring_to_back(*content)
+            if animation.z_index is not None:
+                [c.set_z_index(animation.z_index) for c in content]
         if animation.type == 'add':
             self.add(*animation.content)
             if animation.bring_to_front:
