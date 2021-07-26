@@ -31,6 +31,9 @@ class AnimationSequenceScene(MovingCameraScene):
             self.play_animation(animation)
 
     def play_concurrent(self, sequence_list):
+        """
+        It is assumed that all sequences in the list are of the same length and have the same types at each time-step
+        """
         concurrent_sequence = make_concurrent(sequence_list)
         self.play_animations(concurrent_sequence)
 
@@ -101,4 +104,4 @@ def make_concurrent(sequence_list):
                 wait_after = animation_object.wait_after
             content += animation_object.content
         concurrent_sequence.append(AnimationObject(animation_type, content, wait_after, duration, bring_to_back, bring_to_front))
-        return concurrent_sequence
+    return concurrent_sequence
