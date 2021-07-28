@@ -1,9 +1,11 @@
 import random
+import sys
 import time
+from tqdm import tqdm
 from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes, get_grid_indices, list_grid_as_str
 from ip.problem import Problem, IntersectionProblem
-from util import GridShowCase, get_adjacent
+from util import GridShowCase, get_adjacent, print_2d
 import numpy as np
 import itertools
 from termcolor import colored
@@ -47,6 +49,17 @@ class GraphModel:
             graph_list.append(graph)
         return graph_list, helper
 
+    def get_solutions(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
+        helper = GridShowCase(num_elements=len(self.variants),
+                              element_dimensions=(scale * self.width, scale * self.height),
+                              spacing=spacing, space_ratio=ratio)
+        graph_list = []
+        for index, variant in enumerate(self.variants):
+            shift = helper.get_element_coords(index)
+            graph = convert_solution_to_graph(variant, scale=scale, shift=shift)
+            graph_list.append(graph)
+        return graph_list, helper
+
 
 class GGMSTIterator:
     def __init__(self, width, height, _print=False):
@@ -79,24 +92,29 @@ class GGMSTIterator:
     def iterate(self, multi_processing=True):
         queue = [[i] for i in range(self.n_free - self.n_choice + 1)]
 
-        while len(queue) > 0:
-            if self._print:
-                print("Processed elements {}, queue size: {}".format(self.counter, len(queue)))
-            if multi_processing:
-                pool = mp.Pool(mp.cpu_count())
-                full_iteration = pool.map(self.next, queue)
-                pool.close()
-                queue = []
-                for next_elements in full_iteration:
+        with tqdm(total=len(queue)) as pbar:
+            while len(queue) > 0:
+                # if self._print:
+                    # print("Processed elements {}, queue size: {}".format(self.counter, len(queue)))
+                if multi_processing:
+                    pool = mp.Pool(mp.cpu_count())
+                    full_iteration = pool.map(self.next, queue)
+                    pool.close()
+                    queue = []
+                    for next_elements in full_iteration:
+                        add_to_queue = self.unpack_next(next_elements)
+                        queue += add_to_queue
+                        self.counter += len(add_to_queue)
+                        pbar.update(len(add_to_queue))
+
+                else:
+                    next_elements = self.next(queue.pop(0))
                     add_to_queue = self.unpack_next(next_elements)
                     queue += add_to_queue
-                    self.counter += len(add_to_queue)
-
-            else:
-                next_elements = self.next(queue.pop(0))
-                add_to_queue = self.unpack_next(next_elements)
-                queue += add_to_queue
-                self.counter += 1
+                    self.counter += 1
+                    pbar.update(1)
+                pbar.total = len(queue)
+                pbar.refresh()
 
         return self.variants
 
@@ -110,7 +128,7 @@ class GGMSTIterator:
                 continue
             # print("Child sequence: {}".format(_sequence))
             # problem = Problem(width, height, [free[i] for i in _sequence])
-            problem = Problem(self.width, self.height, [self.free[i] for i in _sequence])
+            problem = Problem(self.width, self.height, iteration_constraints=[self.free[i] for i in _sequence])
             solution, feasible = problem.solve()
             # solution, status = (0, 1)
             if feasible:
@@ -411,6 +429,9 @@ def get_custom_solution(width, height, quantity_constraints=[], iteration_constr
     solution, status = problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
+    if status <= 0:
+        sys.exit(0)
+
     if print_stats:
         problem.get_stats()
     return solution, problem.export_variables()

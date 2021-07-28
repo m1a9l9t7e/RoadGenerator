@@ -207,11 +207,10 @@ def draw_graph(graph, z_index=None):
     return animation_sequence
 
 
-def add_graph(graph):
+def add_graph(graph, z_index=0):
     nodes = [node.drawable for node in graph.nodes]
     edges = [edge.drawable for edge in graph.edges]
-    return [AnimationObject(type='add', content=nodes),
-            AnimationObject(type='add', content=edges, bring_to_back=True)]
+    return [AnimationObject(type='add', content=edges, z_index=z_index-1), AnimationObject(type='add', content=nodes, z_index=z_index+1)]
 
 
 def remove_graph(graph, animate=False, duration=1):

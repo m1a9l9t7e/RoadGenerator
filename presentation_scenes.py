@@ -153,11 +153,11 @@ class IPVisualization:
             QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
             QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 6)
         ]
-        # self.solution, self.problem_dict = get_custom_solution(self.ip_width, self.ip_height, quantity_constraints=quantity_constraints, iteration_constraints=[])
-        self.problem = Problem(self.ip_width, self.ip_height, quantity_constraints=quantity_constraints)
-        self.solution, self.feasible = self.problem.solve(_print=True)
+        self.solution, self.problem_dict = get_custom_solution(self.width, self.height, quantity_constraints=quantity_constraints, iteration_constraints=[])
+        # self.problem = Problem(self.ip_width, self.ip_height, quantity_constraints=quantity_constraints)
+        # self.solution, self.feasible = self.problem.solve(_print=True)
+        # self.problem_dict = self.problem.export_variables()
         # self.problem.print_all_variables()
-        self.problem_dict = self.problem.export_variables()
 
         self.animation_sequence = []
 
@@ -287,7 +287,8 @@ class IPVisualization:
             self.animation_sequence += draw_graph(self.graph, z_index=15)
             self.animation_sequence += [AnimationObject('wait', content=[], wait_after=3)]
             self.animation_sequence += [AnimationObject('remove', content=self.captions)]
-            self.animation_sequence += make_concurrent([intersection.intersect() for intersection in intersections])
+            if len(intersections) > 0:
+                self.animation_sequence += make_concurrent([intersection.intersect() for intersection in intersections])
         else:
             self.graph = convert_solution_to_graph(self.solution, shift=[-self.square_size / 2, -self.square_size / 2],
                                                    problem_dict=self.problem_dict)
