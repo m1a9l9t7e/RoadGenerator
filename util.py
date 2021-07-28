@@ -207,6 +207,35 @@ def draw_graph(graph, z_index=None):
     return animation_sequence
 
 
+def draw_ip_solution(ip_solution, square_size, shift):
+    # unpack primary and secondary colors
+    pc1, sc1, _ = (GREEN_E, DARK_GREY, 'Positive Cell')
+    pc2, sc2, _ = (BLACK, DARK_GREY, 'Negative Cell')
+
+    solution_flat = np.ravel(ip_solution, order='F')
+    helper = GridShowCase(len(solution_flat), [square_size, square_size], spacing=[0, 0], space_ratio=[len(ip_solution), len(ip_solution[0])])
+    squares = []
+    captions = []
+    for index in range(len(solution_flat)):
+        x, y = (index % len(ip_solution), int(np.floor(index / len(ip_solution))))
+        coords = helper.get_element_coords(index)
+        if solution_flat[index] > 0:
+            square = get_square(np.array(coords) + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc1, sc1,
+                                border_width=2 * square_size)
+            squares.append(square)
+        else:
+            square = get_square(coords + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc2, sc2, border_width=2 * square_size)
+            squares.append(square)
+
+        captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size])))
+
+    animation_sequence = [
+        AnimationObject('add', content=squares, z_index=0),
+        AnimationObject('add', content=captions, z_index=5)
+    ]
+    return animation_sequence
+
+
 def add_graph(graph, z_index=0):
     nodes = [node.drawable for node in graph.nodes]
     edges = [edge.drawable for edge in graph.edges]

@@ -49,17 +49,6 @@ class GraphModel:
             graph_list.append(graph)
         return graph_list, helper
 
-    def get_solutions(self, scale=1, ratio=[16, 9], spacing=[1, 1]):
-        helper = GridShowCase(num_elements=len(self.variants),
-                              element_dimensions=(scale * self.width, scale * self.height),
-                              spacing=spacing, space_ratio=ratio)
-        graph_list = []
-        for index, variant in enumerate(self.variants):
-            shift = helper.get_element_coords(index)
-            graph = convert_solution_to_graph(variant, scale=scale, shift=shift)
-            graph_list.append(graph)
-        return graph_list, helper
-
 
 class GGMSTIterator:
     def __init__(self, width, height, _print=False):

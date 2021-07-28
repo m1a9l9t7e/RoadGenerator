@@ -34,11 +34,12 @@ Add to .bashrc:
 
 In cwd Terminal:
 
-`python -m manim [options] creation.py CircuitCreation`
+`python -m manim [options] creation_scenes.py CustomTrack`
 
 Options:
 
 * -p : __play__
+* -ps : __generate last image of scene__
 * -ql : __quick load__
 
 ## GUROBI
