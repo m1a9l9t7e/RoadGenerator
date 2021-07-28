@@ -1,10 +1,10 @@
 from manim import *
-from anim_sequence import AnimationSequenceScene, AnimationObject
-from graph import Graph, random_joins, custom_joins
-from ip.ip_util import QuantityConstraint, TrackProperties, ConditionTypes
-from ip.iteration import GraphModel, get_custom_solution, get_random_solution, convert_solution_to_graph
+from anim_sequence import AnimationSequenceScene
+from graph import Graph, custom_joins
+from ip.ip_util import QuantityConstraint, ConditionTypes
+from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
-from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, get_square, get_text, GridShowCase, print_2d, draw_ip_solution
+from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors
 
 
 class MultiGraphIP(AnimationSequenceScene):
@@ -119,36 +119,6 @@ class CircuitCreation(AnimationSequenceScene):
             self.play_animations(animations)
 
         self.wait(5)
-
-
-class MultiGraph(AnimationSequenceScene):
-    def construct(self):
-        width, height = (4, 4)
-        square_size = 1
-        graph_model = GraphModel(width, height, generate_intersections=False, fast=False)
-        animations_list, graph_list, helper = graph_model.get_animations(scale=square_size, spacing=[2, 2])
-        camera_position, camera_size = helper.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
-        animations = [add_graph(graph) for graph in graph_list]
-        self.play_concurrent(animations)
-        self.wait(5)
-
-
-def track_properties_to_colors(track_properties):
-    colors = []
-    property_to_color = {
-        TrackProperties.turn_90: PINK,
-        TrackProperties.turn_180: BLUE_C,
-        TrackProperties.straight: RED,
-        TrackProperties.intersection: YELLOW_E
-    }
-    for track_property in track_properties:
-        if track_property is None:
-            colors.append(WHITE)
-        else:
-            colors.append(property_to_color[track_property])
-
-    return colors
 
 
 class CustomTrack(AnimationSequenceScene):

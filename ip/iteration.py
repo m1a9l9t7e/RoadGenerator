@@ -3,9 +3,9 @@ import sys
 import time
 from tqdm import tqdm
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix, QuantityConstraint, TrackProperties, ConditionTypes, get_grid_indices, list_grid_as_str
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str
 from ip.problem import Problem, IntersectionProblem
-from util import GridShowCase, get_adjacent, print_2d
+from util import GridShowCase, get_adjacent, TrackProperties
 import numpy as np
 import itertools
 from termcolor import colored

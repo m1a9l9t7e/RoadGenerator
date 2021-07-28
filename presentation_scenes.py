@@ -2,10 +2,10 @@ from manim import *
 
 from creation_scenes import track_properties_to_colors
 from interpolation import get_interpolation_animation_piece_wise
-from ip.ip_util import QuantityConstraint, TrackProperties, ConditionTypes
+from ip.ip_util import QuantityConstraint, ConditionTypes
 from ip.problem import Problem
 from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution
-from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points
+from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points, TrackProperties
 from graph import Graph
 from anim_sequence import AnimationObject, AnimationSequenceScene, make_concurrent
 

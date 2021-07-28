@@ -3,6 +3,8 @@ from pulp import *
 import numpy as np
 from termcolor import colored
 
+from util import TrackProperties
+
 
 def list_grid_as_str(grid, values=True, print_zeros=True, binary=False, only_positives=False):
     grid_str = ""
@@ -124,13 +126,6 @@ def export_variable(var, save_name=False):
         return var_value, str(var)
     else:
         return var_value
-
-
-class TrackProperties(Enum):
-    turn_90 = auto()
-    turn_180 = auto()
-    straight = auto()
-    intersection = auto()
 
 
 class ConditionTypes(Enum):

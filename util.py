@@ -4,11 +4,13 @@ from manim import *
 from anim_sequence import AnimationObject
 from io import StringIO
 import sys
+from enum import Enum, auto
 
 
 #######################
 ##### GRAPH STUFF #####
 #######################
+
 
 class GraphTour:
     """
@@ -267,6 +269,7 @@ def make_unitary(graph):
 #### GEOMETRY STUFF ###
 #######################
 
+
 class TrackPoint:
     """
     A simple point in 2d space, with a direction.
@@ -512,6 +515,34 @@ class Capturing(list):
         self.extend(self._stringio.getvalue().splitlines())
         del self._stringio  # free up some memory
         sys.stdout = self._stdout
+
+
+########################
+## ENUMS AND MAPPINGS ##
+########################
+
+class TrackProperties(Enum):
+    turn_90 = auto()
+    turn_180 = auto()
+    straight = auto()
+    intersection = auto()
+
+
+def track_properties_to_colors(track_properties):
+    colors = []
+    property_to_color = {
+        TrackProperties.turn_90: PINK,
+        TrackProperties.turn_180: BLUE_C,
+        TrackProperties.straight: RED,
+        TrackProperties.intersection: YELLOW_E
+    }
+    for track_property in track_properties:
+        if track_property is None:
+            colors.append(WHITE)
+        else:
+            colors.append(property_to_color[track_property])
+
+    return colors
 
 
 if __name__ == '__main__':
