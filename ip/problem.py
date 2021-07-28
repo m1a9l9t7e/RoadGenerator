@@ -98,10 +98,13 @@ class Problem:
     ################################
 
     def add_all_constraints(self):
-        self.add_no_square_cycle_constraints()  # This is only needed for CBM performance!
-        self.add_coverage_constraints()
+        base_constraints = 0
+        # base_constraints += self.add_no_square_cycle_constraints()  # This is only needed for CBM performance!
+        base_constraints += self.add_coverage_constraints()
         self.add_n_constraint()
-        self.add_flow_constraints()
+        base_constraints += 1
+        base_constraints += self.add_flow_constraints()
+        # print(colored("base constraints: {}".format(base_constraints), 'yellow'))
         self.add_iteration_constraints()
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
@@ -154,10 +157,13 @@ class Problem:
         """
         For each square, at least on pixel must be 1
         """
+        counter = 0
         # squares = self.get_squares()
         squares = self.get_squares_fractured()
         for square in squares:
             self.problem += sum(square) >= 1
+            counter += 1
+        return counter
 
     def add_n_constraint(self):
         """
@@ -174,18 +180,21 @@ class Problem:
     ################################
 
     def add_flow_constraints(self):
+        counter = 0
         root_node = self.node_grid[0][0]
         root_node_value = self.node_grid_values[0][0]
 
         # Root node must exist and have a value of n
         self.problem += root_node == 1
         self.problem += root_node_value == self.get_n()
+        counter += 2
 
         # Nodes can only be selected if their value is >= 1
         # In other words: if a nodes value <= 0, the node selection is zero
         for x in range(self.width):
             for y in range(self.height):
                 self.problem += self.node_grid[x][y] <= self.node_grid_values[x][y]
+                counter += 1
 
         # Nodes can only have values > 0, if they are selected
         # In other words: if a nodes selection is zero, the nodes value is also zero
@@ -193,16 +202,19 @@ class Problem:
         for x in range(self.width):
             for y in range(self.height):
                 self.problem += self.node_grid_values[x][y] <= self.node_grid[x][y] * self.get_n()
+                counter += 1
 
         # Edges can only be selected if their value is >= 1
         # In other words: if a nodes value is zero, the selection must also be zero
         for index in range(len(self.edges)):
             self.problem += self.edges[index] <= self.edges_values[index]
+            counter += 1
 
         # Edges can only have values > 0, if they are selected
         # In other words: if an edges selection is zero, the edges values is also zero
         for index in range(len(self.edges)):
             self.problem += self.edges_values[index] <= self.edges[index] * self.get_n()
+            counter += 1
 
         # All nodes except root node have exactly exactly one edge going in, iff they exist
         # root node has no edges going in and at least one edge going out
@@ -210,9 +222,11 @@ class Problem:
             for y in range(self.height):
                 if not (x == 0 and y == 0):
                     self.problem += sum(self.e_in[(x, y)]) == self.node_grid[x][y]
+                    counter += 1
                 else:
                     self.problem += sum(self.e_in[(x, y)]) == 0
                     self.problem += sum(self.e_out[(x, y)]) >= 1
+                    counter += 2
 
         # Outgoing edges can only exist, if there is one ingoing edge
         # Since there sum(in) is either 1 or 0, sum(in) * 4 >= sum(out) holds
@@ -220,12 +234,14 @@ class Problem:
             for y in range(self.height):
                 if not (x == 0 and y == 0):
                     self.problem += sum(self.e_in[(x, y)]) * 4 >= sum(self.e_out[(x, y)])
+                    counter += 1
 
         # Edges going out of node have value of node
         for x in range(self.width):
             for y in range(self.height):
                 for edge_value in self.e_out_values[(x, y)]:
                     self.problem += edge_value <= self.node_grid_values[x][y]
+                    counter += 1
                     # self.problem += edge_value == self.node_grid_values[x][y]
 
         # The value of each node except root must be max(values of edges going in) - 1
@@ -234,12 +250,16 @@ class Problem:
             for y in range(self.height):
                 if not (x == 0 and y == 0):
                     self.problem += self.node_grid_values[x][y] == sum(self.e_in_values[(x, y)]) - self.node_grid[x][y]
+                    counter += 1
+
+        return counter
 
     ################################
     #### QUANTITY CONSTRAINTS ######
     ################################
 
     def add_intersection_constraints(self):
+        counter = 0
         for x in range(self.width):
             for y in range(self.height):
                 v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
@@ -249,6 +269,7 @@ class Problem:
         # intersection can only exist at selected cells.
         for index in range(len(self.nodes_intersections)):
             self.problem += self.nodes_intersections[index] <= self.nodes[index]
+            counter += 1
 
         # No adjacency constraints:
         indices = []
@@ -261,6 +282,7 @@ class Problem:
             for (x2, y2) in indices:
                 if is_adjacent((x1, y1), (x2, y2)):
                     self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
+                    counter += 1
 
         # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
         # an intersection to exist. This implies that the degree of the cell must be 2
@@ -277,11 +299,15 @@ class Problem:
             self.problem += self.node_grid_intersections[x][y] <= adjacent[3] * 1 + adjacent[2] * - 1 + 1
             # Not more than 2 adjacent
             self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
+            counter += 5
 
+        # print(colored("Intersection constraints: {}".format(counter), 'yellow'))
         # Add quantity condition
         return self.nodes_intersections
 
     def add_turn_constraints(self):
+        counter1 = 0
+        counter2 = 0
         indices = self.get_grid_indices()
 
         # Inner 90s
@@ -301,7 +327,7 @@ class Problem:
                 self.problem += v_90 <= 1 - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) / 2
                 # The reverse must also hold
                 self.problem += adjacent[idx1] + adjacent[idx2] - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) <= 1 + v_90 + 3 * (1 - self.node_grid[x][y])
-
+                counter1 += 4
         # outer 90s
         for (x, y) in indices:
             self.node_grid_90s_outer[x][y] = list()
@@ -316,6 +342,7 @@ class Problem:
                 self.problem += v_90 <= 1 - (adjacent[idx1] + adjacent[idx2]) / 2
                 # The reverse must also hold)
                 self.problem += adjacent[idx1] + adjacent[idx2] >= self.node_grid[x][y] - v_90
+                counter1 += 3
 
         # Two inner 90s result in a 180
         # Adjacent inner 90s between corners of adjacent cells
@@ -335,6 +362,7 @@ class Problem:
                 self.problem += v_corners[1] + v_right_corners[2] <= 1 + top_180
                 self.problem += v_corners[0] + v_right_corners[3] <= 1 + bottom_180
                 _180s += [top_180, bottom_180]
+                counter2 += 4
             else:
                 _180s += [0, 0]
 
@@ -348,6 +376,7 @@ class Problem:
                 self.problem += v_corners[1] + v_top_list[0] <= 1 + right_180
                 self.problem += v_corners[2] + v_top_list[3] <= 1 + left_180
                 _180s += [right_180, left_180]
+                counter2 += 4
             else:
                 _180s += [0, 0]
 
@@ -369,6 +398,7 @@ class Problem:
                 # Reverse must hold
                 self.problem += v_corners[idx1] + v_corners[idx2] <= 1 + v_180
                 _180s.append(v_180)
+                counter2 += 2
             self.node_grid_180s_outer[x][y] = _180s
             self.nodes_180s += _180s
             outer_180s += _180s
@@ -378,6 +408,10 @@ class Problem:
             weighted_negative = LpVariable("90s_negative_{})".format(idx), cat=const.LpInteger)
             self.problem += weighted_negative == -2 * v_180
             self.nodes_90s.append(weighted_negative)
+            counter1 += 1
+
+        # print(colored("90s constraints: {}".format(counter1), 'yellow'))
+        # print(colored("180s constraints: {}".format(counter2), 'yellow'))
 
         return self.nodes_90s, self.nodes_180s
 
@@ -393,6 +427,7 @@ class Problem:
         :param n_straights:
         :return:
         """
+        counter = 0
         indices = self.get_grid_indices()
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
@@ -401,8 +436,10 @@ class Problem:
             parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i-1, 0) for i in range(length+1)]]
             if not any(elem is None for elem in horizontal):
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
+                counter += 4
                 self.nodes_straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
+                counter += 4
                 self.nodes_straights.append(top_straight)
                 self.node_grid_straights_horizontal[x][y] = [bottom_straight, top_straight]
             else:
@@ -414,13 +451,16 @@ class Problem:
             parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i-1) for i in range(length+1)]]
             if not any(elem is None for elem in vertical):
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
+                counter += 4
                 self.nodes_straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
+                counter += 4
                 self.nodes_straights.append(right_straight)
                 self.node_grid_straights_vertical[x][y] = [left_straight, right_straight]
             else:
                 self.node_grid_straights_vertical[x][y] = [0, 0]
 
+        # print(colored("Straights constraints: {}".format(counter), 'yellow'))
         return self.nodes_straights
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
@@ -451,42 +491,24 @@ class Problem:
     ################################
 
     def print_all_variables(self, values=True):
-        print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
-        # print("\nNode Grid:")
-        # print(grid_as_str(self.node_grid, values=values, binary=True))
-        # print("Node Value Grid:")
-        # print(grid_as_str(self.node_grid_values, values=values))
-        #
-        # print("Edges In dict:")
-        # print(dict_as_str(self.e_in, values=values, binary=True))
-        # print("Edge In (values) dict:")
-        # print(dict_as_str(self.e_in_values, values=values))
-        # print("Edges Out dict:")
-        # print(dict_as_str(self.e_out, values=values, binary=True))
-        # print("Edge Out (values) dict:")
-        # print(dict_as_str(self.e_out_values, values=values))
+        # print(colored("Nodes: {}, Edges: {}".format(len(self.nodes), len(self.edges)), "green"))
+        base_counter = 0
+        base_counter += len(self.nodes)
+        base_counter += len(self.nodes_values)
+        base_counter += len(self.edges)
+        base_counter += len(self.edges_values)
+        print(colored("Base vars: {}".format(base_counter), 'green'))
 
-        if len(self.nodes_intersections) > 0:
-            print("Node Intersection Grid:")
-            grid_as_str(self.node_grid_intersections, values=values, binary=True)
+        # quantity constraints
+        print(colored("Intersection vars: {}".format(len(self.nodes_intersections)), 'green'))
+        print(colored("90s vars: {}".format(len(self.nodes_90s)), 'green'))
+        print(colored("180s vars: {}".format(len(self.nodes_180s)), 'green'))
+        print(colored("Straights vars: {}".format(len(self.nodes_straights)), 'green'))
 
-        if len(self.nodes_straights) > 0:
-            print("Horizontal Straights Grid:")
-            print(list_grid_as_str(self.node_grid_straights_horizontal, values=values, binary=False))
-            print("Vertical Straights Grid:")
-            print(list_grid_as_str(self.node_grid_straights_vertical, values=values, binary=False))
-
-        if len(self.nodes_90s) > 0:
-            print("Inner 90s Grid:")
-            print(list_grid_as_str(self.node_grid_90s_inner, values=values, binary=False))
-            print("Outer 90s Grid:")
-            print(list_grid_as_str(self.node_grid_90s_outer, values=values, binary=False))
-
-        if len(self.nodes_180s) > 0:
-            print("Outer 180s Grid:")
-            print(list_grid_as_str(self.node_grid_180s_outer, values=values, binary=True))
-            print("Inner 180s Grid:")
-            print(list_grid_as_str(self.node_grid_180s_inner, values=values, binary=True))
+        self.nodes_intersections = []
+        self.nodes_90s = []
+        self.nodes_180s = []
+        self.nodes_straights = []
 
     def export_variables(self, values=True):
         # export base variables
@@ -574,9 +596,12 @@ class Problem:
         """
         For each square, not all 4 pixels can be 1
         """
+        counter = 0
         squares = self.get_squares()
         for square in squares:
             self.problem += sum(square) <= 3
+            counter += 1
+        return counter
 
     def get_squares_fractured(self):
         """
@@ -729,12 +754,13 @@ if __name__ == '__main__':
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
     ]
-    p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    # p = Problem(3, 3, quantity_constraints=quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    p = Problem(9, 9, quantity_constraints=quantity_constraints)
+    p.print_all_variables()
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()
-    # p.print_all_variables()
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
-    p.get_stats()
+    # p.get_stats()

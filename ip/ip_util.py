@@ -5,6 +5,7 @@ from termcolor import colored
 
 
 def list_grid_as_str(grid, values=True, print_zeros=True, binary=False, only_positives=False):
+    counter = 0
     grid_str = ""
     if len(grid[0][0]) == 0:
         print("Grid empty! Skipping.")
@@ -16,13 +17,13 @@ def list_grid_as_str(grid, values=True, print_zeros=True, binary=False, only_pos
         row = ""
         for x in range(len(grid)):
             pass
-            print_x_y = list_as_str(grid[x][y], values=values, binary=binary, only_positives=only_positives)
-            row += "[{}] ".format(print_x_y)
+            counter += list_as_str(grid[x][y], values=values, binary=binary, only_positives=only_positives)
         grid_str += row + '\n'
-    return grid_str
+    return counter
 
 
 def grid_as_str(grid, values=True, print_zeros=True, binary=False):
+    counter = 0
     grid_str = ""
     if values and value(grid[2][2]) is None:
         print("Values None, switching to names...")
@@ -30,6 +31,7 @@ def grid_as_str(grid, values=True, print_zeros=True, binary=False):
     for y in range(len(grid[0]) - 1, -1, -1):
         row = ""
         for x in range(len(grid)):
+            counter += 1
             if values and binary:
                 if int(value(grid[x][y])) > 0:
                     print_x_y = colored(str(grid[x][y]), 'green')
@@ -43,10 +45,11 @@ def grid_as_str(grid, values=True, print_zeros=True, binary=False):
                 print_x_y = " " if print_x_y == 0 else print_x_y
             row += "{} ".format(print_x_y)
         grid_str += row + '\n'
-    return grid_str
+    return counter
 
 
 def dict_as_str(_dict, values=False, binary=False):
+    counter = 0
     if values:
         for key in _dict.keys():
             if value(_dict[key][0]) is None:
@@ -58,21 +61,24 @@ def dict_as_str(_dict, values=False, binary=False):
         _list = _dict[key]
         list_str = "{}: ".format(key)
         for variable in _list:
+            counter += 1
             _print = variable_as_str(variable, values, binary)
             list_str += "{} ".format(_print)
         _str += "{}\n".format(list_str)
-    return _str
+    return counter
 
 
 def list_as_str(_list, values=False, binary=False, only_positives=False):
+    counter = 0
     list_str = ""
     for variable in _list:
+        counter += 1
         if only_positives and value(variable) < 1:
             _print = ""
         else:
             _print = variable_as_str(variable, values, binary)
         list_str += "{} ".format(_print)
-    return list_str
+    return counter
 
 
 def variable_as_str(variable, values, binary):
