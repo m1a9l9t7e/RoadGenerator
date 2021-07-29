@@ -10,7 +10,7 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, iteration_constraints=None, quantity_constraints=[]):
+    def __init__(self, width, height, iteration_constraints=None, quantity_constraints=[], imitate=None):
         # arguments
         self.width = width
         self.height = height
@@ -92,6 +92,10 @@ class Problem:
 
         # Add constraints to the Problem
         self.add_all_constraints()
+
+        # imitation
+        if imitate is not None:
+            self.add_imitation_constraints(imitate)
 
     ################################
     ######## CORE METHODS ##########
@@ -446,6 +450,17 @@ class Problem:
             for (x, y) in self.iteration_constraints:
                 self.problem += self.node_grid[x][y] == 1
 
+    def add_imitation_constraints(self, original_solution):
+        for (x, y) in self.get_grid_indices():
+            if original_solution[x][y] > 0:
+                self.problem += self.node_grid[x][y] == 1
+            else:
+                self.problem += self.node_grid[x][y] == 0
+            if original_solution[x][y] == 2:
+                self.problem += self.node_grid_intersections[x][y] == 1
+            else:
+                self.problem += self.node_grid_intersections[x][y] == 0
+
     ################################
     ############ UTIL ##############
     ################################
@@ -723,13 +738,13 @@ class IntersectionProblem:
 
 
 if __name__ == '__main__':
-    quantity_constraints = [
+    _quantity_constraints = [
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
     ]
-    p = Problem(5, 5, quantity_constraints=quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    p = Problem(5, 5, quantity_constraints=_quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
     start = time.time()
     solution, status = p.solve(_print=True)
     end = time.time()

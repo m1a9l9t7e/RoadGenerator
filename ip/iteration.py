@@ -426,12 +426,25 @@ def get_custom_solution(width, height, quantity_constraints=[], iteration_constr
     return solution, problem.export_variables()
 
 
+def get_imitation_solution(original_solution, print_stats=False):
+    quantity_constraints = [
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 0)
+    ]
+    problem = Problem(len(original_solution), len(original_solution[0]), quantity_constraints=quantity_constraints, imitate=original_solution)
+    solution, status = problem.solve(_print=False, print_zeros=False)
+    if status <= 0:
+        raise ValueError("Original Solution Infeasible")
+    if print_stats:
+        problem.get_stats()
+    return solution, problem.export_variables()
+
+
 def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
 
 if __name__ == '__main__':
-    # 6x6 complete with intersections: 52960
-    # 8x4 complete with intersections: 12796
     GraphModel(6, 6, generate_intersections=False)
-    # solution = get_custom_solution(4, 4)
