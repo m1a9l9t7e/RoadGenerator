@@ -1,3 +1,6 @@
+import xml.etree.ElementTree as ET
+
+
 class Feature:
     """
     A FeatureIDE feature
@@ -15,6 +18,19 @@ class Feature:
             subs = str([str(sub_feature) for sub_feature in self.sub_features])
             return '{}: {}{}'.format(self.name, selection, subs)
         return self.name
+
+    def get_xml(self):
+        if len(self.sub_features) > 0:
+            selection = "alt" if self.alternative else "and"
+            if self.mandatory:
+                xml = ET.Element(selection, abstract="true", mandatory="true", name=self.name)
+            else:
+                xml = ET.Element(selection, abstract="true", name=self.name)
+            for sub_feature in self.sub_features:
+                xml.append(sub_feature.get_xml())
+        else:
+            xml = ET.Element("feature", name=self.name)
+        return xml
 
 
 class BasicStreet(Feature):
@@ -70,6 +86,6 @@ class Intersection(Feature):
 
 
 if __name__ == '__main__':
-    # feature = StraightStreet('street1')
     feature = Intersection('intersection1')
-    print(feature)
+    tree = ET.ElementTree(feature.get_xml())
+    tree.write("filename.xml")
