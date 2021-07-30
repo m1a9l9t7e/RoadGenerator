@@ -1,3 +1,4 @@
+from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
 from util import TrackProperties
@@ -21,7 +22,7 @@ class FeatureModel:
         self.features = self.get_features()
 
         # build feature model and keep reference to root
-        self.root = self.build_feature_model()
+        self.feature_root = self.build_feature_model()
 
     def get_features(self):
         basic_features = get_basic_features(self.graph)
@@ -36,8 +37,36 @@ class FeatureModel:
         return root
 
     def export(self, path):
-        tree = ET.ElementTree(self.root.get_xml())
+        # FeatureIDE graphics
+        graphics = get_featureIDE_graphics_properties()
+
+        # Structure of Feature Model
+        structure = ET.Element('struct')
+        structure.append(self.feature_root.get_xml())
+
+        # Constraints
+        constraints = ET.Element('constraints')
+
+        # Put it all together
+        source_root = ET.Element('extendedFeatureModel')
+        source_root.append(graphics)
+        source_root.append(structure)
+        source_root.append(constraints)
+
+        # write to specified path
+        tree = ET.ElementTree(source_root)
         tree.write(path)
+
+
+def get_featureIDE_graphics_properties():
+    properties = ET.Element('properties')
+    ET.SubElement(properties, 'graphics', key="legendautolayout", value="true")
+    ET.SubElement(properties, 'graphics', key="showshortnames", value="false")
+    ET.SubElement(properties, 'graphics', key="layout", value="horizontal")
+    ET.SubElement(properties, 'graphics', key="showcollapsedconstraints", value="true")
+    ET.SubElement(properties, 'graphics', key="legendhidden", value="false")
+    ET.SubElement(properties, 'graphics', key="layoutalgorithm", value="1")
+    return properties
 
 
 def get_basic_features(graph):
@@ -47,9 +76,9 @@ def get_basic_features(graph):
     for index, (x, y) in enumerate(indices):
         track_property = node_grid[x][y].track_property
         if track_property is None:
-            features.append(StraightStreet("straight", (x, y), suffix=index))
+            features.append(StraightStreet(TLFeatures.default.value, (x, y), suffix=index))
         if track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
-            features.append(CurvedStreet("curve", (x, y), suffix=index))
+            features.append(CurvedStreet(TLFeatures.turn.value, (x, y), suffix=index))
     return features
 
 
@@ -65,7 +94,7 @@ def get_intersection_features(ip_solution):
             coords_list = []
             for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
                 coords_list.append((x + _x, y + _y))
-            features.append(Intersection('intersection', coords_list, suffix="i{}".format(len(features))))
+            features.append(Intersection(TLFeatures.intersection.value, coords_list, suffix="i{}".format(len(features))))
     return features
 
 
@@ -85,23 +114,23 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
                 coords_list = []
                 for i in range(straight_length):
                     coords_list.append((x + i, y))
-                features.append(Straight('straight', coords_list, suffix="s{}".format(len(features) + 1)))
+                features.append(Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1)))
             if top > 0:
                 coords_list = []
                 for i in range(straight_length):
                     coords_list.append((x + i, y + 1))
-                features.append(Straight('straight', coords_list, suffix="s{}".format(len(features) + 1)))
+                features.append(Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1)))
             left, right = vertical_straights[x][y]
             if left > 0:
                 coords_list = []
                 for i in range(straight_length):
                     coords_list.append((x, y + i))
-                features.append(Straight('straight', coords_list, suffix="s{}".format(len(features) + 1)))
+                features.append(Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1)))
             if right > 0:
                 coords_list = []
                 for i in range(straight_length):
                     coords_list.append((x + 1, y + i))
-                features.append(Straight('straight', coords_list, suffix="s{}".format(len(features) + 1)))
+                features.append(Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1)))
     return features
 
 

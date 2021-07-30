@@ -1,5 +1,6 @@
 import xml.etree.ElementTree as ET
 from termcolor import colored
+from fm.enums import Features, LineMarkings, RightOfWay, TurnDirection, Zones, Specials
 
 
 class Feature:
@@ -56,7 +57,7 @@ class BasicFeature(Feature):
         self.coords = coords
 
     def get_features(self):
-        lane_markings = Feature('center line markings', sub_features=[Feature('dashed'), Feature('solid'), Feature('double solid')],
+        lane_markings = Feature(Features.line_marking.value, sub_features=[Feature(entry.value) for entry in LineMarkings],
                                 mandatory=True, alternative=True)
         return [lane_markings]
 
@@ -102,10 +103,8 @@ class Intersection(CompositeFeature):
     """
 
     def get_features(self):
-        right_of_way = Feature('right of way', sub_features=[Feature('yield'), Feature('stop'), Feature('go ahead')],
-                               mandatory=True, alternative=True)
-        turn_direction = Feature('turn direction', sub_features=[Feature('straight'), Feature('left'), Feature('right')],
-                                 mandatory=True, alternative=True)
+        right_of_way = Feature(Features.right_of_way.value, sub_features=[Feature(entry.value) for entry in RightOfWay], mandatory=True, alternative=True)
+        turn_direction = Feature(Features.turn_direction.value, sub_features=[Feature(entry.value) for entry in TurnDirection], mandatory=True, alternative=True)
         return [right_of_way, turn_direction]
 
 
@@ -115,10 +114,8 @@ class Straight(CompositeFeature):
     """
 
     def get_features(self):
-        motorway = Feature('motorway', sub_features=[Feature('true'), Feature('false')],
-                           mandatory=True, alternative=True)
-        special_element = Feature('special feature', sub_features=[Feature('parking'), Feature('elevation'), Feature('none')],
-                                  mandatory=True, alternative=True)
+        motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
+        special_element = Feature(Features.special.value, sub_features=[Feature(entry.value) for entry in Specials], mandatory=True, alternative=True)
         return [motorway, special_element]
 
 
