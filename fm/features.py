@@ -13,7 +13,8 @@ class Feature:
         self.mandatory = mandatory
         self.sub_features = sub_features
         self.alternative = alternative
-        self.value = None
+        self.value = False
+        self.type = name
         if suffix:
             self.apply_suffix(suffix)
 
@@ -27,6 +28,9 @@ class Feature:
                 return colored(self.name, 'green')
             else:
                 return self.name
+
+    # def __bool__(self):
+    #     return self.value
 
     def apply_suffix(self, suffix):
         self.name = "{} {}".format(self.name, suffix)
@@ -45,6 +49,28 @@ class Feature:
         else:
             xml = ET.Element("feature", name=self.name)
         return xml
+
+    def get_mapping(self):
+        key_value_pairs = [(self.name, self)]
+        for sub_feature in self.sub_features:
+            key_value_pairs += sub_feature.get_mapping()
+        return key_value_pairs
+
+    def get_selected_sub_features(self):
+        selections = dict()
+        selected_features = []
+        for sub_feature in self.sub_features:
+            if len(sub_feature.sub_features) > 0:
+                selections[sub_feature.type] = sub_feature.get_selected_sub_features()
+            elif sub_feature.value:
+                selected_features.append(sub_feature.type)
+
+        if len(selected_features) > 0:
+            if len(selections.keys()) > 0:
+                selected_features.append(selections)
+            return selected_features
+        else:
+            return selections
 
 
 class BasicFeature(Feature):
@@ -115,10 +141,16 @@ class Straight(CompositeFeature):
 
     def get_features(self):
         motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
-        special_element = Feature(Features.special.value, sub_features=[Feature(entry.value) for entry in Specials], mandatory=True, alternative=True)
+        special_subs = [Feature(entry.value) for entry in Specials] + [Feature('parking', sub_features=[Feature('left'), Feature('right')], alternative=False)]
+        print(special_subs)
+        special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
         return [motorway, special_element]
 
 
 if __name__ == '__main__':
-    feature = Intersection('intersection', [(1, 1), (1, 2), (2, 1), (2, 2)])
-    print(feature)
+    feature = Straight('intersection', [(1, 1), (1, 2), (2, 1), (2, 2)])
+    feature.sub_features[0].sub_features[0].value = True
+    feature.sub_features[1].sub_features[2].value = True
+    feature.sub_features[1].sub_features[4].sub_features[0].value = True
+    feature.sub_features[1].sub_features[4].sub_features[1].value = True
+    print(feature.get_selected_sub_features())

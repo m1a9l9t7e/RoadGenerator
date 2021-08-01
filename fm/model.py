@@ -24,6 +24,9 @@ class FeatureModel:
         # build feature model and keep reference to root
         self.feature_root = self.build_feature_model()
 
+        # build map
+        self.name_to_feature_map = self.build_feature_map()
+
     def get_features(self):
         basic_features = get_basic_features(self.graph)
         intersection_features = get_intersection_features(self.ip_solution)
@@ -35,6 +38,13 @@ class FeatureModel:
     def build_feature_model(self):
         root = Feature('root', sub_features=self.features, mandatory=True, alternative=False)
         return root
+
+    def build_feature_map(self):
+        name_to_feature_map = dict()
+        key_value_pairs = self.feature_root.get_mapping()
+        for (name, feature) in key_value_pairs:
+            name_to_feature_map[name] = feature
+        return name_to_feature_map
 
     def export(self, path):
         # FeatureIDE graphics
@@ -56,6 +66,12 @@ class FeatureModel:
         # write to specified path
         tree = ET.ElementTree(source_root)
         tree.write(path)
+
+    def load_config(self, path):
+        with open(path) as f:
+            selections = f.readlines()
+            for name in selections:
+                self.name_to_feature_map[name].value = True
 
 
 def get_featureIDE_graphics_properties():
