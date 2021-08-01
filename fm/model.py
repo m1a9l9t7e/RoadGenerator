@@ -71,7 +71,16 @@ class FeatureModel:
         with open(path) as f:
             selections = f.readlines()
             for name in selections:
+                # print('String clensing:')
+                # print(name)
+                name = name.replace('"', '')
+                name = name.replace('\n', '')
+                # print("{}\n\n".format(name))
                 self.name_to_feature_map[name].value = True
+
+        for feature in self.features:
+            selection = feature.get_selected_sub_features()
+            print(f"{feature.type}: {selection}")
 
 
 def get_featureIDE_graphics_properties():
@@ -165,3 +174,4 @@ if __name__ == '__main__':
     ])
     fm = FeatureModel(solution)
     fm.export('fm.xml')
+    fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')

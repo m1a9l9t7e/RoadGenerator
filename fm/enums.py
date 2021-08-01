@@ -45,7 +45,7 @@ class Zones(Enum):
 
 
 class Specials(Enum):
-    parking = 'parking'
+    # parking = 'parking'
     ramp = 'ramp'
     start_area = 'start area'
     none = 'none'

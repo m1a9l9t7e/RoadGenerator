@@ -142,7 +142,6 @@ class Straight(CompositeFeature):
     def get_features(self):
         motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
         special_subs = [Feature(entry.value) for entry in Specials] + [Feature('parking', sub_features=[Feature('left'), Feature('right')], alternative=False)]
-        print(special_subs)
         special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
         return [motorway, special_element]
 
