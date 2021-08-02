@@ -6,6 +6,7 @@ from anim_sequence import AnimationObject
 from io import StringIO
 import sys
 from enum import Enum, auto
+from interpolation import interpolate_single
 
 
 #######################
@@ -266,6 +267,20 @@ def make_unitary(graph):
     return animation_sequence
 
 
+def get_continued_interpolation(track_point, coords, dashed=False, track_color=WHITE, z_index=0):
+    """
+    Create Animation Object for interpolating a line from a trackpoint to given coordinates, keeping the direction from the trackpoint.
+    Used for interpolating the individual lines of an intersection.
+    """
+    # set direction of track_point to point towards coords
+    direction = np.array(coords[:2]) - track_point.coords[:2]
+    track_point.direction = direction / np.linalg.norm(direction)
+    px, py = interpolate_single(track_point, TrackPoint(coords, track_point.direction))
+    line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+    if dashed:
+        line = DashedVMobject(line, num_dashes=5, positive_space_ratio=0.6)
+    return AnimationObject(type='play', content=[Create(line)], duration=0.25, z_index=z_index)
+
 #######################
 #### GEOMETRY STUFF ###
 #######################
@@ -297,7 +312,7 @@ class TrackPoint:
         """
         :returns point and direction in one array [x, y, dx, dy]
         """
-        x, y, _ = self.coords
+        x, y = self.coords[:2]
         dx, dy = self.direction
         return [x, y, dx, dy]
 
@@ -369,6 +384,8 @@ def get_track_points_from_center(track_point, track_width):
     :returns right and left point orthogonal to coords with direction
     """
     center, direction = (track_point.coords, track_point.direction)
+    if len(direction) > 2:
+        direction = np.array(direction[:2])
     orth_vec = np.array(get_orthogonal_vec(direction))
     right = np.add(center, track_width * orth_vec)
     left = np.subtract(center, track_width * orth_vec)
@@ -382,13 +399,23 @@ def alter_track_point_directions(track_points):
         [point.alter_direction(angle) for point in points]
 
 
-def get_intersection_track_point(track_point1, track_point2, entering):
+def get_intersection_track_points(track_point1, track_point2, entering, exiting):
+    """
+    Make changes to track points based on their connection to intersections.
+    If entering: track_point2 marks the center of an intersection and needs to be moved back
+    If exiting: track_point1 marks the center of an intersection and needs to be moved forward
+    Note that both entering and exiting can be true, if two intersection are adjacent diagonally.
+    """
+    # TODO: this doesn't work sadly
+    # distance = np.linalg.norm(np.array(track_point2.coords) - np.array(track_point1.coords))
+    # size = 0.4 * distance
+    size = 0.5
+    adjusted1, adjusted2 = (track_point1, track_point2)
     if entering:
-        intersection_start = shift_track_point_along_its_direction(track_point2, -0.5)
-        return track_point1, intersection_start
-    else:
-        intersection_end = shift_track_point_along_its_direction(track_point1, 0.5)
-        return intersection_end, track_point2
+        adjusted2 = shift_track_point_along_its_direction(track_point2, -size)
+    if exiting:
+        adjusted1 = shift_track_point_along_its_direction(track_point1, size)
+    return adjusted1, adjusted2
 
 
 def shift_track_point_along_its_direction(trackpoint, distance):
@@ -399,10 +426,48 @@ def shift_track_point_along_its_direction(trackpoint, distance):
     return TrackPoint(new_coords, trackpoint.direction)
 
 
+def choose_closest_track_point(origin, track_points):
+    min_distance = np.linalg.norm(np.array(track_points[0].coords[:2]) - np.array(origin))
+    min_index = 0
+    for index, track_point in enumerate(track_points):
+        distance = np.linalg.norm(np.array(track_point.coords[:2]) - np.array(origin))
+        if distance < min_distance:
+            min_distance = distance
+            min_index = index
+    return track_points[min_index]
+
+
 def find_center(coord1, coord2):
     x1, y1, _ = coord1
     x2, y2, _ = coord2
     return (x1 + x2) / 2, (y1 + y2) / 2, 0
+
+
+def get_intersect(a1, a2, b1, b2):
+    """
+    Returns the point of intersection of the lines passing through a2,a1 and b2,b1.
+    a1: [x, y] a point on the first line
+    a2: [x, y] another point on the first line
+    b1: [x, y] a point on the second line
+    b2: [x, y] another point on the second line
+    """
+    if len(a1) > 2:
+        a1 = a1[:2]
+    if len(a2) > 2:
+        a2 = a2[:2]
+    if len(b1) > 2:
+        b1 = b1[:2]
+    if len(b2) > 2:
+        b2 = b2[:2]
+
+    s = np.vstack([a1, a2, b1, b2])  # s for stacked
+    h = np.hstack((s, np.ones((4, 1))))  # h for homogeneous
+    l1 = np.cross(h[0], h[1])  # get first line
+    l2 = np.cross(h[2], h[3])  # get second line
+    x, y, z = np.cross(l1, l2)  # point of intersection
+    if z == 0:  # lines are parallel
+        raise ValueError("Trying to find intersection of parallel lines")
+    return x / z, y / z
 
 
 def get_direction(coord1, coord2):

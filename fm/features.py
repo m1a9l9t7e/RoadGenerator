@@ -1,9 +1,11 @@
 import xml.etree.ElementTree as ET
+import numpy as np
 from termcolor import colored
-from anim_sequence import AnimationObject
+from anim_sequence import AnimationObject, make_concurrent
 from fm.enums import Features, LineMarkings, RightOfWay, TurnDirection, Zones, Specials
 from interpolation import interpolate_single
-from util import TrackProperties, get_track_points, get_track_points_from_center, track_properties_to_colors
+from util import TrackProperties, get_track_points, get_track_points_from_center, track_properties_to_colors, choose_closest_track_point, get_intersect, \
+    get_continued_interpolation
 from manim import *
 
 
@@ -174,19 +176,90 @@ class Intersection(CompositeFeature):
     """
     def __init__(self, name, coords_list, bottom_left=None, bottom_right=None, top_left=None, top_right=None, suffix=None):
         super().__init__(name, track_property=TrackProperties.intersection, coords_list=coords_list, suffix=suffix)
+        self.center = np.array([coords_list]).mean(axis=1)
         self.bottom_left = bottom_left
         self.bottom_right = bottom_right
         self.top_left = top_left
         self.top_right = top_right
+
+    def set_bottom_left(self, track_point1, track_point2):
+        self.bottom_left = choose_closest_track_point(self.center, [track_point1, track_point2])
+
+    def set_bottom_right(self, track_point1, track_point2):
+        self.bottom_right = choose_closest_track_point(self.center, [track_point1, track_point2])
+
+    def set_top_left(self, track_point1, track_point2):
+        self.top_left = choose_closest_track_point(self.center, [track_point1, track_point2])
+
+    def set_top_right(self, track_point1, track_point2):
+        self.top_right = choose_closest_track_point(self.center, [track_point1, track_point2])
 
     def get_features(self):
         right_of_way = Feature(Features.right_of_way.value, sub_features=[Feature(entry.value) for entry in RightOfWay], mandatory=True, alternative=True)
         turn_direction = Feature(Features.turn_direction.value, sub_features=[Feature(entry.value) for entry in TurnDirection], mandatory=True, alternative=True)
         return [right_of_way, turn_direction]
 
-    def draw(self, track_width):
-        # raise NotImplementedError()
-        return None
+    def draw(self, track_width, z_index=0):
+        if self.bottom_left is None or self.bottom_right is None or self.top_left is None or self.top_right is None:
+            raise ValueError('Geometric description not complete. At least on track point is missing')
+        track_color = track_properties_to_colors([self.track_property])
+
+        #### Fixate directions ####
+        # bottom_left points to top_right
+        # bottom_left and top_right point in the same direction
+        direction = np.array(self.top_right.coords) - np.array(self.bottom_left.coords)
+        direction = direction / np.linalg.norm(direction)
+        if len(direction) > 2:
+            direction = np.array(direction[:2])
+        self.top_right.direction = direction
+        self.bottom_left.direction = direction
+        # top_left points to bottom_right
+        # top_left and bottom_right point in the same direction
+        direction = np.array(self.bottom_right.coords) - np.array(self.top_left.coords)
+        direction = direction / np.linalg.norm(direction)
+        if len(direction) > 2:
+            direction = np.array(direction[:2])
+        self.bottom_right.direction = direction
+        self.top_left.direction = direction
+
+        #### Find points of Intersections ####
+        right1, left1, center1 = get_track_points_from_center(self.top_right, track_width)  # Think of this as bottom left
+        right2, left2, center2 = get_track_points_from_center(self.bottom_left, track_width)  # Think of this as top right
+        right3, left3, center3 = get_track_points_from_center(self.bottom_right, track_width)  # Think of this as top left
+        right4, left4, center4 = get_track_points_from_center(self.top_left, track_width)  # Think of this as bottom right
+        left_corner = get_intersect(left1.coords, left2.coords, right3.coords, right4.coords)
+        bottom_corner = get_intersect(right1.coords, right2.coords, right3.coords, right4.coords)
+        top_corner = get_intersect(left1.coords, left2.coords, left3.coords, left4.coords)
+        right_corner = get_intersect(right1.coords, right2.coords, left3.coords, left4.coords)
+        left_bottom_center = np.array([left_corner, bottom_corner]).mean(axis=0)
+        bottom_right_center = np.array([bottom_corner, right_corner]).mean(axis=0)
+        right_top_center = np.array([right_corner, top_corner]).mean(axis=0)
+        top_left_center = np.array([top_corner, left_corner]).mean(axis=0)
+
+        #### Draw all the lines ####
+        anim_sequence = [
+            # bottom left track
+            # get_continued_interpolation(right1, top_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(right1, bottom_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(left1, left_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(center1, left_bottom_center, dashed=True, track_color=track_color, z_index=z_index),
+            # top right track
+            get_continued_interpolation(right2, right_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(left2, top_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(center2, right_top_center, dashed=True, track_color=track_color, z_index=z_index),
+            # top left track
+            get_continued_interpolation(right3, left_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(left3, top_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(center3, top_left_center, dashed=True, track_color=track_color, z_index=z_index),
+            # bottom right track
+            get_continued_interpolation(right4, bottom_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(left4, right_corner, dashed=False, track_color=track_color, z_index=z_index),
+            get_continued_interpolation(center4, bottom_right_center, dashed=True, track_color=track_color, z_index=z_index)
+        ]
+
+        # make concurrent
+        anim_sequence = [[anim_object] for anim_object in anim_sequence]
+        return make_concurrent(anim_sequence)[0]
 
 
 class Straight(CompositeFeature):
@@ -208,7 +281,6 @@ class Straight(CompositeFeature):
         return [motorway, special_element]
 
     def draw(self, track_width):
-        # raise NotImplementedError()
         return None
 
 

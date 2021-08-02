@@ -1,7 +1,7 @@
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
-from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_point
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature
 import xml.etree.ElementTree as ET
 
@@ -28,10 +28,9 @@ class FeatureModel:
         self.name_to_feature_map = self.build_feature_map()
 
     def get_features(self):
-        basic_features = get_basic_features(self.graph)
-        intersection_features = get_intersection_features(self.ip_solution)
+        intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
+        basic_features = get_basic_features(self.graph, intersection_callback)
         straight_features = get_straight_features(self.ip_solution, self.problem_dict, self.straight_length)
-        print("Basic features: {}, intersections: {}, straights: {}".format(len(basic_features), len(intersection_features), len(straight_features)))
         features = basic_features + intersection_features + straight_features
         return features
 
@@ -94,7 +93,7 @@ def get_featureIDE_graphics_properties():
     return properties
 
 
-def get_basic_features(graph):
+def get_basic_features(graph, intersection_callback):
     features = []
     graph_tour = GraphTour(graph)
     nodes = graph_tour.get_nodes()
@@ -102,6 +101,7 @@ def get_basic_features(graph):
     nodes.append(nodes[1])
     prev_track_point = None
     prev_track_property = None
+    intersection_counter = 0
 
     for idx in range(len(nodes)-1):
         node1 = nodes[idx]
@@ -110,6 +110,7 @@ def get_basic_features(graph):
         coord2 = node2.get_real_coords()
         _, _, track_point = get_track_points(coord1, coord2, 0)
         track_property = node1.track_property
+        next_track_property = node2.track_property
         if prev_track_point is None:
             prev_track_point = track_point
             prev_track_property = track_property
@@ -117,32 +118,51 @@ def get_basic_features(graph):
 
         if track_property is None:
             features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+            intersection_counter = 0
         elif track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
             features.append(CurvedStreet(TLFeatures.turn.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+            intersection_counter = 0
         elif track_property is TrackProperties.intersection:
-            track_point1, track_point2 = get_intersection_track_point(prev_track_point, track_point, entering=prev_track_property is not TrackProperties.intersection)
+            callbacks = intersection_callback[node1.get_coords()]
+            if len(callbacks) == 2:
+                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, entering=True, exiting=True)
+            elif len(callbacks) == 1:
+                entering = (prev_track_property is not TrackProperties.intersection or (intersection_counter % 2 == 0)) and next_track_property is TrackProperties.intersection
+                exiting = (next_track_property is not TrackProperties.intersection or (intersection_counter % 2 == 1)) and prev_track_property is TrackProperties.intersection
+                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, entering=entering, exiting=exiting)
+            else:
+                raise RuntimeError("No callbacks for intersection found!")
+
+            for callback in callbacks:
+                callback(track_point1, track_point2)
+
             features.append(CurvedStreet(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(), start=track_point1, end=track_point2, suffix=idx))
+            intersection_counter += 1
 
         prev_track_point = track_point
         prev_track_property = track_property
-
     return features
 
 
 def get_intersection_features(ip_solution):
     """
-    Create features for intersections
+    Create features for intersections.
+    Also creates a callback, with which the geometry of the intersections can be filled in based on coordinates.
     """
-    features = []
+    intersection_callback = dict()
 
+    features = []
     indices = get_grid_indices(len(ip_solution), len(ip_solution[0]))
     for (x, y) in indices:
         if ip_solution[x][y] == 2:
             coords_list = []
             for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
                 coords_list.append((x + _x, y + _y))
-            features.append(Intersection(TLFeatures.intersection.value, coords_list, suffix="i{}".format(len(features))))
-    return features
+            intersection = Intersection(TLFeatures.intersection.value, coords_list, suffix="i{}".format(len(features)))
+            for (_x, _y, callback) in [(0, 0, intersection.set_bottom_left), (1, 0, intersection.set_bottom_right), (0, 1, intersection.set_top_left), (1, 1, intersection.set_top_right)]:
+                intersection_callback.setdefault((x + _x, y + _y), []).append(callback)
+            features.append(intersection)
+    return features, intersection_callback
 
 
 def get_straight_features(ip_solution, problem_dict, straight_length):
