@@ -120,7 +120,7 @@ def get_basic_features(graph):
         elif track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
             features.append(CurvedStreet(TLFeatures.turn.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
         elif track_property is TrackProperties.intersection:
-            track_point1, track_point2 = get_intersection_track_point(prev_track_point, track_point, entering=prev_track_property is TrackProperties.intersection)
+            track_point1, track_point2 = get_intersection_track_point(prev_track_point, track_point, entering=prev_track_property is not TrackProperties.intersection)
             features.append(CurvedStreet(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(), start=track_point1, end=track_point2, suffix=idx))
 
         prev_track_point = track_point

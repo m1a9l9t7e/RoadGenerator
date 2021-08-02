@@ -163,7 +163,7 @@ class FMTrack(AnimationSequenceScene):
     def construct(self):
         width, height = (6, 6)
         solution, _ = get_custom_solution(width, height, quantity_constraints=[
-            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
+            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 1),
             QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0)
         ])
         fm = FeatureModel(solution)
