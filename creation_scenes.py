@@ -5,6 +5,7 @@ from ip.ip_util import QuantityConstraint, ConditionTypes
 from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors
+from fm.model import FeatureModel
 
 
 class MultiGraphIP(AnimationSequenceScene):
@@ -158,6 +159,35 @@ class CustomTrack(AnimationSequenceScene):
         self.wait(4)
 
 
+class FMTrack(AnimationSequenceScene):
+    def construct(self):
+        width, height = (6, 6)
+        solution, _ = get_custom_solution(width, height, quantity_constraints=[
+            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
+            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0)
+        ])
+        fm = FeatureModel(solution)
+        # fm.export('fm.xml')
+        # fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')
+
+        square_size, track_width = (1, 0.2)
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+
+        # grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        # self.play_animations(grid.get_animation_sequence())
+
+        anim_sequence = []
+
+        for feature in fm.get_features():
+            animation = feature.draw(track_width=track_width)
+            if animation is not None:
+                anim_sequence.append(animation)
+        self.play_animations(anim_sequence)
+
+        self.wait(4)
+
+
 if __name__ == '__main__':
-    scene = CustomTrack()
+    # scene = CustomTrack()
+    scene = FMTrack()
     scene.construct()

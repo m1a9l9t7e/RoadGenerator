@@ -120,6 +120,11 @@ class Spline2d:
         return animation
 
 
+def interpolate_single(start, end):
+    px, py = find_polynomials(*(start.as_list() + end.as_list()))
+    return px, py
+
+
 def interpolate_track_points_piece_wise(track_points):
     right_line_polynomials = []
     left_line_polynomials = []

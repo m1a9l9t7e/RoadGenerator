@@ -1,7 +1,7 @@
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
-from util import TrackProperties
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_point
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature
 import xml.etree.ElementTree as ET
 
@@ -96,14 +96,36 @@ def get_featureIDE_graphics_properties():
 
 def get_basic_features(graph):
     features = []
-    node_grid = graph.grid
-    indices = get_grid_indices(len(node_grid), len(node_grid[0]))
-    for index, (x, y) in enumerate(indices):
-        track_property = node_grid[x][y].track_property
+    graph_tour = GraphTour(graph)
+    nodes = graph_tour.get_nodes()
+    nodes.append(nodes[0])
+    nodes.append(nodes[1])
+    prev_track_point = None
+    prev_track_property = None
+
+    for idx in range(len(nodes)-1):
+        node1 = nodes[idx]
+        node2 = nodes[idx + 1]
+        coord1 = node1.get_real_coords()
+        coord2 = node2.get_real_coords()
+        _, _, track_point = get_track_points(coord1, coord2, 0)
+        track_property = node1.track_property
+        if prev_track_point is None:
+            prev_track_point = track_point
+            prev_track_property = track_property
+            continue
+
         if track_property is None:
-            features.append(StraightStreet(TLFeatures.default.value, (x, y), suffix=index))
-        if track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
-            features.append(CurvedStreet(TLFeatures.turn.value, (x, y), suffix=index))
+            features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+        elif track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
+            features.append(CurvedStreet(TLFeatures.turn.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+        elif track_property is TrackProperties.intersection:
+            track_point1, track_point2 = get_intersection_track_point(prev_track_point, track_point, entering=prev_track_property is TrackProperties.intersection)
+            features.append(CurvedStreet(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(), start=track_point1, end=track_point2, suffix=idx))
+
+        prev_track_point = track_point
+        prev_track_property = track_property
+
     return features
 
 

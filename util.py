@@ -1,5 +1,6 @@
 import random
 import math
+import numpy as np
 from manim import *
 from anim_sequence import AnimationObject
 from io import StringIO
@@ -363,11 +364,39 @@ def get_track_points(coord1, coord2, track_width):
     return [TrackPoint(coords, direction) for coords in [right, left, center]]
 
 
+def get_track_points_from_center(track_point, track_width):
+    """
+    :returns right and left point orthogonal to coords with direction
+    """
+    center, direction = (track_point.coords, track_point.direction)
+    orth_vec = np.array(get_orthogonal_vec(direction))
+    right = np.add(center, track_width * orth_vec)
+    left = np.subtract(center, track_width * orth_vec)
+    return [TrackPoint(coords, direction) for coords in [right, left, center]]
+
+
 def alter_track_point_directions(track_points):
     for points in track_points:
         degrees_20 = 0.349066
         angle = degrees_20 * random.uniform(0, 1) - degrees_20 / 2
         [point.alter_direction(angle) for point in points]
+
+
+def get_intersection_track_point(track_point1, track_point2, entering):
+    if entering:
+        intersection_start = shift_track_point_along_its_direction(track_point2, -0.5)
+        return track_point1, intersection_start
+    else:
+        intersection_end = shift_track_point_along_its_direction(track_point1, 0.5)
+        return intersection_end, track_point2
+
+
+def shift_track_point_along_its_direction(trackpoint, distance):
+    direction = trackpoint.direction
+    if len(direction) < 3:
+        direction = np.array([direction[0], direction[1], 0])
+    new_coords = trackpoint.coords + direction * distance
+    return TrackPoint(new_coords, trackpoint.direction)
 
 
 def find_center(coord1, coord2):
@@ -526,6 +555,7 @@ class TrackProperties(Enum):
     turn_180 = auto()
     straight = auto()
     intersection = auto()
+    intersection_connector = auto()
 
 
 def track_properties_to_colors(track_properties):
@@ -534,14 +564,16 @@ def track_properties_to_colors(track_properties):
         TrackProperties.turn_90: PINK,
         TrackProperties.turn_180: BLUE_C,
         TrackProperties.straight: RED,
-        TrackProperties.intersection: YELLOW_E
+        TrackProperties.intersection: YELLOW_E,
+        TrackProperties.intersection_connector: GREEN
     }
     for track_property in track_properties:
         if track_property is None:
             colors.append(WHITE)
         else:
             colors.append(property_to_color[track_property])
-
+    if len(colors) == 1:
+        return colors[0]
     return colors
 
 
