@@ -173,8 +173,8 @@ class FMTrack(AnimationSequenceScene):
         square_size, track_width = (1, 0.2)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
-        # grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
-        # self.play_animations(grid.get_animation_sequence())
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        self.play_animations(grid.get_animation_sequence())
 
         anim_sequence = []
 

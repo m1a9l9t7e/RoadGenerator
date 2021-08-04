@@ -278,7 +278,8 @@ def get_continued_interpolation(track_point, coords, dashed=False, track_color=W
     px, py = interpolate_single(track_point, TrackPoint(coords, track_point.direction))
     line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
     if dashed:
-        line = DashedVMobject(line, num_dashes=5, positive_space_ratio=0.6)
+        # choose num dashes in relation to line length
+        line = DashedVMobject(line, num_dashes=2, positive_space_ratio=0.6)
     return AnimationObject(type='play', content=[Create(line)], duration=0.25, z_index=z_index)
 
 #######################
