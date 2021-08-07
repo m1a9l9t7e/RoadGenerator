@@ -13,10 +13,13 @@ import multiprocessing as mp
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None):
+    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None, prohibition=False):
         self.width = width - 1
         self.height = height - 1
-        iterator = GGMSTIterator(self.width, self.height, _print=False)
+        if prohibition:
+            iterator = ProhibitionIterator(self.width, self.height, _print=True)
+        else:
+            iterator = GGMSTIterator(self.width, self.height, _print=False)
         start = time.time()
         self.variants = iterator.iterate()
         end = time.time()
@@ -138,6 +141,39 @@ class GGMSTIterator:
                 add_to_queue.append(content)
 
         return add_to_queue
+
+
+class ProhibitionIterator:
+    def __init__(self, width, height, _print=False):
+        self.width = width
+        self.height = height
+        self._print = _print
+        self.variants = []
+        self.counter = 0
+
+    def iterate(self):
+        solutions = []
+        while True:
+            problem = Problem(self.width, self.height, prohibition_constraints=solutions)
+            start = time.time()
+            solution, feasible = problem.solve()
+            end = time.time()
+            if self._print:
+                print(colored("Found Solution {}. Time elapsed: {:.2f}s".format(len(solutions), end - start), 'cyan'))
+            if feasible:
+                solutions.append(self.flatten(solution))
+                self.variants.append(solution)
+            else:
+                return self.variants
+
+    def flatten(self, solution):
+        flat = []
+        for x in range(self.width):
+            for y in range(self.height):
+                if solution[x][y]:
+                    flat.append((x, y))
+
+        return flat
 
 
 class IntersectionIterator:
@@ -447,4 +483,4 @@ def get_problem(graph_width, graph_height):
 
 
 if __name__ == '__main__':
-    GraphModel(6, 6, generate_intersections=False)
+    GraphModel(6, 6, generate_intersections=False, prohibition=True)

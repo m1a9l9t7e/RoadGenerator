@@ -10,11 +10,10 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, iteration_constraints=None, quantity_constraints=[], imitate=None):
+    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None):
         # arguments
         self.width = width
         self.height = height
-        self.iteration_constraints = iteration_constraints
         self.quantity_constraints = sort_quantity_constraints(quantity_constraints)
 
         # variables
@@ -93,9 +92,17 @@ class Problem:
         # Add constraints to the Problem
         self.add_all_constraints()
 
+        # Iteration constraints
+        if iteration_constraints is not None:
+            self.add_iteration_constraints(iteration_constraints)
+
         # imitation
         if imitate is not None:
             self.add_imitation_constraints(imitate)
+
+        # prohibition
+        if prohibition_constraints is not None:
+            self.add_prohibition_constraints(prohibition_constraints)
 
     ################################
     ######## CORE METHODS ##########
@@ -106,7 +113,6 @@ class Problem:
         self.add_coverage_constraints()
         self.add_n_constraint()
         self.add_flow_constraints()
-        self.add_iteration_constraints()
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
             if _type == TrackProperties.intersection:
@@ -128,7 +134,7 @@ class Problem:
             with Capturing() as output:
                 status = self.problem.solve(GUROBI(msg=0))
         except:
-            print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
+            # print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
             status = self.problem.solve(PULP_CBC_CMD(msg=0))
 
         if status <= 0:
@@ -445,10 +451,9 @@ class Problem:
     ########## ITERATION ###########
     ################################
 
-    def add_iteration_constraints(self):
-        if self.iteration_constraints is not None:
-            for (x, y) in self.iteration_constraints:
-                self.problem += self.node_grid[x][y] == 1
+    def add_iteration_constraints(self, iteration_constraints):
+        for (x, y) in iteration_constraints:
+            self.problem += self.node_grid[x][y] == 1
 
     def add_imitation_constraints(self, original_solution):
         for (x, y) in self.get_grid_indices():
@@ -460,6 +465,15 @@ class Problem:
                 self.problem += self.node_grid_intersections[x][y] == 1
             else:
                 self.problem += self.node_grid_intersections[x][y] == 0
+
+    def add_prohibition_constraints(self, solutions):
+        """
+        Add constraints prohibiting known solutions.
+        :param solutions: A list of solutions. A single solution is a list of tuples (x, y) where the corresponding cell is 1
+        """
+        for index, solution in enumerate(solutions):
+            positive_cells = [self.node_grid[x][y] for (x, y) in solution]
+            self.problem += sum(positive_cells) <= self.get_n() - 1
 
     ################################
     ############ UTIL ##############
@@ -746,7 +760,7 @@ if __name__ == '__main__':
     ]
     p = Problem(5, 5, quantity_constraints=_quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
     start = time.time()
-    solution, status = p.solve(_print=True)
+    _solution, status = p.solve(_print=True)
     end = time.time()
     # p.print_all_variables()
     # p.print_selected_straights(3)
