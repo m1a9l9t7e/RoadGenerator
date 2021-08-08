@@ -78,7 +78,7 @@ def get_next_node(node, previous_node=None):
         return node2
 
 
-def get_adjacent(grid, coords, count=False):
+def get_adjacent(grid, coords):
     """
     Get list of booleans indicating which adjacent cells given coords have in a given grid.
     :returns list of booleans: [right, up, left, down]
@@ -90,13 +90,6 @@ def get_adjacent(grid, coords, count=False):
             adjacent.append(False)
         else:
             adjacent.append(grid[x + _x][y + _y] > 0)
-
-    if count:
-        counter = 0
-        for adj in adjacent:
-            if adj:
-                counter += 1
-        return counter
 
     return adjacent
 
@@ -651,7 +644,8 @@ def track_properties_to_colors(track_properties):
 
 
 if __name__ == '__main__':
-    num = 15
-    gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
-    for i in range(num):
-        gs.get_element_coords(i)
+    # num = 15
+    # gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
+    # for i in range(num):
+    #     gs.get_element_coords(i)
+    print(count_adjacent(np.ones((3, 3), dtype=int), (2, 2)))

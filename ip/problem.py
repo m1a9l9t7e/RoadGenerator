@@ -87,7 +87,7 @@ class Problem:
                     add_to_list_in_dict(self.e_in_values, (x + 1, y), edge_to_right_value)
 
         # Init Problem
-        self.problem = LpProblem("GGMSTProblem", LpMinimize)
+        self.problem = LpProblem("Problem", LpMinimize)
 
         # Add constraints to the Problem
         self.add_all_constraints()
