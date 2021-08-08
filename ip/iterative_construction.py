@@ -14,7 +14,8 @@ class Iterator:
         self.height = height
         self._print = _print
         self.variants = []
-        self.counter = 0
+        self.iteration_counter = 0
+        self.leaf_counter = 0
 
     def iterate(self, depth_first=True, multi_processing=True, parallel=10000):
         start = Node(grid=create_new_grid(np.zeros((self.width, self.height), dtype=int), positive_cells=[(0, 0)], negative_cells=[]))
@@ -23,7 +24,7 @@ class Iterator:
         with tqdm(total=0) as pbar:
             while len(queue) > 0:
                 if multi_processing:
-                    pbar.set_description("{} items in queue atm".format(len(queue)))
+                    pbar.set_description(pretty_description(len(queue), self.leaf_counter, len(self.variants)))
                     pool = mp.Pool(mp.cpu_count())
                     if depth_first:
                         queue, nodes = (queue[:-parallel], queue[-parallel:])
@@ -32,11 +33,13 @@ class Iterator:
 
                     full_iteration = pool.map(next_wrapper, nodes)
                     pool.close()
+                    _counter = 0
                     for _next in full_iteration:
                         add_to_queue = self.unpack_next(_next)
                         queue += add_to_queue
-                        pbar.update(len(add_to_queue))
-
+                        self.iteration_counter += len(add_to_queue)
+                        _counter += len(add_to_queue)
+                    pbar.update(_counter)
                 else:
                     if depth_first:
                         _next = queue.pop(len(queue) - 1).get_next()
@@ -49,7 +52,7 @@ class Iterator:
                 pbar.refresh()
 
         if self._print:
-            print("Number of coverage checks: {}".format(self.counter))
+            print("Number of coverage checks: {}".format(self.leaf_counter))
 
         return self.variants
 
@@ -59,7 +62,7 @@ class Iterator:
         if leaf:
             if content is not None:
                 self.variants.append(content)
-            self.counter += 1
+            self.leaf_counter += 1
         else:
             add_to_queue = content
         return add_to_queue
@@ -185,12 +188,19 @@ def print_2d(grid, print_zeros=True):
     print()
 
 
+def pretty_description(num_queue, num_leafs, num_variants):
+    string1 = "{} items in queue".format(num_queue)
+    string2 = "{} leafs checked".format(num_leafs)
+    string3 = "{} variants found".format(num_variants)
+    description_string = "{}, {}, {}".format(*[colored(string1, 'cyan'), colored(string2, 'yellow'), colored(string3, 'green')])
+    return description_string
+
+
 if __name__ == '__main__':
     print(colored("Available cores: {}\n".format(mp.cpu_count()), 'green'))
     time.sleep(0.01)
     iterator = Iterator(5, 5, _print=True)
-    variants = iterator.iterate(multi_processing=True, depth_first=True, parallel=mp.cpu_count() * 5000)
+    variants = iterator.iterate(multi_processing=False, depth_first=True, parallel=mp.cpu_count() * 5000)
     print("Variants: {}".format(len(variants)))
-    # count_adjacent(np.ones((3, 3), dtype=int), (0, 0))
 
 
