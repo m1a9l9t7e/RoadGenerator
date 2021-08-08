@@ -84,7 +84,7 @@ class GGMSTIterator:
     def iterate(self, multi_processing=True):
         queue = [[i] for i in range(self.n_free - self.n_choice + 1)]
 
-        with tqdm(total=len(queue)) as pbar:
+        with tqdm(total=0) as pbar:
             while len(queue) > 0:
                 # if self._print:
                     # print("Processed elements {}, queue size: {}".format(self.counter, len(queue)))
@@ -174,64 +174,6 @@ class ProhibitionIterator:
                     flat.append((x, y))
 
         return flat
-
-
-class IterativeConstructionTIterator:
-    def __init__(self, width, height, _print=False):
-        self.width = width
-        self.height = height
-        self._print = _print
-        self.variants = []
-
-    def iterate(self, multi_processing=True):
-        start = IterativeConstructionNode(grid=create_new_grid([(0, 0)], [[0 for y in range(self.height)] for x in range(self.width)]), excluded=[])
-        queue = [start]
-
-        with tqdm(total=len(queue)) as pbar:
-            while len(queue) > 0:
-                if multi_processing:
-                    pool = mp.Pool(mp.cpu_count())
-                    full_iteration = pool.map(self.next, queue)
-                    pool.close()
-                    queue = []
-                    for next_elements in full_iteration:
-                        add_to_queue = self.unpack_next(next_elements)
-                        queue += add_to_queue
-                        self.counter += len(add_to_queue)
-                        pbar.update(len(add_to_queue))
-
-                else:
-                    next_elements = queue.pop(0).get_next()
-                    queue += next_elements
-                    self.counter += 1
-                    pbar.update(1)
-                pbar.total = len(queue)
-                pbar.refresh()
-
-        return self.variants
-
-
-def create_new_grid(positive_cells, base_grid):
-    grid = [[base_grid[x][y] for y in range(len(base_grid[x]))] for x in range(len(base_grid))]
-    for (x, y) in positive_cells:
-        grid[x][y] = 1
-    return grid
-
-
-class IterativeConstructionNode:
-    def __init__(self, grid, excluded):
-        self.grid = grid
-        self.excluded = excluded
-
-    def get_next(self):
-        next = []
-        for x in range(len(self.grid)):
-            for y in range(len(self.grid[x])):
-                if self.excluded[x][y]:
-                    continue
-                if self.grid[x][y] == 0 and get_adjacent(self.grid, (x, y), count=True) == 1:
-                    next.append(create_new_grid([(x, y)], self.grid))
-        return next
 
 
 class IntersectionIterator:
@@ -541,4 +483,4 @@ def get_problem(graph_width, graph_height):
 
 
 if __name__ == '__main__':
-    GraphModel(6, 6, generate_intersections=False, prohibition=True)
+    GraphModel(8, 8, generate_intersections=False, prohibition=True)
