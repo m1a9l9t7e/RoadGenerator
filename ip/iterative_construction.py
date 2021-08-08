@@ -5,6 +5,7 @@ import numpy as np
 import functools
 from termcolor import colored
 import time
+from numba import jit
 
 
 class Iterator:
@@ -85,44 +86,24 @@ def count_positive_cells(grid):
     return np.sum(np.array(grid))
 
 
+@jit(nopython=True)
 def count_adjacent(grid, coords):
     x, y = coords
+
     counter = 0
-
-    # indices = [(x + 1, y), (x, y + 1), (x - 1, y), (x, y - 1)]
-    # adjacent = np.take(grid, indices)
-    # return np.count_nonzero(adjacent == 1)
-
     for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
         if x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0:
             pass
         else:
             if grid[x + _x][y + _y] > 0:
                 counter += 1
+
     return counter
-
-
-def count_adjacent_fast(grid, coords, _print=False):
-    """
-    This is actually slower, lol
-    """
-    if _print:
-        print(colored('Before padding:', 'yellow'))
-        print_2d(grid)
-    # cut out 3x3 around coords
-    x, y = coords
-    roi_x = grid[max(x-1, 0):x+2, y]
-    roi_y = grid[x, max(y-1, 0):y+2]
-    if _print:
-        print(colored('roi x [{}:{}, {}]: {}'.format(x-1, x+2, y, roi_x), 'yellow'))
-        print(colored('roi y [{}, {}:{}]: {}'.format(x, y-1, y+2, roi_y), 'yellow'))
-    num_adjacent = np.count_nonzero(roi_x == 1) + np.count_nonzero(roi_y == 1)
-    return num_adjacent
 
 
 @functools.lru_cache()
 def get_combinations(length):
-    combinations = [list(i) for i in itertools.product([0, 1], repeat=len(length))]
+    combinations = [list(i) for i in itertools.product([0, 1], repeat=length)]
     return combinations
 
 
@@ -158,18 +139,11 @@ class Node:
         self.grid = grid
 
     def get_next(self):
-        _next = []
         possibilites = []
-
-        # indices = np.argwhere(self.grid == 0)
-        # for (x, y) in indices:
-        #     if count_adjacent(self.grid, (x, y)):
-        #         possibilites.append((x, y))
-
-        for x in range(len(self.grid)):
-            for y in range(len(self.grid[x])):
-                if self.grid[x][y] == 0 and count_adjacent(self.grid, (x, y)):
-                    possibilites.append((x, y))
+        indices = np.argwhere(self.grid == 0)
+        for (x, y) in indices:
+            if count_adjacent(self.grid, (x, y)) == 1:
+                possibilites.append((x, y))
 
         # leaf node
         if len(possibilites) == 0:
@@ -180,32 +154,21 @@ class Node:
 
             return True, None
 
-        # combinations = get_combinations(len(possibilites))
-        combinations = [list(i) for i in itertools.product([0, 1], repeat=len(possibilites))]
+        _next = []
+        combinations = get_combinations(len(possibilites))
         for combination in combinations:
             next_grid = np.copy(self.grid)
-            positive = []
-            negative = []
             for index, (x, y) in enumerate(possibilites):
                 if combination[index]:
-                    # next_grid[x][y] = 1
-                    positive.append((x, y))
+                    next_grid[x][y] = 1
                 else:
-                    # next_grid[x][y] = -1
-                    negative.append((x, y))
-            # _next.append(Node(next_grid))
-            _next.append(Node(create_new_grid(self.grid, positive, negative)))
+                    next_grid[x][y] = -1
+            _next.append(Node(next_grid))
 
         return False, _next
 
     def export_grid(self):
-        # indices = np.argwhere(self.grid == -1)
-        # for (x, y) in indices:
-        #     self.grid[x][y] = 0
-        for x in range(len(self.grid)):
-            for y in range(len(self.grid[x])):
-                if self.grid[x][y] == -1:
-                    self.grid[x][y] = 0
+        self.grid = np.floor_divide(self.grid + np.ones_like(self.grid), 2)
 
 
 def print_2d(grid, print_zeros=True):
@@ -225,8 +188,9 @@ def print_2d(grid, print_zeros=True):
 if __name__ == '__main__':
     print(colored("Available cores: {}\n".format(mp.cpu_count()), 'green'))
     time.sleep(0.01)
-    iterator = Iterator(7, 7, _print=True)
+    iterator = Iterator(5, 5, _print=True)
     variants = iterator.iterate(multi_processing=True, depth_first=True, parallel=mp.cpu_count() * 5000)
     print("Variants: {}".format(len(variants)))
+    # count_adjacent(np.ones((3, 3), dtype=int), (0, 0))
 
 

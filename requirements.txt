@@ -4,7 +4,7 @@ numpy~=1.20.3
 Pillow
 scipy~=1.6.3
 sympy
-tqdm
+tqdm~=4.61.2
 mapbox-earcut
 matplotlib~=3.4.2
 moderngl
@@ -17,7 +17,7 @@ ipython
 PyOpenGL
 opencv-python
 manimpango
-
 PuLP~=2.4
 manim~=0.8.0
 termcolor~=1.1.0
+numba~=0.53.1
