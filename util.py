@@ -78,7 +78,7 @@ def get_next_node(node, previous_node=None):
         return node2
 
 
-def get_adjacent(grid, coords):
+def get_adjacent(grid, coords, count=False):
     """
     Get list of booleans indicating which adjacent cells given coords have in a given grid.
     :returns list of booleans: [right, up, left, down]
@@ -90,6 +90,13 @@ def get_adjacent(grid, coords):
             adjacent.append(False)
         else:
             adjacent.append(grid[x + _x][y + _y] > 0)
+
+    if count:
+        counter = 0
+        for adj in adjacent:
+            if adj:
+                counter += 1
+        return counter
 
     return adjacent
 
