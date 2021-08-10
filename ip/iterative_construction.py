@@ -1,3 +1,6 @@
+import os
+import pickle
+
 from tqdm import tqdm
 import multiprocessing as mp
 import itertools
@@ -16,40 +19,45 @@ class Iterator:
         self.variants = []
         self.iteration_counter = 0
         self.leaf_counter = 0
+        self.queue = []  # nodes that are next to be processed
+        self.nodes = []  # nodes being currently processed
 
-    def iterate(self, depth_first=True, multi_processing=True, parallel=10000):
-        start = Node(grid=create_base_grid(np.zeros((self.width, self.height), dtype=int), positive_cells=[(0, 0)], negative_cells=[]), num_positives=1)
-        queue = [start]
+    def iterate(self, depth_first=True, multi_processing=True, parallel=10000, continued=False):
+        if not continued:
+            start = Node(grid=create_base_grid(np.zeros((self.width, self.height), dtype=np.byte), positive_cells=[(0, 0)], negative_cells=[]), num_positives=1)
+            self.queue = [start]
 
         with tqdm(total=0) as pbar:
-            while len(queue) > 0:
+            while len(self.queue) > 0:
                 if multi_processing:
                     pool = mp.Pool(mp.cpu_count())
-                    queue_len = len(queue)
+                    queue_len = len(self.queue)
                     if depth_first:
-                        queue, nodes = (queue[:-parallel], queue[-parallel:])
+                        self.queue, self.nodes = (self.queue[:-parallel], self.queue[-parallel:])
                     else:
-                        queue, nodes = (queue[parallel:], queue[:parallel])
+                        self.queue, self.nodes = (self.queue[parallel:], self.queue[:parallel])
 
-                    pbar.set_description(pretty_description(queue_len, len(nodes), self.leaf_counter, len(self.variants)))
-                    full_iteration = pool.map(next_wrapper, nodes)
+                    pbar.set_description(pretty_description(queue_len, len(self.nodes), self.leaf_counter, len(self.variants)))
+                    full_iteration = pool.map(next_wrapper, self.nodes)
                     pool.close()
                     _counter = 0
                     for _next in full_iteration:
                         add_to_queue = self.unpack_next(_next)
-                        queue += add_to_queue
+                        self.queue += add_to_queue
                         self.iteration_counter += len(add_to_queue)
                         _counter += len(add_to_queue)
                     pbar.update(_counter)
                 else:
                     if self.iteration_counter % 1000 == 0:
-                        pbar.set_description(pretty_description(len(queue), 1, self.leaf_counter, len(self.variants)))
+                        pbar.set_description(pretty_description(len(self.queue), 1, self.leaf_counter, len(self.variants)))
                     if depth_first:
-                        _next = queue.pop(len(queue) - 1).get_next()
+                        next_node = self.queue.pop(len(self.queue) - 1)
                     else:
-                        _next = queue.pop(0).get_next()
+                        next_node = self.queue.pop(0)
+                    self.nodes = [next_node]
+                    _next = next_node.get_next()
                     add_to_queue = self.unpack_next(_next)
-                    queue += add_to_queue
+                    self.queue += add_to_queue
                     pbar.update(len(add_to_queue))
                     self.iteration_counter += len(add_to_queue)
 
@@ -76,6 +84,45 @@ class Iterator:
     def next_wrapper(self, node):
         _next = node.get_next()
         return self.unpack_next(_next)
+
+    def save(self, path):
+        os.makedirs(path, exist_ok=True)
+        # save variants via numpy
+        variants_path = os.path.join(path, 'variants.npy')
+        np.save(variants_path, self.variants)
+
+        # save state of iterator via pickle
+        state_path = os.path.join(path, 'state.pkl')
+        iterator_state = {'queue': self.queue,
+                          'nodes': self.nodes,
+                          'width': self.width,
+                          'height': self.height,
+                          'iteration_counter': self.iteration_counter,
+                          'leaf_counter': self.leaf_counter}
+        with open(state_path, 'wb') as handle:
+            pickle.dump(iterator_state, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, path):
+        # load variants via numpy
+        variants_path = os.path.join(path, 'variants.npy')
+        self.variants = list(np.load(variants_path))
+
+        # load state of iterator via pickle
+        state_path = os.path.join(path, 'state.pkl')
+        with open(state_path, 'rb') as handle:
+            state = pickle.load(handle)
+            self.queue = state['queue'] + state['nodes']
+            self.width = state['width']
+            self.height = state['height']
+            self.iteration_counter = state['iteration_counter']
+            self.leaf_counter = state['leaf_counter']
+
+        if len(self.queue) > 0:
+            print(colored('Continue Iteration', 'blue'))
+            time.sleep(0.01)
+            self.iterate(depth_first=True, multi_processing=True, continued=True)
+        else:
+            print(colored('Iteration saved in {} already completed.'.format(path), 'blue'))
 
 
 def next_wrapper(node):
@@ -225,9 +272,32 @@ def pretty_description(num_queue, num_nodes, num_leafs, num_variants):
     return description_string
 
 
+def load_variants(path):
+    for variant in np.load(path):
+        print_2d(variant)
+
+
+def continue_iteration(path):
+    iterator = Iterator(0, 0, _print=True)
+    iterator.load(path)
+
+
+def iterate(w=5, h=5):
+    iterator = Iterator(w, h, _print=True)
+    try:
+        iterator.iterate(multi_processing=False, depth_first=True, parallel=mp.cpu_count() * 5000)
+        iterator.save('{}x{}'.format(w, h))
+    except KeyboardInterrupt:
+        save_path = os.path.join(os.getcwd(), 'iterator_saves', time.strftime("%Y%m%d-%H%M%S"))
+        iterator.save(save_path)
+        print('Interrupted. Iteration Progress saved at {}'.format(save_path))
+
+
 if __name__ == '__main__':
     print(colored("Available cores: {}\n".format(mp.cpu_count()), 'green'))
     time.sleep(0.01)
-    iterator = Iterator(5, 5, _print=True)
-    variants = iterator.iterate(multi_processing=False, depth_first=True, parallel=mp.cpu_count() * 5000)
-    print("Variants: {}".format(len(variants)))
+    if True:
+        iterate()
+    else:
+        continue_iteration('/home/malte/PycharmProjects/circuit-creator/ip/iterator_saves/20210810-191354')
+
