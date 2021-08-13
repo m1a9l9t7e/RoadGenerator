@@ -1,6 +1,5 @@
 import os
 import pickle
-
 from tqdm import tqdm
 import multiprocessing as mp
 import itertools
@@ -9,6 +8,9 @@ import functools
 from termcolor import colored
 import time
 from numba import jit
+
+SAVE_DIR = 'iterator_saves'
+EXPENDABLE_MEMORY = 5  # in Gig
 
 
 class Iterator:
@@ -74,6 +76,7 @@ class Iterator:
             print("Number of checked leafs: {}".format(self.leaf_counter))
             print("Number found variants: {}".format(len(self.variants)))
 
+        self.nodes = []
         self.save_wrapper('complete')
         return self.variants
 
@@ -93,7 +96,7 @@ class Iterator:
         return self.unpack_next(_next)
 
     def save_wrapper(self, keyword=""):
-        save_path = os.path.join(os.getcwd(), 'iterator_saves', '{}{}'.format(keyword, time.strftime("%Y%m%d-%H%M%S")))
+        save_path = os.path.join(os.getcwd(), SAVE_DIR, '{}{}'.format(keyword, time.strftime("%Y%m%d-%H%M%S")))
         self.save(save_path)
         save_message = '{} save: {} variants found. Iteration Progress saved at {}'.format(keyword, len(self.variants), save_path)
         print(colored(save_message, 'green'))
@@ -116,7 +119,7 @@ class Iterator:
         with open(state_path, 'wb') as handle:
             pickle.dump(iterator_state, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load(self, path, multi_procesing=True):
+    def load(self, path):
         # load variants via numpy
         variants_path = os.path.join(path, 'variants.npy')
         self.variants = list(np.load(variants_path))
@@ -130,13 +133,6 @@ class Iterator:
             self.height = state['height']
             self.iteration_counter = state['iteration_counter']
             self.leaf_counter = state['leaf_counter']
-
-        if len(self.queue) > 0:
-            print(colored('Continue Iteration\n', 'blue'))
-            time.sleep(0.01)
-            self.iterate(depth_first=True, multi_processing=multi_procesing, continued=True, parallel=mp.cpu_count() * 5000)
-        else:
-            print(colored('Iteration saved in {} already completed.'.format(path), 'blue'))
 
 
 def next_wrapper(node):
@@ -301,7 +297,7 @@ def continue_iteration(path, multi_processing=True):
         if len(iterator.queue) > 0:
             print(colored('Continue Iteration\n', 'blue'))
             time.sleep(0.01)
-            iterator.iterate(continued=True, depth_first=True, multi_processing=multi_processing, parallel=mp.cpu_count() * 5000)
+            iterator.iterate(continued=True, depth_first=True, multi_processing=multi_processing, parallel=15000 * EXPENDABLE_MEMORY)
         else:
             print(colored('Iteration saved in {} already completed.'.format(path), 'blue'))
     except KeyboardInterrupt:
@@ -312,7 +308,7 @@ def continue_iteration(path, multi_processing=True):
 def iterate(w=7, h=7, multi_processing=True):
     iterator = Iterator(w, h, _print=True)
     try:
-        iterator.iterate(multi_processing=multi_processing, depth_first=True, parallel=mp.cpu_count() * 5000)
+        iterator.iterate(multi_processing=multi_processing, depth_first=True, parallel=15000 * EXPENDABLE_MEMORY)
         iterator.save('{}x{}'.format(w, h))
     except KeyboardInterrupt:
         print(colored('Program Interrupted. Saving progress..', 'yellow'))
@@ -322,11 +318,12 @@ def iterate(w=7, h=7, multi_processing=True):
 if __name__ == '__main__':
     print(colored("Available cores: {}\n".format(mp.cpu_count()), 'green'))
     time.sleep(0.01)
+
     # Iterate from scratch
-    iterate(w=5, h=5)
+    iterate(w=7, h=7)
 
     # Continue Iteration from save
-    # continue_iteration('/home/malte/PycharmProjects/circuit-creator/ip/iterator_saves/20210812-112916')
+    continue_iteration(os.path.join(os.getcwd(), SAVE_DIR, 'save_name'))
 
     # Print found variants from save
-    # load_print_variants('/home/malte/PycharmProjects/circuit-creator/ip/20210813-014151/variants.npy', 2)
+    load_print_variants(os.path.join(os.getcwd(), SAVE_DIR, 'save_name', 'variants.npy'), limit=2)
