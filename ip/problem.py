@@ -134,7 +134,7 @@ class Problem:
             with Capturing() as output:
                 status = self.problem.solve(GUROBI(msg=0))
         except:
-            # print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
+            print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
             status = self.problem.solve(PULP_CBC_CMD(msg=0))
 
         if status <= 0:

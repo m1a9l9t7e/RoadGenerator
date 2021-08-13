@@ -192,6 +192,7 @@ def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
 
 
 def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
+    ip_solution = list(ip_solution)
     direction_matrix = np.absolute(get_degree_matrix(ip_solution, multipliers=[1, 1, -1, -1]))
     intersect_matrix = np.where(direction_matrix > 1, np.ones_like(ip_solution), np.zeros_like(ip_solution))
     if allow_intersect_at_stubs:

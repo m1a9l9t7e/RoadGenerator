@@ -5,23 +5,43 @@ from tqdm import tqdm
 from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str
 from ip.problem import Problem, IntersectionProblem
+from ip.iterative_construction import Iterator as IterativeConstructionIterator
 from util import GridShowCase, get_adjacent, TrackProperties
 import numpy as np
 import itertools
 from termcolor import colored
 import multiprocessing as mp
+from enum import Enum, auto
+
+
+class IteratorType(Enum):
+    base_ip = auto()
+    prohibition_ip = auto()
+    iterative_construction = auto()
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None, prohibition=False):
+    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None, iterator_type=IteratorType.iterative_construction):
         self.width = width - 1
         self.height = height - 1
-        if prohibition:
-            iterator = ProhibitionIterator(self.width, self.height, _print=True)
-        else:
-            iterator = GGMSTIterator(self.width, self.height, _print=False)
+
         start = time.time()
-        self.variants = iterator.iterate()
+
+        if iterator_type == IteratorType.base_ip:
+            iterator = GGMSTIterator(self.width, self.height, _print=False)
+            self.variants = iterator.iterate()
+        elif iterator_type == IteratorType.prohibition_ip:
+            iterator = ProhibitionIterator(self.width, self.height, _print=True)
+            self.variants = iterator.iterate()
+        elif iterator_type == IteratorType.iterative_construction:
+            iterator = IterativeConstructionIterator(self.width, self.height, _print=False)
+            if self.width == 7 and self.height == 7:
+                self.variants = np.load('/path/to/7x7/variants.npy')
+            else:
+                self.variants = iterator.iterate(multi_processing=False, continued=False)
+        else:
+            raise ValueError("Unkown Iterator Type: {}".format(iterator_type))
+
         end = time.time()
 
         if generate_intersections:
@@ -29,9 +49,9 @@ class GraphModel:
             print(colored("Time elapsed: {:.2f}s".format(end - start), 'blue'))
             start = time.time()
             if intersections_ip:
-                self.variants += get_join_variants_ip(self.variants)
+                self.variants += add_intersection_variants_ip(self.variants)
             else:
-                self.variants = add_join_variants(self.variants)
+                self.variants = add_intersection_variants(self.variants)
             end = time.time()
 
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
@@ -185,7 +205,7 @@ class IntersectionIterator:
         self.counter = 0
         self.solutions = []
 
-    def iterate(self, multi_processing=True):
+    def iterate(self, multi_processing=False):
         queue = [[]]
 
         while len(queue) > 0:
@@ -382,7 +402,7 @@ def get_edges_adjacent_to_cell(coords):
     return [edge_right, edge_top, edge_left, edge_bottom]
 
 
-def generate_join_variants(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
+def generate_intersection_variants(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
     variants = []
     intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
     combinations = [list(i) for i in itertools.product([0, 1], repeat=n)]
@@ -399,7 +419,12 @@ def generate_join_variants(solution, n_intersections=None, allow_adjacent_inters
     return variants
 
 
-def generate_join_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
+def count_intersection_variants(solution):
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    return 2**n
+
+
+def generate_intersection_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
     variants = []
     intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
     non_zero_indices = np.argwhere(intersect_matrix > 0)
@@ -418,17 +443,27 @@ def generate_join_variants_ip(solution, n_intersections=None, allow_adjacent_int
     return variants
 
 
-def add_join_variants(solutions, allow_intersect_at_stubs=False):
+def add_intersection_variants(solutions, allow_intersect_at_stubs=False, multi_processing=True):
     complete_list = []
-    for solution in solutions:
-        complete_list += generate_join_variants(solution, allow_intersect_at_stubs=allow_intersect_at_stubs)
+    if multi_processing:
+        pool = mp.Pool(mp.cpu_count())
+        # complete_list = pool.map(generate_join_variants, tqdm(solutions, desc='Generating Intersections'))
+        complete_list = pool.map(count_intersection_variants, tqdm(solutions, desc='Counting Intersections'))
+        pool.close()
+        num_intersect_variants = sum(complete_list)
+        print("Intersections variants: {}".format(num_intersect_variants))
+        print("All variants: {}".format(num_intersect_variants + len(solutions)))
+    else:
+        for solution in tqdm(solutions, desc='Generating Intersections'):
+            complete_list += generate_intersection_variants(solution, allow_intersect_at_stubs=allow_intersect_at_stubs)
+
     return complete_list
 
 
-def get_join_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersections=None):
+def add_intersection_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersections=None):
     join_variants = []
-    for solution in solutions:
-        join_variants += generate_join_variants_ip(solution, n_intersections=n_intersections, allow_intersect_at_stubs=allow_intersect_at_stubs)
+    for solution in tqdm(solutions, desc='Generating Intersections'):
+        join_variants += generate_intersection_variants_ip(solution, n_intersections=n_intersections, allow_intersect_at_stubs=allow_intersect_at_stubs)
     return join_variants
 
 
@@ -483,4 +518,4 @@ def get_problem(graph_width, graph_height):
 
 
 if __name__ == '__main__':
-    GraphModel(8, 8, generate_intersections=False, prohibition=True)
+    GraphModel(8, 8, generate_intersections=True, iterator_type=IteratorType.iterative_construction, intersections_ip=False)

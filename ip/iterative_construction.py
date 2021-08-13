@@ -329,7 +329,7 @@ if __name__ == '__main__':
     time.sleep(0.01)
 
     # Iterate from scratch
-    iterate(w=3, h=3)
+    iterate(w=5, h=5)
 
     # Continue Iteration from save
     continue_iteration(os.path.join(os.getcwd(), SAVE_DIR, 'save_name'))
