@@ -166,6 +166,11 @@ def get_circle(coords, radius, color, secondary_color, border_width=2):
 
 
 def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
+    if len(coord1) == 2:
+        coord1 = list(coord1) + [0]
+    if len(coord2) == 2:
+        coord2 = list(coord2) + [0]
+
     line = Line(coord1, coord2, stroke_width=stroke_width)
     line.set_color(color)
     return line
@@ -177,7 +182,7 @@ def get_arrow(coord1, coord2, scale=1, color=WHITE):
     return arrow
 
 
-def get_square(coords, size, color, secondary_color, border_width=2):
+def get_square(coords, size, color=WHITE, secondary_color=GREY, border_width=2):
     square = Square(side_length=size)
     square.set_fill(color, opacity=1)
     square.set_stroke(secondary_color, width=border_width)
@@ -576,8 +581,147 @@ def calculate_grid_dimensions(num_elements, ratio):
 
 
 #######################
+#### TREE SHOWCASE ####
+#######################
+
+class TreeShowCase:
+    """
+    A helper class for drawing a Tree, given the root. Nodes must be derivatives of NodeWrapper
+    Size and spacing of nodes are configurable.
+    """
+
+    def __init__(self, root, element_dimensions, spacing=[1, 1], shift=[0, 0]):
+        self.root = root
+        self.element_dimensions = element_dimensions
+        self.spacing = spacing
+        self.shift = shift
+        self.tree_dimensions = self.calculate_tree_dimensions()
+        self.assign_positions()
+
+    def assign_positions(self):
+        """
+        Set positions for each node/element.
+        This uses a bottom up approach, dividing the x space equally for leaf nodes and using the average of children otherwise.
+        """
+        element_width, element_height = self.element_dimensions
+        spacing_width, spacing_height = self.spacing
+        max_depth = get_max_depth(self.root)
+        depth_to_elements = get_elements_per_depth(self.root, max_depth)
+        tree_width = self.tree_dimensions[0]
+        for depth in range(max_depth, -1, -1):
+            elements = depth_to_elements[depth]
+            for index, element in enumerate(elements):
+                y = (max_depth - depth) * (element_width + spacing_width)
+                x = (tree_width / (len(elements) + 1)) * (index + 1)
+                element.position = (x, y)
+                # if len(element.children) == 0:
+                #     default_x = (tree_width / (len(elements) + 1)) * (index + 1)
+                #     element.position = (default_x, y)
+                # else:
+                #     element.position = (average_x(element.children), y)
+
+    def get_global_camera_settings(self):
+        """
+        :returns position and size of camera, so that all cells will be in view.
+        position = center of grid
+        size = (width of grid, height of grid)
+        """
+        size = self.tree_dimensions
+        position = np.array(size) / 2
+        return self.transform_coords(position), size
+
+    def get_zoomed_camera_settings(self, element):
+        """
+        :returns position and size of camera, so that a single cell will be in view.
+        position = center of cell with given index
+        size = (width of cell, height of cell)
+        """
+        element_width, element_height = self.element_dimensions
+        bottom_left_x, bottom_left_y = element.position
+        position = (bottom_left_x + element_width / 2, bottom_left_y + element_height / 2)
+        size = [element_width, element_height]
+        return self.transform_coords(position), size
+
+    def get_element_coords(self, element):
+        """
+        :returns position of bottom left corner of cell with given index.
+        """
+        bottom_left_x, bottom_left_y = element.position
+        return self.transform_coords((bottom_left_x, bottom_left_y))
+
+    def transform_coords(self, coords):
+        x, y = coords
+        x_shift, y_shift = self.shift
+        return [x + x_shift, y + y_shift]
+
+    def get_tree_width(self, depth_to_elements, max_depth):
+        element_width, element_height = self.element_dimensions
+        spacing_width, spacing_height = self.spacing
+        max_elements = 0
+        for depth in range(max_depth + 1):
+            if len(depth_to_elements[depth]) > max_elements:
+                max_elements = len(depth_to_elements[depth])
+        return max_elements * element_width + (max_elements - 1) * spacing_width
+
+    def calculate_tree_dimensions(self):
+        """
+        Calculates how n elements should be arranged to best fit a given ratio.
+        :returns grid dimensions [width, height]
+        """
+        element_width, element_height = self.element_dimensions
+        spacing_width, spacing_height = self.spacing
+        max_depth = get_max_depth(self.root)
+        depth_to_elements = get_elements_per_depth(self.root, max_depth)
+        tree_width = self.get_tree_width(depth_to_elements, max_depth)
+        # TODO: this might be one of the two
+        # tree_height = max_depth * element_width + (max_depth - 1) * spacing_width
+        tree_height = (max_depth + 1) * element_width + max_depth * spacing_width
+        tree_dims = (tree_width, tree_height)
+        print("Tree dimensions: {} x {}".format(*tree_dims))
+        return tree_dims
+
+
+def get_elements_per_depth(root, max_depth):
+    elements = tree_to_list(root)
+    depth_to_elements = {depth: [] for depth in range(max_depth+1)}
+    for element in elements:
+        depth_to_elements[element.depth].append(element)
+    return depth_to_elements
+
+
+def get_max_depth(root):
+    max_depth = 0
+    elements = tree_to_list(root)
+    for element in elements:
+        if element.depth > max_depth:
+            max_depth = element.depth
+    return max_depth
+
+
+def tree_to_list(root, dfs=False):
+    elements = []
+    queue = [root]
+    while len(queue) > 0:
+        if dfs:
+            current = queue.pop(len(queue) - 1)
+        else:
+            current = queue.pop(0)
+        elements.append(current)
+        queue += current.children
+
+    return elements
+
+
+def average_x(elements):
+    average = 0
+    for element in elements:
+        average += element.position[0]
+    return average / len(elements)
+
+#######################
 ##### BASIC STUFF #####
 #######################
+
 
 def print_2d(grid, print_zeros=True):
     height = len(grid[0])
@@ -644,8 +788,7 @@ def track_properties_to_colors(track_properties):
 
 
 if __name__ == '__main__':
-    # num = 15
-    # gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
-    # for i in range(num):
-    #     gs.get_element_coords(i)
-    print(count_adjacent(np.ones((3, 3), dtype=int), (2, 2)))
+    num = 15
+    gs = GridShowCase(num, element_dimensions=[4 * 1.3, 4 * 1.3], spacing=[1, 1], space_ratio=[16, 9])
+    for i in range(num):
+        gs.get_element_coords(i)

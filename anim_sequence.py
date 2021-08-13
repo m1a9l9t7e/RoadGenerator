@@ -93,6 +93,7 @@ def make_concurrent(sequence_list):
         wait_after = reference.wait_after
         bring_to_back = reference.bring_to_back
         bring_to_front = reference.bring_to_front
+        z_index = reference.z_index
         content = []
         for sequence in sequence_list:
             animation_object = sequence[time_step]
@@ -103,5 +104,5 @@ def make_concurrent(sequence_list):
             if wait_after < animation_object.wait_after:
                 wait_after = animation_object.wait_after
             content += animation_object.content
-        concurrent_sequence.append(AnimationObject(animation_type, content, wait_after, duration, bring_to_back, bring_to_front))
+        concurrent_sequence.append(AnimationObject(animation_type, content, wait_after, duration, bring_to_back, bring_to_front, z_index))
     return concurrent_sequence
