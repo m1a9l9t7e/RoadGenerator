@@ -12,7 +12,7 @@ from numba import jit
 
 
 class Iterator:
-    def __init__(self, width, height, _print=False):
+    def __init__(self, width, height, _print=False, save_at=500_000):
         self.width = width
         self.height = height
         self._print = _print
@@ -21,12 +21,14 @@ class Iterator:
         self.leaf_counter = 0
         self.queue = []  # nodes that are next to be processed
         self.nodes = []  # nodes being currently processed
+        self.save_at = save_at
 
     def iterate(self, depth_first=True, multi_processing=True, parallel=10000, continued=False):
         if not continued:
             start = Node(grid=create_base_grid(np.zeros((self.width, self.height), dtype=np.byte), positive_cells=[(0, 0)], negative_cells=[]), num_positives=1)
             self.queue = [start]
 
+        last_checkpoint = len(self.variants)
         with tqdm(total=0) as pbar:
             while len(self.queue) > 0:
                 if multi_processing:
@@ -62,12 +64,17 @@ class Iterator:
                     self.iteration_counter += len(add_to_queue)
 
                 pbar.refresh()
+                if self.save_at is not None:
+                    if len(self.variants) > last_checkpoint + self.save_at:
+                        self.save_wrapper('checkpoint')
+                        last_checkpoint += self.save_at
 
         if self._print:
-            print("Number of total iterations: {}".format(self.iteration_counter))
+            print("Number of processed nodes: {}".format(self.iteration_counter))
             print("Number of checked leafs: {}".format(self.leaf_counter))
             print("Number found variants: {}".format(len(self.variants)))
 
+        self.save_wrapper('complete')
         return self.variants
 
     def unpack_next(self, _next):
@@ -84,6 +91,13 @@ class Iterator:
     def next_wrapper(self, node):
         _next = node.get_next()
         return self.unpack_next(_next)
+
+    def save_wrapper(self, keyword=""):
+        save_path = os.path.join(os.getcwd(), 'iterator_saves', '{}{}'.format(keyword, time.strftime("%Y%m%d-%H%M%S")))
+        self.save(save_path)
+        save_message = '{} save: {} variants found. Iteration Progress saved at {}'.format(keyword, len(self.variants), save_path)
+        print(colored(save_message, 'green'))
+        return save_path
 
     def save(self, path):
         os.makedirs(path, exist_ok=True)
@@ -102,7 +116,7 @@ class Iterator:
         with open(state_path, 'wb') as handle:
             pickle.dump(iterator_state, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def load(self, path):
+    def load(self, path, multi_procesing=True):
         # load variants via numpy
         variants_path = os.path.join(path, 'variants.npy')
         self.variants = list(np.load(variants_path))
@@ -118,9 +132,9 @@ class Iterator:
             self.leaf_counter = state['leaf_counter']
 
         if len(self.queue) > 0:
-            print(colored('Continue Iteration', 'blue'))
+            print(colored('Continue Iteration\n', 'blue'))
             time.sleep(0.01)
-            self.iterate(depth_first=True, multi_processing=True, continued=True)
+            self.iterate(depth_first=True, multi_processing=multi_procesing, continued=True, parallel=mp.cpu_count() * 5000)
         else:
             print(colored('Iteration saved in {} already completed.'.format(path), 'blue'))
 
@@ -203,10 +217,9 @@ def get_n(width, height):
 
 
 class Node:
-    def __init__(self, grid, num_positives, depth=0):
+    def __init__(self, grid, num_positives):
         self.grid = grid
         self.num_positives = num_positives
-        self.depth = depth
 
     def get_next(self):
         # leaf node
@@ -225,7 +238,7 @@ class Node:
             return True, None
 
         _next = []
-        combinations = get_combinations(len(possibilites))
+        combinations = get_combinations(len(possibilites))[1:]
         for combination in combinations:
             next_grid, counter, success = make_next_grid(self.grid, combination, np.array(possibilites))
             if not success:
@@ -233,7 +246,7 @@ class Node:
             # if self.num_positives + counter > get_n(len(self.grid), len(self.grid[0])):
             #     print("To many cells!")
             #     continue
-            _next.append(Node(next_grid, self.num_positives + counter, depth=self.depth+1))
+            _next.append(Node(next_grid, self.num_positives + counter))
 
         return False, _next
 
@@ -272,32 +285,48 @@ def pretty_description(num_queue, num_nodes, num_leafs, num_variants):
     return description_string
 
 
-def load_variants(path):
-    for variant in np.load(path):
-        print_2d(variant)
+def load_print_variants(path, limit=None, print_zeros=False):
+    variants = np.load(path)
+    if limit is None:
+        limit = len(variants)
+    print("Variants loaded: {}. Printing the first {}:".format(len(variants), limit))
+    for index in range(limit):
+        print_2d(variants[index], print_zeros=print_zeros)
 
 
-def continue_iteration(path):
+def continue_iteration(path, multi_processing=True):
     iterator = Iterator(0, 0, _print=True)
-    iterator.load(path)
+    try:
+        iterator.load(path)
+        if len(iterator.queue) > 0:
+            print(colored('Continue Iteration\n', 'blue'))
+            time.sleep(0.01)
+            iterator.iterate(continued=True, depth_first=True, multi_processing=multi_processing, parallel=mp.cpu_count() * 5000)
+        else:
+            print(colored('Iteration saved in {} already completed.'.format(path), 'blue'))
+    except KeyboardInterrupt:
+        print(colored('Program Interrupted. Saving progress..', 'yellow'))
+        iterator.save_wrapper('interrupted')
 
 
-def iterate(w=5, h=5):
+def iterate(w=7, h=7, multi_processing=True):
     iterator = Iterator(w, h, _print=True)
     try:
-        iterator.iterate(multi_processing=False, depth_first=True, parallel=mp.cpu_count() * 5000)
+        iterator.iterate(multi_processing=multi_processing, depth_first=True, parallel=mp.cpu_count() * 5000)
         iterator.save('{}x{}'.format(w, h))
     except KeyboardInterrupt:
-        save_path = os.path.join(os.getcwd(), 'iterator_saves', time.strftime("%Y%m%d-%H%M%S"))
-        iterator.save(save_path)
-        print('Interrupted. Iteration Progress saved at {}'.format(save_path))
+        print(colored('Program Interrupted. Saving progress..', 'yellow'))
+        iterator.save_wrapper('interrupted')
 
 
 if __name__ == '__main__':
     print(colored("Available cores: {}\n".format(mp.cpu_count()), 'green'))
     time.sleep(0.01)
-    if True:
-        iterate()
-    else:
-        continue_iteration('/home/malte/PycharmProjects/circuit-creator/ip/iterator_saves/20210810-191354')
+    # Iterate from scratch
+    iterate(w=5, h=5)
 
+    # Continue Iteration from save
+    # continue_iteration('/home/malte/PycharmProjects/circuit-creator/ip/iterator_saves/20210812-112916')
+
+    # Print found variants from save
+    # load_print_variants('/home/malte/PycharmProjects/circuit-creator/ip/20210813-014151/variants.npy', 2)
