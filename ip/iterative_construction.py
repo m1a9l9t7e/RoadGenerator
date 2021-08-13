@@ -282,6 +282,10 @@ def pretty_description(num_queue, num_nodes, num_leafs, num_variants):
 
 
 def load_print_variants(path, limit=None, print_zeros=False):
+    if not os.path.exists(path):
+        print("Path {} does not exist.".format(colored(path, 'yellow')))
+        return
+
     variants = np.load(path)
     if limit is None:
         limit = len(variants)
@@ -291,6 +295,10 @@ def load_print_variants(path, limit=None, print_zeros=False):
 
 
 def continue_iteration(path, multi_processing=True):
+    if not os.path.exists(path):
+        print("Path {} does not exist.".format(colored(path, 'yellow')))
+        return
+
     iterator = Iterator(0, 0, _print=True)
     try:
         iterator.load(path)
@@ -306,10 +314,11 @@ def continue_iteration(path, multi_processing=True):
 
 
 def iterate(w=7, h=7, multi_processing=True):
+    if max(w, h) < 5:
+        multi_processing = False
     iterator = Iterator(w, h, _print=True)
     try:
         iterator.iterate(multi_processing=multi_processing, depth_first=True, parallel=15000 * EXPENDABLE_MEMORY)
-        iterator.save('{}x{}'.format(w, h))
     except KeyboardInterrupt:
         print(colored('Program Interrupted. Saving progress..', 'yellow'))
         iterator.save_wrapper('interrupted')
@@ -320,7 +329,7 @@ if __name__ == '__main__':
     time.sleep(0.01)
 
     # Iterate from scratch
-    iterate(w=7, h=7)
+    iterate(w=3, h=3)
 
     # Continue Iteration from save
     continue_iteration(os.path.join(os.getcwd(), SAVE_DIR, 'save_name'))
