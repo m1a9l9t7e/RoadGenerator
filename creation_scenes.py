@@ -164,7 +164,7 @@ class FMTrack(AnimationSequenceScene):
         width, height = (6, 6)
         solution, _ = get_custom_solution(width, height, quantity_constraints=[
             QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
-            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0)
+            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 1)
         ])
         fm = FeatureModel(solution)
         # fm.export('fm.xml')

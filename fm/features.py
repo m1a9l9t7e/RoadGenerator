@@ -1,3 +1,4 @@
+import sys
 import xml.etree.ElementTree as ET
 import numpy as np
 from termcolor import colored
@@ -86,6 +87,8 @@ class TLFeature(Feature):
     def __init__(self, name, track_property, suffix=None):
         super().__init__(name, sub_features=self.get_features(), mandatory=True, alternative=False, suffix=suffix)
         self.track_property = track_property
+        self.predecessor = []
+        self.successor = []
 
     def get_features(self):
         raise NotImplementedError()
@@ -93,11 +96,17 @@ class TLFeature(Feature):
     def draw(self, track_width):
         raise NotImplementedError()
 
+    def add_predecessor(self, element):
+        self.predecessor.append(element)
+
+    def add_successor(self, element):
+        self.successor.append(element)
+
 
 class BasicFeature(TLFeature):
     """
     A basic feature, representing a single track element (e.g. 90 turn, single straight).
-    Geometrically, the element is represented by the left and right points of start and end
+    Geometrically, the element is represented by center trackpoint of the start and end of the element
     start: Trackpoint(coords, direction)
     end:   Trackpoint(coords, direction)
     """
@@ -186,15 +195,19 @@ class Intersection(CompositeFeature):
 
     def set_bottom_left(self, track_point1, track_point2):
         self.bottom_left = choose_closest_track_point(self.center, [track_point1, track_point2])
+        return self
 
     def set_bottom_right(self, track_point1, track_point2):
         self.bottom_right = choose_closest_track_point(self.center, [track_point1, track_point2])
+        return self
 
     def set_top_left(self, track_point1, track_point2):
         self.top_left = choose_closest_track_point(self.center, [track_point1, track_point2])
+        return self
 
     def set_top_right(self, track_point1, track_point2):
         self.top_right = choose_closest_track_point(self.center, [track_point1, track_point2])
+        return self
 
     def get_features(self):
         right_of_way = Feature(Features.right_of_way.value, sub_features=[Feature(entry.value) for entry in RightOfWay], mandatory=True, alternative=True)
@@ -282,8 +295,20 @@ class Straight(CompositeFeature):
         special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
         return [motorway, special_element]
 
-    def draw(self, track_width):
-        return None
+    def draw(self, track_width, z_index=0):
+        track_color = track_properties_to_colors([self.track_property])
+        right1, left1, center1 = get_track_points_from_center(self.start, track_width)
+        right2, left2, center2 = get_track_points_from_center(self.end, track_width)
+        px, py = interpolate_single(left1, left2)
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        px, py = interpolate_single(right1, right2)
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        px, py = interpolate_single(center1, center2)
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
+        # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
+        center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+        return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
 
 
 if __name__ == '__main__':

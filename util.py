@@ -305,6 +305,9 @@ class TrackPoint:
     def __str__(self):
         return "coords: {}, direction: {}".format(self.coords, self.direction)
 
+    def logical_coords(self):
+        return np.array(self.coords[:2])
+
     def alter_direction(self, angle):
         """
         Alter direction of point by adding angle (in radian)
