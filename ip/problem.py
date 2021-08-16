@@ -403,6 +403,7 @@ class Problem:
         :param n_straights:
         :return:
         """
+        hb, ht, vl, vr = ([], [], [], [])
         indices = self.get_grid_indices()
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
@@ -415,6 +416,8 @@ class Problem:
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
                 self.nodes_straights.append(top_straight)
                 self.node_grid_straights_horizontal[x][y] = [bottom_straight, top_straight]
+                hb.append((bottom_straight, horizontal))
+                ht.append((top_straight, horizontal))
             else:
                 self.node_grid_straights_horizontal[x][y] = [0, 0]
 
@@ -428,8 +431,23 @@ class Problem:
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
                 self.nodes_straights.append(right_straight)
                 self.node_grid_straights_vertical[x][y] = [left_straight, right_straight]
+                vl.append((left_straight, vertical))
+                vr.append((right_straight, vertical))
             else:
                 self.node_grid_straights_vertical[x][y] = [0, 0]
+
+        # add constraints to preven overlapping straights
+        for set_index, straight_set in enumerate([hb, ht, vl, vr]):
+            # print("{} straights: ".format(['horizontal bottom', 'horizontal top', 'vertical left', 'vertical right'][set_index]))
+            for index1 in range(len(straight_set)):
+                straight1, cells1 = straight_set[index1]
+                for index2 in range(index1 + 1, len(straight_set), 1):
+                    straight2, cells2 = straight_set[index2]
+                    if self.overlap(cells1, cells2):
+                        # print("{} + {} <= 1".format(colored(straight1, 'yellow'), colored(straight2, 'cyan')))
+                        self.problem += straight1 + straight2 <= 1
+                    # else:
+                    #     print("SKIP {} and {}".format(straight1, straight2))
 
         return self.nodes_straights
 
@@ -446,6 +464,13 @@ class Problem:
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
         self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + sum(intersections)
         return straight_var
+
+    @staticmethod
+    def overlap(cells1, cells2):
+        overlap = len(list(set(cells1) & set(cells2))) > 0
+        # print("{} {} {}{}".format(colored(cells1, 'yellow'), 'overlap' if overlap else 'distinct', colored(cells2, 'cyan'), " -> {}".format(colored(list(set(cells1) & set(cells2)), 'green')) if overlap else ""))
+        return overlap
+        # return len(list(set(cells1) & set(cells2))) > 0
 
     ################################
     ########## ITERATION ###########
@@ -661,6 +686,54 @@ class Problem:
                     print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('vertical_right', 'yellow')))
                 counter += 1
 
+    def debug_straights_constraints(self, length):
+        """
+        The Idea is to represent a straight sequence of "length" cells as a new variable.
+        This variable is either 2, 1 or 0.
+        0: One of the cells is not selected OR there are adjacent cells on BOTH sides of the sequence
+        1: All cells are selected and there are adjacent cells one ONE side of the sequence
+        2: All cells are selected and there are no adjacent cells on either side of the sequence
+        The value of the variable represents the number of resulting straights.
+        :param length:
+        :param n_straights:
+        :return:
+        """
+        hb, ht, vl, vr = ([], [], [], [])
+        indices = self.get_grid_indices()
+        for (x, y) in indices:
+            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+            if not any(elem is None for elem in horizontal):
+                bottom_straight, top_straight = self.node_grid_straights_horizontal[x][y]
+                hb.append((bottom_straight, horizontal))
+                ht.append((top_straight, horizontal))
+            else:
+                self.node_grid_straights_horizontal[x][y] = [0, 0]
+
+            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i-1) for i in range(length+1)]]
+            if not any(elem is None for elem in vertical):
+                left_straight, right_straight = self.node_grid_straights_vertical[x][y]
+                vl.append((left_straight, vertical))
+                vr.append((right_straight, vertical))
+            else:
+                self.node_grid_straights_vertical[x][y] = [0, 0]
+
+        # add constraints to preven overlapping straights
+        for set_index, straight_set in enumerate([hb, ht, vl, vr]):
+            print("{} straights: ".format(['horizontal bottom', 'horizontal top', 'vertical left', 'vertical right'][set_index]))
+            for index1 in range(len(straight_set)):
+                straight1, cells1 = straight_set[index1]
+                for index2 in range(index1 + 1, len(straight_set), 1):
+                    straight2, cells2 = straight_set[index2]
+                    if self.overlap(cells1, cells2):
+                        print("{} + {} <= 1".format(colored(straight1, 'yellow'), colored(straight2, 'cyan')))
+                        if value(straight1) + value(straight2) > 1:
+                            print(colored('not satisfied', 'red'))
+                        # self.problem += straight1 + straight2 <= 1
+                    # else:
+                    #     print("SKIP {} and {}".format(straight1, straight2))
+
+        return self.nodes_straights
+
     def get_grid_indices(self):
         indices = []
         for x in range(self.width):
@@ -754,6 +827,7 @@ class IntersectionProblem:
 if __name__ == '__main__':
     _quantity_constraints = [
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
         QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
@@ -766,4 +840,5 @@ if __name__ == '__main__':
     # p.print_selected_straights(3)
     # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
-    p.get_stats()
+    if status > 1:
+        p.get_stats()
