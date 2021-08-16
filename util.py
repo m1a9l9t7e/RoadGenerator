@@ -764,11 +764,11 @@ class Capturing(list):
 ########################
 
 class TrackProperties(Enum):
-    turn_90 = auto()
-    turn_180 = auto()
-    straight = auto()
-    intersection = auto()
-    intersection_connector = auto()
+    turn_90 = 1
+    turn_180 = 2
+    straight = 3
+    intersection = 4
+    intersection_connector = 5
 
 
 def track_properties_to_colors(track_properties):

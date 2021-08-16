@@ -161,27 +161,29 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        width, height = (6, 6)
+        square_size, track_width = (2, 0.2)
+        width, height = (8, 8)
+
         solution, _ = get_custom_solution(width, height, quantity_constraints=[
             QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
-            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 1)
+            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3)
         ])
-        fm = FeatureModel(solution)
-        # fm.export('fm.xml')
-        # fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')
+        fm = FeatureModel(solution, scale=square_size)
 
-        square_size, track_width = (1, 0.2)
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-
         grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
         self.play_animations(grid.get_animation_sequence())
 
         anim_sequence = []
 
-        for feature in fm.get_features():
+        for index, feature in enumerate(fm.features):
+            # if index == 0:
+            #     animation = feature.draw(track_width=track_width, color_overwrite=DARK_BROWN)
+            # else:
             animation = feature.draw(track_width=track_width)
             if animation is not None:
                 anim_sequence.append(animation)
+
         self.play_animations(anim_sequence)
 
         self.wait(4)

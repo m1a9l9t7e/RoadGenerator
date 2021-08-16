@@ -1,3 +1,4 @@
+import pickle
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
@@ -8,7 +9,7 @@ import numpy as np
 
 
 class FeatureModel:
-    def __init__(self, ip_solution, problem_dict=None, straight_length=3):
+    def __init__(self, ip_solution, problem_dict=None, straight_length=3, scale=1, shift=[0, 0]):
         self.ip_solution = ip_solution
         if problem_dict is None:
             self.problem_dict = calculate_problem_dict(ip_solution)
@@ -17,10 +18,13 @@ class FeatureModel:
         self.straight_length = straight_length
 
         # convert solution to graph
-        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, self.straight_length)
+        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, self.straight_length, shift=shift)
 
         # Extract features from ip solution
         self.features = self.get_features()
+
+        # Scale elements
+        self.scale(scale)
 
         # build feature model and keep reference to root
         self.feature_root = self.build_feature_model()
@@ -32,7 +36,7 @@ class FeatureModel:
         intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
         straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict, self.straight_length)
         basic_features = get_basic_features(self.graph, intersection_callback, coordinates_to_straights)
-        features = basic_features + intersection_features + straight_features
+        features = basic_features + intersection_features
         return features
 
     def build_feature_model(self):
@@ -81,6 +85,14 @@ class FeatureModel:
         for feature in self.features:
             selection = feature.get_selected_sub_features()
             print(f"{feature.type}: {selection}")
+
+    def save(self, path):
+        with open(path, 'wb') as handle:
+            pickle.dump(self.features, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def scale(self, factor):
+        for feature in self.features:
+            feature.scale(factor)
 
 
 def get_featureIDE_graphics_properties():
@@ -248,8 +260,7 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
                 feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
                 features.append(feature)
                 for i in range(straight_length):
-                    # coordinates_to_feature[(x + i, y)] = feature
-                    coordinates_to_feature[(y, x + i)] = feature
+                    coordinates_to_feature[(x + i, y)] = feature
             if top > 0:
                 coords_list = []
                 for i in range(straight_length):
@@ -257,8 +268,7 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
                 feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
                 features.append(feature)
                 for i in range(straight_length):
-                    # coordinates_to_feature[(x + 1, y + i)] = feature
-                    coordinates_to_feature[(y + i, x + 1)] = feature
+                    coordinates_to_feature[(x + i, y + 1)] = feature
             left, right = vertical_straights[x][y]
             if left > 0:
                 coords_list = []
@@ -267,8 +277,7 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
                 feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
                 features.append(feature)
                 for i in range(straight_length):
-                    # coordinates_to_feature[(x + 1, y + i)] = feature
-                    coordinates_to_feature[(y + i, x + 1)] = feature
+                    coordinates_to_feature[(x, y + i)] = feature
             if right > 0:
                 coords_list = []
                 for i in range(straight_length):
@@ -276,24 +285,42 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
                 feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
                 features.append(feature)
                 for i in range(straight_length):
-                    # coordinates_to_feature[(x + 1, y + i)] = feature
-                    coordinates_to_feature[(y + i, x + 1)] = feature
+                    coordinates_to_feature[(x + 1, y + i)] = feature
     return features, coordinates_to_feature
 
 
-def calculate_problem_dict(ip_solution):
+def calculate_problem_dict(ip_solution, print_stats=True):
     """
     Recreate solution with quantity constraints enabled to gather problem dict
     """
-    _, problem_dict = get_imitation_solution(ip_solution, print_stats=False)
+    _, problem_dict = get_imitation_solution(ip_solution, print_stats=print_stats)
     return problem_dict
 
 
-if __name__ == '__main__':
+def make_concrete_track():
+    # Solve Instance with desired properties
     solution, _ = get_custom_solution(6, 6, quantity_constraints=[
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 1),
         QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 1)
     ])
-    fm = FeatureModel(solution)
-    # fm.export('fm.xml')
-    # fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')
+
+    # Create Feature Model
+    feature_model = FeatureModel(solution)
+    feature_model.export('fm.xml')
+
+    # Use the generated model xml to create a config in FeatureIDE and load this config
+    feature_model.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')
+
+    # Save Feature Model as pickle
+    feature_model.save('fm.pkl')
+
+
+if __name__ == '__main__':
+    _solution, _ = get_custom_solution(6, 6, print_stats=False, quantity_constraints=[
+        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 1),
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0)
+    ])
+    fm = FeatureModel(_solution, scale=2)
+    fm.save('fm.pkl')
+

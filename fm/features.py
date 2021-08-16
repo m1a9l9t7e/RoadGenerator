@@ -6,7 +6,7 @@ from anim_sequence import AnimationObject, make_concurrent
 from fm.enums import Features, LineMarkings, RightOfWay, TurnDirection, Zones, Specials
 from interpolation import interpolate_single
 from util import TrackProperties, get_track_points, get_track_points_from_center, track_properties_to_colors, choose_closest_track_point, get_intersect, \
-    get_continued_interpolation
+    get_continued_interpolation, TrackPoint
 from manim import *
 
 
@@ -117,13 +117,20 @@ class BasicFeature(TLFeature):
         self.start = start
         self.end = end
 
+    def scale(self, factor):
+        self.start = TrackPoint(np.array(self.start.coords) * factor, self.start.direction)
+        self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
+
     def get_features(self):
         lane_markings = Feature(Features.line_marking.value, sub_features=[Feature(entry.value) for entry in LineMarkings],
                                 mandatory=True, alternative=True)
         return [lane_markings]
 
-    def draw(self, track_width, z_index=0):
-        track_color = track_properties_to_colors([self.track_property])
+    def draw(self, track_width, z_index=0, color_overwrite=None):
+        if color_overwrite is None:
+            track_color = track_properties_to_colors([self.track_property])
+        else:
+            track_color = color_overwrite
         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
         px, py = interpolate_single(left1, left2)
@@ -193,6 +200,12 @@ class Intersection(CompositeFeature):
         self.top_left = top_left
         self.top_right = top_right
 
+    def scale(self, factor):
+        self.bottom_left = TrackPoint(np.array(self.bottom_left.coords) * factor, self.bottom_left.direction)
+        self.bottom_right = TrackPoint(np.array(self.bottom_right.coords) * factor, self.bottom_right.direction)
+        self.top_left = TrackPoint(np.array(self.top_left.coords) * factor, self.top_left.direction)
+        self.top_right = TrackPoint(np.array(self.top_right.coords) * factor, self.top_right.direction)
+
     def set_bottom_left(self, track_point1, track_point2):
         self.bottom_left = choose_closest_track_point(self.center, [track_point1, track_point2])
         return self
@@ -214,10 +227,14 @@ class Intersection(CompositeFeature):
         turn_direction = Feature(Features.turn_direction.value, sub_features=[Feature(entry.value) for entry in TurnDirection], mandatory=True, alternative=True)
         return [right_of_way, turn_direction]
 
-    def draw(self, track_width, z_index=0):
+    def draw(self, track_width, z_index=0, color_overwrite=None):
+        if color_overwrite is None:
+            track_color = track_properties_to_colors([self.track_property])
+        else:
+            track_color = color_overwrite
+
         if self.bottom_left is None or self.bottom_right is None or self.top_left is None or self.top_right is None:
             raise ValueError('Geometric description not complete. At least on track point is missing')
-        track_color = track_properties_to_colors([self.track_property])
 
         #### Fixate directions ####
         # bottom_left points to top_right
@@ -289,14 +306,21 @@ class Straight(CompositeFeature):
         self.start = start
         self.end = end
 
+    def scale(self, factor):
+        self.start = TrackPoint(np.array(self.start.coords) * factor, self.start.direction)
+        self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
+
     def get_features(self):
         motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
         special_subs = [Feature(entry.value) for entry in Specials] + [Feature('parking', sub_features=[Feature('left'), Feature('right')], alternative=False)]
         special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
         return [motorway, special_element]
 
-    def draw(self, track_width, z_index=0):
-        track_color = track_properties_to_colors([self.track_property])
+    def draw(self, track_width, z_index=0, color_overwrite=None):
+        if color_overwrite is None:
+            track_color = track_properties_to_colors([self.track_property])
+        else:
+            track_color = color_overwrite
         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
         px, py = interpolate_single(left1, left2)
