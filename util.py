@@ -408,17 +408,16 @@ def alter_track_point_directions(track_points):
         [point.alter_direction(angle) for point in points]
 
 
-def get_intersection_track_points(track_point1, track_point2, entering, exiting):
+def get_intersection_track_points(track_point1, track_point2, size, entering, exiting):
     """
     Make changes to track points based on their connection to intersections.
     If entering: track_point2 marks the center of an intersection and needs to be moved back
     If exiting: track_point1 marks the center of an intersection and needs to be moved forward
     Note that both entering and exiting can be true, if two intersection are adjacent diagonally.
+
+    The size argument determines the absolute length of each intersection arm.
+    Note that, since all coordinates are scaled after the fact, the size does not need to be adjsuted to fit a different model scale.
     """
-    # TODO: this doesn't work sadly
-    # distance = np.linalg.norm(np.array(track_point2.coords) - np.array(track_point1.coords))
-    # size = 0.4 * distance
-    size = 0.5
     adjusted1, adjusted2 = (track_point1, track_point2)
     if entering:
         adjusted2 = shift_track_point_along_its_direction(track_point2, -size)

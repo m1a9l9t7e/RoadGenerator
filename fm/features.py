@@ -167,6 +167,16 @@ class CurvedStreet(BasicFeature):
         return parent_features + features
 
 
+class IntersectionConnector(CurvedStreet):
+    """
+    A feature representing a single curved street
+    """
+    def __init__(self, name, track_property, coords, exiting, entering, start=None, end=None, suffix=None):
+        super().__init__(name, track_property, coords, start=start, end=end, suffix=suffix)
+        self.exiting = exiting
+        self.entering = entering
+
+
 class CompositeFeature(TLFeature):
     """
     A composite feature, representing a composite of multiple track elements (e.g. intersection, straight)

@@ -3,19 +3,24 @@ from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
 from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points
-from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature
+from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
 import numpy as np
 
 
+STRAIGHT_LENGTH = 3
+
+
 class FeatureModel:
-    def __init__(self, ip_solution, problem_dict=None, straight_length=3, scale=1, shift=[0, 0]):
+    def __init__(self, ip_solution, problem_dict=None, straight_length=3, intersection_size=0.5, scale=1, shift=[0, 0]):
+        self.scale = scale
+        self.intersection_size = intersection_size
         self.ip_solution = ip_solution
+        self.straight_length = straight_length
         if problem_dict is None:
             self.problem_dict = calculate_problem_dict(ip_solution)
         else:
             self.problem_dict = problem_dict
-        self.straight_length = straight_length
 
         # convert solution to graph
         self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, self.straight_length, shift=shift)
@@ -24,7 +29,7 @@ class FeatureModel:
         self.features = self.get_features()
 
         # Scale elements
-        self.scale(scale)
+        self._scale(scale)
 
         # build feature model and keep reference to root
         self.feature_root = self.build_feature_model()
@@ -87,12 +92,17 @@ class FeatureModel:
             print(f"{feature.type}: {selection}")
 
     def save(self, path):
+        export = {
+            'features': self.features,
+            'intersection_size': self.intersection_size
+        }
         with open(path, 'wb') as handle:
-            pickle.dump(self.features, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(export, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-    def scale(self, factor):
+    def _scale(self, factor):
         for feature in self.features:
             feature.scale(factor)
+        self.intersection_size *= factor
 
 
 def get_featureIDE_graphics_properties():
@@ -106,7 +116,7 @@ def get_featureIDE_graphics_properties():
     return properties
 
 
-def get_basic_features(graph, intersection_callback, coordinates_to_straights):
+def get_basic_features(graph, intersection_callback, coordinates_to_straights, intersection_size=0.5):
     features = []
     graph_tour = GraphTour(graph)
     nodes = graph_tour.get_nodes()
@@ -152,8 +162,9 @@ def get_basic_features(graph, intersection_callback, coordinates_to_straights):
             """
             callbacks = intersection_callback[node1.get_coords()]
             if len(callbacks) == 2:
-                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, entering=True, exiting=True)
-                feature = CurvedStreet(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(), start=track_point1, end=track_point2, suffix=idx)
+                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=True, exiting=True)
+                feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
+                                                start=track_point1, end=track_point2, suffix=idx, entering=True, exiting=True)
                 intersection1 = callbacks[0](track_point1, track_point2)
                 intersection2 = callbacks[1](track_point1, track_point2)
                 if np.linalg.norm(track_point1.logical_coords() - intersection1.center) < np.linalg.norm(track_point2.logical_coords() - intersection1.center):
@@ -170,8 +181,9 @@ def get_basic_features(graph, intersection_callback, coordinates_to_straights):
             elif len(callbacks) == 1:
                 entering = intersection_counter % 2 == 0
                 exiting = intersection_counter % 2 == 1
-                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, entering=entering, exiting=exiting)
-                feature = CurvedStreet(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(), start=track_point1, end=track_point2, suffix=idx)
+                track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=entering, exiting=exiting)
+                feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
+                                                start=track_point1, end=track_point2, suffix=idx, entering=entering, exiting=exiting)
                 intersection = callbacks[0](track_point1, track_point2)
                 if entering:
                     intersection.add_predecessor(feature)
@@ -209,7 +221,7 @@ def get_basic_features(graph, intersection_callback, coordinates_to_straights):
     # link up features
     for index in range(len(features)):
         prev_feature, feature = (features[(index-1) % len(features)], features[index % len(features)])
-        if prev_feature.track_property is TrackProperties.intersection_connector and feature.track_property is TrackProperties.intersection_connector:
+        if prev_feature.track_property is TrackProperties.intersection_connector and prev_feature.entering:
             # Intersection connectors are connected to their respective intersections, not themselves
             continue
         prev_feature.add_successor(feature)
@@ -317,10 +329,8 @@ def make_concrete_track():
 
 if __name__ == '__main__':
     _solution, _ = get_custom_solution(6, 6, print_stats=False, quantity_constraints=[
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 1),
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0)
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 5),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
     ])
-    fm = FeatureModel(_solution, scale=2)
+    fm = FeatureModel(_solution, scale=3)
     fm.save('fm.pkl')
-
