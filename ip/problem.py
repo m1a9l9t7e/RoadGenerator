@@ -407,10 +407,12 @@ class Problem:
         indices = self.get_grid_indices()
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i-1, 0) for i in range(length+1)]]
-            parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i-1, 0) for i in range(length+1)]]
-            parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+
             if not any(elem is None for elem in horizontal):
+                horizontal = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
                 self.nodes_straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
@@ -422,10 +424,12 @@ class Problem:
                 self.node_grid_straights_horizontal[x][y] = [0, 0]
 
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i-1) for i in range(length+1)]]
-            intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i-1) for i in range(length+1)]]
-            parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i-1) for i in range(length+1)]]
-            parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i-1) for i in range(length+1)]]
+
             if not any(elem is None for elem in vertical):
+                vertical = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
                 self.nodes_straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
@@ -436,33 +440,36 @@ class Problem:
             else:
                 self.node_grid_straights_vertical[x][y] = [0, 0]
 
-        # add constraints to preven overlapping straights
-        for set_index, straight_set in enumerate([hb, ht, vl, vr]):
-            # print("{} straights: ".format(['horizontal bottom', 'horizontal top', 'vertical left', 'vertical right'][set_index]))
-            for index1 in range(len(straight_set)):
-                straight1, cells1 = straight_set[index1]
-                for index2 in range(index1 + 1, len(straight_set), 1):
-                    straight2, cells2 = straight_set[index2]
-                    if self.overlap(cells1, cells2):
-                        # print("{} + {} <= 1".format(colored(straight1, 'yellow'), colored(straight2, 'cyan')))
-                        self.problem += straight1 + straight2 <= 1
-                    # else:
-                    #     print("SKIP {} and {}".format(straight1, straight2))
-
         return self.nodes_straights
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
+        """
+        It is assumed, that the cells are two longer than each
+        """
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
-        straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells), x, y), cat=const.LpBinary)
+        straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y), cat=const.LpBinary)
         # --> If any core cell is 0, the straight var must also be zero
-        self.problem += straight_var <= sum(cells) / len(cells)
+        core_cells = cells[1:-1]
+        print("core cells: {}".format(core_cells))
+        self.problem += straight_var <= sum(core_cells) / len(core_cells)
         # --> If any of the parallel cells are positive, the straight var must be zero
-        self.problem += straight_var <= 1 - sum(parallel) / len(parallel)
+        core_parallel = parallel[1:-1]
+        print("core parallel: {}".format(core_parallel))
+        self.problem += straight_var <= 1 - sum(core_parallel) / len(core_parallel)
         # --> If any core cell is an intersection, the straight var must also be zero
-        self.problem += straight_var <= 1 - sum(intersections) / len(intersections)
+        core_intersections = intersections[1:-1]
+        print("core intersections: {}".format(core_intersections))
+        self.problem += straight_var <= 1 - sum(core_intersections) / len(core_intersections)
+        # --> If the start continues the straight, the straight var must be zero
+        # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
+        self.problem += straight_var <= (1 - cells[0]) + intersections[0] + parallel[0]
+        # --> If the end continues the straight, the straight var must be zero
+        # Same constraint as for start
+        self.problem += straight_var <= (1 - cells[-1]) + intersections[-1] + parallel[-1]
 
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
-        self.problem += 1 - straight_var <= len(cells) - sum(cells) + sum(parallel) + sum(intersections)
+        self.problem += 1 - straight_var <= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) \
+                        + (cells[0] - intersections[0] - parallel[0]) + (cells[-1] - intersections[-1] - parallel[-1])
         return straight_var
 
     @staticmethod
@@ -827,12 +834,12 @@ class IntersectionProblem:
 if __name__ == '__main__':
     _quantity_constraints = [
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
-        # QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 0),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
+        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 4),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
-        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 4)
+        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 0)
     ]
-    p = Problem(5, 5, quantity_constraints=_quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    # p = Problem(5, 5, quantity_constraints=_quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
+    p = Problem(5, 5, quantity_constraints=_quantity_constraints)
     start = time.time()
     _solution, status = p.solve(_print=True)
     end = time.time()
