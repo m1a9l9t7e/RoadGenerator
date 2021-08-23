@@ -3,7 +3,7 @@ import sys
 import time
 from tqdm import tqdm
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
 from util import GridShowCase, get_adjacent, TrackProperties
@@ -277,8 +277,7 @@ class IntersectionIterator:
         return add_to_queue
 
 
-# TODO read straight length from dict instead of from method call?
-def convert_solution_to_graph(ip_solution, problem_dict={}, straight_length=3, shift=[0, 0], scale=1, get_intersections=False):
+def convert_solution_to_graph(ip_solution, problem_dict={}, shift=[0, 0], scale=1, get_intersections=False):
     width = len(ip_solution)
     height = len(ip_solution[0])
     edge_list = []
@@ -313,20 +312,24 @@ def convert_solution_to_graph(ip_solution, problem_dict={}, straight_length=3, s
         horizontal_straights = problem_dict['horizontal_straights']
         vertical_straights = problem_dict['vertical_straights']
         for (x, y) in get_grid_indices(width, height):
-            bottom, top = horizontal_straights[x][y]
-            if bottom > 0:
-                for i in range(straight_length):
-                    nodes[x + i][y].track_property = TrackProperties.straight
-            if top > 0:
-                for i in range(straight_length):
-                    nodes[x + i][y + 1].track_property = TrackProperties.straight
-            left, right = vertical_straights[x][y]
-            if left > 0:
-                for i in range(straight_length):
-                    nodes[x][y + i].track_property = TrackProperties.straight
-            if right > 0:
-                for i in range(straight_length):
-                    nodes[x + 1][y + i].track_property = TrackProperties.straight
+            for straight_length in range(2, width):
+                if straight_length not in horizontal_straights[x][y].keys():
+                    continue
+
+                bottom, top = horizontal_straights[x][y][straight_length]
+                if bottom > 0:
+                    for i in range(straight_length):
+                        nodes[x + i][y].track_property = TrackProperties.straight
+                if top > 0:
+                    for i in range(straight_length):
+                        nodes[x + i][y + 1].track_property = TrackProperties.straight
+                left, right = vertical_straights[x][y][straight_length]
+                if left > 0:
+                    for i in range(straight_length):
+                        nodes[x][y + i].track_property = TrackProperties.straight
+                if right > 0:
+                    for i in range(straight_length):
+                        nodes[x + 1][y + i].track_property = TrackProperties.straight
 
     # mark 90s
     if '90s_inner' in problem_dict.keys():
@@ -500,10 +503,12 @@ def get_custom_solution(width, height, quantity_constraints=[], iteration_constr
 def get_imitation_solution(original_solution, print_stats=False):
     quantity_constraints = [
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
         QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 0)
     ]
+    for length in range(2, len(original_solution)):
+        quantity_constraints.append(QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=length, quantity=0))
+
     problem = Problem(len(original_solution), len(original_solution[0]), quantity_constraints=quantity_constraints, imitate=original_solution)
     solution, status = problem.solve(_print=False, print_zeros=False)
     if status <= 0:

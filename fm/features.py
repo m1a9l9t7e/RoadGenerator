@@ -313,6 +313,7 @@ class Straight(CompositeFeature):
     """
     def __init__(self, name, coords_list, start=None, end=None, suffix=None):
         super().__init__(name, track_property=TrackProperties.straight, coords_list=coords_list, suffix=suffix)
+        self.length = len(coords_list)
         self.start = start
         self.end = end
 

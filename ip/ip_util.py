@@ -91,6 +91,10 @@ def variable_as_str(variable, values, binary):
     return _print
 
 
+def export_list_dict_grid(grid, save_name=False):
+    return [[export_dict(grid[x][y], save_name=save_name) for y in range(len(grid[x]))] for x in range(len(grid))]
+
+
 def export_list_grid(grid, save_name=False):
     return [[export_list(grid[x][y], save_name=save_name) for y in range(len(grid[x]))] for x in range(len(grid))]
 
@@ -139,6 +143,7 @@ class QuantityConstraint:
         self.property_type = property_type
         self.condition_type = condition_type
         self.quantity = quantity
+        self.id = id
 
     def get_condition(self, variables):
         if self.condition_type == ConditionTypes.less_or_equals:
@@ -147,6 +152,12 @@ class QuantityConstraint:
             return sum(variables) >= self.quantity
         elif self.condition_type == ConditionTypes.equals:
             return sum(variables) == self.quantity
+
+
+class QuantityConstraintStraight(QuantityConstraint):
+    def __init__(self, property_type, condition_type, length, quantity):
+        super().__init__(property_type, condition_type, quantity)
+        self.length = length
 
 
 def sort_quantity_constraints(constraints):

@@ -1,14 +1,11 @@
 import pickle
 from fm.enums import TLFeatures
-from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes
+from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
 from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
 import numpy as np
-
-
-STRAIGHT_LENGTH = 3
 
 
 class FeatureModel:
@@ -23,7 +20,7 @@ class FeatureModel:
             self.problem_dict = problem_dict
 
         # convert solution to graph
-        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, self.straight_length, shift=shift)
+        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift)
 
         # Extract features from ip solution
         self.features = self.get_features()
@@ -39,7 +36,7 @@ class FeatureModel:
 
     def get_features(self):
         intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
-        straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict, self.straight_length)
+        straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict)
         basic_features = get_basic_features(self.graph, intersection_callback, coordinates_to_straights)
         features = basic_features + intersection_features
         return features
@@ -252,7 +249,7 @@ def get_intersection_features(ip_solution):
     return features, intersection_callback
 
 
-def get_straight_features(ip_solution, problem_dict, straight_length):
+def get_straight_features(ip_solution, problem_dict):
     """
     Create features for straights
     """
@@ -264,40 +261,44 @@ def get_straight_features(ip_solution, problem_dict, straight_length):
         horizontal_straights = problem_dict['horizontal_straights']
         vertical_straights = problem_dict['vertical_straights']
         for (x, y) in get_grid_indices(width, height):
-            bottom, top = horizontal_straights[x][y]
-            if bottom > 0:
-                coords_list = []
-                for i in range(straight_length):
-                    coords_list.append((x + i, y))
-                feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                features.append(feature)
-                for i in range(straight_length):
-                    coordinates_to_feature[(x + i, y)] = feature
-            if top > 0:
-                coords_list = []
-                for i in range(straight_length):
-                    coords_list.append((x + i, y + 1))
-                feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                features.append(feature)
-                for i in range(straight_length):
-                    coordinates_to_feature[(x + i, y + 1)] = feature
-            left, right = vertical_straights[x][y]
-            if left > 0:
-                coords_list = []
-                for i in range(straight_length):
-                    coords_list.append((x, y + i))
-                feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                features.append(feature)
-                for i in range(straight_length):
-                    coordinates_to_feature[(x, y + i)] = feature
-            if right > 0:
-                coords_list = []
-                for i in range(straight_length):
-                    coords_list.append((x + 1, y + i))
-                feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                features.append(feature)
-                for i in range(straight_length):
-                    coordinates_to_feature[(x + 1, y + i)] = feature
+            for straight_length in range(2, width):
+                if straight_length not in horizontal_straights[x][y].keys():
+                    continue
+
+                bottom, top = horizontal_straights[x][y][straight_length]
+                if bottom > 0:
+                    coords_list = []
+                    for i in range(straight_length):
+                        coords_list.append((x + i, y))
+                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+                    features.append(feature)
+                    for i in range(straight_length):
+                        coordinates_to_feature[(x + i, y)] = feature
+                if top > 0:
+                    coords_list = []
+                    for i in range(straight_length):
+                        coords_list.append((x + i, y + 1))
+                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+                    features.append(feature)
+                    for i in range(straight_length):
+                        coordinates_to_feature[(x + i, y + 1)] = feature
+                left, right = vertical_straights[x][y][straight_length]
+                if left > 0:
+                    coords_list = []
+                    for i in range(straight_length):
+                        coords_list.append((x, y + i))
+                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+                    features.append(feature)
+                    for i in range(straight_length):
+                        coordinates_to_feature[(x, y + i)] = feature
+                if right > 0:
+                    coords_list = []
+                    for i in range(straight_length):
+                        coords_list.append((x + 1, y + i))
+                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+                    features.append(feature)
+                    for i in range(straight_length):
+                        coordinates_to_feature[(x + 1, y + i)] = feature
     return features, coordinates_to_feature
 
 
@@ -310,10 +311,17 @@ def calculate_problem_dict(ip_solution, print_stats=True):
 
 
 def make_concrete_track():
+    quantitiy_constraints = [
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=2, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=3, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=4, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
+    ]
     # Solve Instance with desired properties
     solution, _ = get_custom_solution(6, 6, quantity_constraints=[
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 1),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 1)
+        quantitiy_constraints
     ])
 
     # Create Feature Model
@@ -328,9 +336,13 @@ def make_concrete_track():
 
 
 if __name__ == '__main__':
-    _solution, _ = get_custom_solution(6, 6, print_stats=False, quantity_constraints=[
+    _solution, _ = get_custom_solution(8, 8, print_stats=False, quantity_constraints=[
         QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 5),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=2, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=3, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=4, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ])
     fm = FeatureModel(_solution, scale=3)
     fm.save('fm.pkl')

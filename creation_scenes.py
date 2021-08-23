@@ -1,10 +1,10 @@
 from manim import *
-from anim_sequence import AnimationSequenceScene
+from anim_sequence import AnimationSequenceScene, AnimationObject
 from graph import Graph, custom_joins
-from ip.ip_util import QuantityConstraint, ConditionTypes
+from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight
 from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
-from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors
+from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line
 from fm.model import FeatureModel
 
 
@@ -161,12 +161,18 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (2, 0.2)
+        square_size, track_width = (1, 0.2)
         width, height = (8, 8)
 
         solution, _ = get_custom_solution(width, height, quantity_constraints=[
-            QuantityConstraint(TrackProperties.intersection, ConditionTypes.equals, 4),
-            QuantityConstraint(TrackProperties.straight, ConditionTypes.equals, 3)
+            QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0),
+            QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, quantity=0),
+            QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, quantity=0),
+            QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=2, quantity=1),
+            QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=3, quantity=1),
+            QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=4, quantity=1),
+            QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=5, quantity=1),
+            QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=6, quantity=1),
         ])
         fm = FeatureModel(solution, scale=square_size)
 
@@ -177,13 +183,27 @@ class FMTrack(AnimationSequenceScene):
         anim_sequence = []
 
         for index, feature in enumerate(fm.features):
+            # Draw Start in different color
             # if index == 0:
             #     animation = feature.draw(track_width=track_width, color_overwrite=DARK_BROWN)
-            # else:
+            #     anim_sequence.append(animation)
+            #     continue
+
             animation = feature.draw(track_width=track_width)
             if animation is not None:
                 anim_sequence.append(animation)
 
+            # Draw Entry Points of Intersections
+            # if feature.track_property is TrackProperties.intersection:
+            #     for succesor in feature.successor:
+            #         line = get_line(list(feature.center[0]) + [0], succesor.end.coords, stroke_width=1.0, color=PINK)
+            #         anim_sequence.append(AnimationObject('add', content=[line]))
+            #     for pre_index, predecessor in enumerate(feature.predecessor):
+            #         line = get_line(list(feature.center[0]) + [0], predecessor.start.coords, stroke_width=1.0, color=LIGHT_BROWN)
+            #         anim_sequence.append(AnimationObject('add', content=[line]))
+            #         line = get_line(predecessor.end.coords, np.array(predecessor.end.coords) + np.array(list(predecessor.end.direction) + [0]) / 4,
+            #                         stroke_width=2.0, color=[RED, BLUE][pre_index])
+            #         anim_sequence.append(AnimationObject('add', content=[line]))
         self.play_animations(anim_sequence)
 
         self.wait(4)

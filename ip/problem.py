@@ -1,7 +1,7 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, \
-    list_grid_as_str, export_list_grid
+    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight
 from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties
 from termcolor import colored
 
@@ -41,8 +41,8 @@ class Problem:
         self.node_grid_90s_outer = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom_right, top_right, top_left, bottom_left]
         self.node_grid_180s_outer = [[[] for y in range(self.height)] for x in range(self.width)]  # [right, top, left, bottom]
         self.node_grid_180s_inner = [[[] for y in range(self.height)] for x in range(self.width)]  # [right_top, right_bottom, top_right, top_left]
-        self.node_grid_straights_horizontal = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom, top]
-        self.node_grid_straights_vertical = [[[] for y in range(self.height)] for x in range(self.width)]  # [left, right]
+        self.node_grid_straights_horizontal = [[dict() for y in range(self.height)] for x in range(self.width)]  # [bottom, top]
+        self.node_grid_straights_vertical = [[dict() for y in range(self.height)] for x in range(self.width)]  # [left, right]
 
         for x in range(self.width):
             for y in range(self.height):
@@ -118,7 +118,7 @@ class Problem:
             if _type == TrackProperties.intersection:
                 variables = self.add_intersection_constraints()
             elif _type == TrackProperties.straight:
-                variables = self.add_straights_constraints(3)
+                variables = self.add_straights_constraints(quantity_constraint.length)
             elif _type == TrackProperties.turn_90:
                 variables = self.get_90_degree_turn_constraints()
             elif _type == TrackProperties.turn_180:
@@ -403,7 +403,7 @@ class Problem:
         :param n_straights:
         :return:
         """
-        hb, ht, vl, vr = ([], [], [], [])
+        straights = []
         indices = self.get_grid_indices()
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
@@ -414,14 +414,12 @@ class Problem:
                 parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
-                self.nodes_straights.append(bottom_straight)
+                straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
-                self.nodes_straights.append(top_straight)
-                self.node_grid_straights_horizontal[x][y] = [bottom_straight, top_straight]
-                hb.append((bottom_straight, horizontal))
-                ht.append((top_straight, horizontal))
+                straights.append(top_straight)
+                self.node_grid_straights_horizontal[x][y][length] = [bottom_straight, top_straight]
             else:
-                self.node_grid_straights_horizontal[x][y] = [0, 0]
+                self.node_grid_straights_horizontal[x][y][length] = [0, 0]
 
             vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i-1) for i in range(length+1)]]
 
@@ -431,16 +429,16 @@ class Problem:
                 parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
-                self.nodes_straights.append(left_straight)
+                straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
-                self.nodes_straights.append(right_straight)
-                self.node_grid_straights_vertical[x][y] = [left_straight, right_straight]
-                vl.append((left_straight, vertical))
-                vr.append((right_straight, vertical))
+                straights.append(right_straight)
+                self.node_grid_straights_vertical[x][y][length] = [left_straight, right_straight]
             else:
-                self.node_grid_straights_vertical[x][y] = [0, 0]
+                self.node_grid_straights_vertical[x][y][length] = [0, 0]
 
-        return self.nodes_straights
+        # TODO: this currently is overwritten for each straight_length
+        self.nodes_straights = straights
+        return straights
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
         """
@@ -450,15 +448,12 @@ class Problem:
         straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y), cat=const.LpBinary)
         # --> If any core cell is 0, the straight var must also be zero
         core_cells = cells[1:-1]
-        print("core cells: {}".format(core_cells))
         self.problem += straight_var <= sum(core_cells) / len(core_cells)
         # --> If any of the parallel cells are positive, the straight var must be zero
         core_parallel = parallel[1:-1]
-        print("core parallel: {}".format(core_parallel))
         self.problem += straight_var <= 1 - sum(core_parallel) / len(core_parallel)
         # --> If any core cell is an intersection, the straight var must also be zero
         core_intersections = intersections[1:-1]
-        print("core intersections: {}".format(core_intersections))
         self.problem += straight_var <= 1 - sum(core_intersections) / len(core_intersections)
         # --> If the start continues the straight, the straight var must be zero
         # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
@@ -471,13 +466,6 @@ class Problem:
         self.problem += 1 - straight_var <= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) \
                         + (cells[0] - intersections[0] - parallel[0]) + (cells[-1] - intersections[-1] - parallel[-1])
         return straight_var
-
-    @staticmethod
-    def overlap(cells1, cells2):
-        overlap = len(list(set(cells1) & set(cells2))) > 0
-        # print("{} {} {}{}".format(colored(cells1, 'yellow'), 'overlap' if overlap else 'distinct', colored(cells2, 'cyan'), " -> {}".format(colored(list(set(cells1) & set(cells2)), 'green')) if overlap else ""))
-        return overlap
-        # return len(list(set(cells1) & set(cells2))) > 0
 
     ################################
     ########## ITERATION ###########
@@ -566,8 +554,8 @@ class Problem:
             if _type == TrackProperties.intersection:
                 _dict['intersections'] = export_grid(self.node_grid_intersections)
             elif _type == TrackProperties.straight:
-                _dict['horizontal_straights'] = export_list_grid(self.node_grid_straights_horizontal)
-                _dict['vertical_straights'] = export_list_grid(self.node_grid_straights_vertical)
+                _dict['horizontal_straights'] = export_list_dict_grid(self.node_grid_straights_horizontal)
+                _dict['vertical_straights'] = export_list_dict_grid(self.node_grid_straights_vertical)
             elif _type == TrackProperties.turn_90:
                 _dict['90s_inner'] = export_list_grid(self.node_grid_90s_inner)
                 _dict['90s_outer'] = export_list_grid(self.node_grid_90s_outer)
@@ -833,19 +821,19 @@ class IntersectionProblem:
 
 if __name__ == '__main__':
     _quantity_constraints = [
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 0),
-        QuantityConstraint(TrackProperties.straight, ConditionTypes.more_or_equals, 4),
-        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, 0),
-        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, 0)
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=2, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=3, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=4, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ]
-    # p = Problem(5, 5, quantity_constraints=_quantity_constraints, iteration_constraints=[[0, 0], [0, 1], [0, 2], [0, 3], [0, 4], [1, 0], [1, 4], [2, 0], [2, 2], [2, 3], [2, 4], [3, 0], [3, 3], [4, 0], [4, 2], [4, 3], [4, 4]])
     p = Problem(5, 5, quantity_constraints=_quantity_constraints)
     start = time.time()
     _solution, status = p.solve(_print=True)
     end = time.time()
-    # p.print_all_variables()
-    # p.print_selected_straights(3)
-    # p.add_180_degree_turn_constraint_debug()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
     if status > 1:
         p.get_stats()
