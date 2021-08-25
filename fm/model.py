@@ -1,7 +1,8 @@
+import os
 import pickle
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight
-from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph
+from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config
 from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
@@ -336,15 +337,7 @@ def make_concrete_track():
 
 
 if __name__ == '__main__':
-    _solution, _ = get_custom_solution(8, 8, print_stats=False, quantity_constraints=[
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0),
-        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, quantity=0),
-        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, quantity=0),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=2, quantity=1),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=3, quantity=1),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=4, quantity=1),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=5, quantity=1),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=6, quantity=1),
-    ])
+    path_to_config = os.path.join(os.getcwd(), '../ip/configs/mini.txt')
+    _solution = get_solution_from_config(path_to_config)
     fm = FeatureModel(_solution, scale=3)
     fm.save('fm.pkl')

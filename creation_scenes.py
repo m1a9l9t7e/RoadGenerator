@@ -164,7 +164,7 @@ class CustomTrack(AnimationSequenceScene):
 class FMTrack(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.2)
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/straight_demonstration.txt')
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini.txt')
 
         solution = get_solution_from_config(path_to_config)
         width, height = [value+1 for value in np.shape(solution)]
