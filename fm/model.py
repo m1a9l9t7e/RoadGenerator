@@ -337,12 +337,14 @@ def make_concrete_track():
 
 if __name__ == '__main__':
     _solution, _ = get_custom_solution(8, 8, print_stats=False, quantity_constraints=[
-        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, 5),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=2, quantity=0),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=3, quantity=0),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=4, quantity=0),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
-        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
+        QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraint(TrackProperties.turn_180, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraint(TrackProperties.turn_90, ConditionTypes.more_or_equals, quantity=0),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=2, quantity=1),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=3, quantity=1),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=4, quantity=1),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=5, quantity=1),
+        QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.equals, length=6, quantity=1),
     ])
     fm = FeatureModel(_solution, scale=3)
     fm.save('fm.pkl')

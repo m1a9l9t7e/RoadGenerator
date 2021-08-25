@@ -1,0 +1,9 @@
+8x8
+intersection:minimum:0
+turn_180:minimum:1
+turn_90:minimum:2
+straight_2:equals:1
+straight_3:equals:1
+straight_4:equals:1
+straight_5:equals:1
+straight_6:equals:1

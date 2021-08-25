@@ -2,7 +2,6 @@ from enum import Enum, auto
 from pulp import *
 import numpy as np
 from termcolor import colored
-
 from util import TrackProperties
 
 
@@ -158,6 +157,38 @@ class QuantityConstraintStraight(QuantityConstraint):
     def __init__(self, property_type, condition_type, length, quantity):
         super().__init__(property_type, condition_type, quantity)
         self.length = length
+
+
+def parse_ip_config(path):
+    with open(path) as file:
+        lines = file.readlines()
+        lines = [line.rstrip() for line in lines]
+
+    constraints = []
+    for idx, line in enumerate(lines):
+        if idx == 0:
+            width, height = [int(element) for element in line.split('x')]
+            continue
+        element_type, condition_type, quantity = line.split(':')
+        quantity = int(quantity)
+        if condition_type == 'minimum':
+            condition_type = ConditionTypes.more_or_equals
+        elif condition_type == 'maximum':
+            condition_type = ConditionTypes.less_or_equals
+        elif condition_type == 'equals':
+            condition_type = ConditionTypes.equals
+
+        if element_type == 'intersection':
+            constraints.append(QuantityConstraint(TrackProperties.intersection, condition_type, quantity=quantity))
+        elif element_type == 'turn_90':
+            constraints.append(QuantityConstraint(TrackProperties.turn_90, condition_type, quantity=quantity))
+        elif element_type == 'turn_180':
+            constraints.append(QuantityConstraint(TrackProperties.turn_180, condition_type, quantity=quantity))
+        elif 'straight' in element_type:
+            length = int(element_type.split('_')[1])
+            constraints.append(QuantityConstraintStraight(TrackProperties.straight, condition_type, length=length, quantity=quantity))
+
+    return (width, height), constraints
 
 
 def sort_quantity_constraints(constraints):

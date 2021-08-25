@@ -3,7 +3,7 @@ import sys
 import time
 from tqdm import tqdm
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
 from util import GridShowCase, get_adjacent, TrackProperties
@@ -36,7 +36,7 @@ class GraphModel:
         elif iterator_type == IteratorType.iterative_construction:
             iterator = IterativeConstructionIterator(self.width, self.height, _print=False)
             if self.width == 7 and self.height == 7:
-                self.variants = np.load('/path/to/7x7/variants.npy')
+                self.variants = np.load('/home/malte/PycharmProjects/circuit-creator/ip/7x7_complete/variants.npy')
             else:
                 self.variants = iterator.iterate(multi_processing=False, continued=False)
         else:
@@ -520,6 +520,12 @@ def get_imitation_solution(original_solution, print_stats=False):
 
 def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
+
+
+def get_solution_from_config(path):
+    dimensions, quantity_constraints = parse_ip_config(path)
+    solution, _ = get_custom_solution(*dimensions, quantity_constraints=quantity_constraints)
+    return solution
 
 
 if __name__ == '__main__':
