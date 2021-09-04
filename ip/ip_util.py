@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum, auto, IntEnum
 from pulp import *
 import numpy as np
 from termcolor import colored
@@ -129,6 +129,13 @@ def export_variable(var, save_name=False):
         return var_value, str(var)
     else:
         return var_value
+
+
+class SolutionEntries(IntEnum):
+    negative = 0
+    positive = 1
+    positive_and_intersection = 2
+    negative_and_intersection = 3
 
 
 class ConditionTypes(Enum):

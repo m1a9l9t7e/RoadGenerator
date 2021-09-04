@@ -430,6 +430,7 @@ def count_intersection_variants(solution):
 def generate_intersection_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
     variants = []
     intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
+    # TODO: calculate second intersect matrix for zero cells and add to first one!
     non_zero_indices = np.argwhere(intersect_matrix > 0)
     iterator = IntersectionIterator(non_zero_indices, allow_adjacent=allow_adjacent_intersections, n=n_intersections, _print=False)
     combinations = iterator.iterate()
@@ -455,7 +456,7 @@ def add_intersection_variants(solutions, allow_intersect_at_stubs=False, multi_p
         pool.close()
         num_intersect_variants = sum(complete_list)
         print("Intersections variants: {}".format(num_intersect_variants))
-        print("All variants: {}".format(num_intersect_variants + len(solutions)))
+        # print("All variants: {}".format(num_intersect_variants))
     else:
         for solution in tqdm(solutions, desc='Generating Intersections'):
             complete_list += generate_intersection_variants(solution, allow_intersect_at_stubs=allow_intersect_at_stubs)
@@ -529,4 +530,4 @@ def get_solution_from_config(path, _print=True):
 
 
 if __name__ == '__main__':
-    GraphModel(8, 8, generate_intersections=True, iterator_type=IteratorType.iterative_construction, intersections_ip=False)
+    GraphModel(4, 4, generate_intersections=True, iterator_type=IteratorType.iterative_construction, intersections_ip=True)

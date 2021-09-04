@@ -1,7 +1,7 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, \
-    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight
+    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries
 from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties
 from termcolor import colored
 
@@ -147,7 +147,10 @@ class Problem:
             for x in range(self.width):
                 solution_x_y = int(value(self.node_grid[x][y]))
                 if self.node_grid_intersections[x][y] is not None:
-                    solution_x_y += int(value(self.node_grid_intersections[x][y]))
+                    if solution_x_y == 0:
+                        solution_x_y += SolutionEntries.negative_and_intersection * int(value(self.node_grid_intersections[x][y]))
+                    else:
+                        solution_x_y += int(value(self.node_grid_intersections[x][y]))
                 solution[x][y] = solution_x_y
                 if not print_zeros:
                     solution_x_y = " " if solution_x_y == 0 else solution_x_y
@@ -291,6 +294,44 @@ class Problem:
         # Add quantity condition
         return self.nodes_intersections
 
+    def add_intersection_constraintsMK2(self):
+        for x in range(self.width):
+            for y in range(self.height):
+                v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
+                self.node_grid_intersections[x][y] = v_intersection
+                self.nodes_intersections.append(v_intersection)
+
+        # No adjacency constraints:
+        indices = []
+        for x in range(self.width):
+            for y in range(self.height):
+                indices.append((x, y))
+
+        # Two adjacent intersections can not both be selected
+        for (x1, y1) in indices:
+            for (x2, y2) in indices:
+                if is_adjacent((x1, y1), (x2, y2)):
+                    self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
+
+        # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
+        # an intersection to exist. This implies that the degree of the cell must be 2
+        for (x, y) in indices:
+            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, 1), (0, -1), (1, 0), (-1, 0)]]
+            # Exclude the following cases:
+            # Right adjacent, but not left
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[0] * 1 + adjacent[1] * - 1 + 1
+            # Left adjacent, but not right
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[1] * 1 + adjacent[0] * - 1 + 1
+            # Top adjacent, but not bottom
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[2] * 1 + adjacent[3] * - 1 + 1
+            # Bottom adjacent, but not top
+            self.problem += self.node_grid_intersections[x][y] <= adjacent[3] * 1 + adjacent[2] * - 1 + 1
+            # Not more than 2 adjacent
+            self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
+
+        # Add quantity condition
+        return self.nodes_intersections
+
     def add_turn_constraints(self):
         indices = self.get_grid_indices()
 
@@ -400,7 +441,6 @@ class Problem:
         2: All cells are selected and there are no adjacent cells on either side of the sequence
         The value of the variable represents the number of resulting straights.
         :param length:
-        :param n_straights:
         :return:
         """
         straights = []
@@ -477,11 +517,12 @@ class Problem:
 
     def add_imitation_constraints(self, original_solution):
         for (x, y) in self.get_grid_indices():
-            if original_solution[x][y] > 0:
+            # TODO: this assumes that intersection may only be placed at cells
+            if original_solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
                 self.problem += self.node_grid[x][y] == 1
             else:
                 self.problem += self.node_grid[x][y] == 0
-            if original_solution[x][y] == 2:
+            if original_solution[x][y] in [SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection]:
                 self.problem += self.node_grid_intersections[x][y] == 1
             else:
                 self.problem += self.node_grid_intersections[x][y] == 0
@@ -812,7 +853,13 @@ class IntersectionProblem:
             self.problem += sum(self.variables) == n
 
     def solve(self, _print=False):
-        status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        try:
+            with Capturing() as output:
+                status = self.problem.solve(GUROBI(msg=0))
+        except:
+            print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
+            status = self.problem.solve(PULP_CBC_CMD(msg=0))
+
         solution = [value(variable) for variable in self.variables]
         if _print:
             print("{} Solution: {}".format(LpStatus[status], solution))
