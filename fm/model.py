@@ -7,6 +7,7 @@ from util import TrackProperties, GraphTour, get_track_points, get_intersection_
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
 import numpy as np
+from termcolor import colored
 
 
 class FeatureModel:
@@ -96,6 +97,9 @@ class FeatureModel:
         }
         with open(path, 'wb') as handle:
             pickle.dump(export, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def calculate_possible_configurations(self):
+        return self.feature_root.get_num_possibilities()
 
     def _scale(self, factor):
         for feature in self.features:
@@ -337,7 +341,9 @@ def make_concrete_track():
 
 
 if __name__ == '__main__':
-    path_to_config = os.path.join(os.getcwd(), '../ip/configs/mini.txt')
-    _solution = get_solution_from_config(path_to_config)
+    path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
+    _solution = get_solution_from_config(path_to_config, _print=False)
     fm = FeatureModel(_solution, scale=3)
+    print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
+    fm.export('fm.xml')
     fm.save('fm.pkl')

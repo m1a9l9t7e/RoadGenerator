@@ -53,11 +53,13 @@ class IPCircuitCreation(AnimationSequenceScene):
     def construct(self):
         width, height = (4, 4)
         square_size = 1
-        track_width = 0.1
+        track_width = 0.2
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
 
         # solution = get_random_solution(width, height)
-        solution, _ = get_custom_solution(width, height)
+        # solution, _ = get_custom_solution(width, height)
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini_no_intersect.txt')
+        solution = get_solution_from_config(path_to_config)
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, scale=square_size)
@@ -68,7 +70,7 @@ class IPCircuitCreation(AnimationSequenceScene):
 
         animations_list = [
             grid.get_animation_sequence(),
-            draw_graph(graph),
+            draw_graph(graph, z_index=0),
             gen_track_points,
             remove_graph(graph, animate=True),
             interpolation_animation,
@@ -164,9 +166,9 @@ class CustomTrack(AnimationSequenceScene):
 class FMTrack(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.2)
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini.txt')
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/demo.txt')
 
-        solution = get_solution_from_config(path_to_config)
+        solution = get_solution_from_config(path_to_config, _print=False)
         width, height = [value+1 for value in np.shape(solution)]
         fm = FeatureModel(solution, scale=square_size)
 

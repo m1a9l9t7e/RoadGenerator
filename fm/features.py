@@ -1,3 +1,4 @@
+import math
 import sys
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -78,6 +79,28 @@ class Feature:
             return selected_features
         else:
             return selections
+
+    def get_num_possibilities(self):
+        # print(colored("{}.get_num_possibilities():".format(self.name), 'blue'))
+        sub_possibilites = []
+        leaf_counter = 0
+        for sub_feature in self.sub_features:
+            if len(sub_feature.sub_features) > 0:
+                sub_possibilites.append(sub_feature.get_num_possibilities())
+            else:
+                leaf_counter += 1
+
+        # print("sub possbilites: {}, leafs: {}".format(sub_possibilites, leaf_counter))
+        if self.alternative:
+            num_possibilites = sum(sub_possibilites) + leaf_counter
+            # print(colored("{} num possibilities: {}".format(self.name, num_possibilites), 'yellow'))
+        elif not self.alternative:
+            num_possibilites = math.prod(sub_possibilites) * (2 ** leaf_counter)
+            # print(colored("{} num possibilities: {}".format(self.name, num_possibilites), 'cyan'))
+        else:
+            raise RuntimeError("Leaf Features should never be called!")
+
+        return num_possibilites
 
 
 class TLFeature(Feature):
