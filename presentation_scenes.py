@@ -137,8 +137,8 @@ class IPVisualization:
     def __init__(self, path_to_config, show_graph=True, show_text='names', show_intersections=True, show_all_intersections=False, show_edges=False, show_track=False):
         if show_text not in ['names', 'values']:
             raise ValueError('Unknown value for show_text: {}'.format(show_text))
-        self.solution = get_solution_from_config(path_to_config)
-        self.problem_dict = calculate_problem_dict(self.solution)
+        self.solution = get_solution_from_config(path_to_config, _print=False)
+        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
         self.width, self.height = [value+1 for value in np.shape(self.solution)]
         self.ip_width, self.ip_height = (self.width - 1, self.height - 1)
         self.show_graph = show_graph
@@ -148,7 +148,7 @@ class IPVisualization:
         self.show_edges = show_edges
         self.show_root = show_edges
         self.show_text = show_text
-        self.n = np.ceil(self.ip_width / 2) * self.ip_height + np.floor(self.ip_width / 2)
+        self.n = (self.width * self.height - 4) / 2 + 1
         self.square_size = 1
         self.num_elements = self.ip_width * self.ip_height
         self.helper = GridShowCase(self.num_elements, [self.square_size, self.square_size], spacing=[0, 0], space_ratio=[1, 1])

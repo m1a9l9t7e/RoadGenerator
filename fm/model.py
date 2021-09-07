@@ -1,5 +1,7 @@
 import os
 import pickle
+import time
+
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config
@@ -310,11 +312,15 @@ def get_straight_features(ip_solution, problem_dict):
     return features, coordinates_to_feature
 
 
-def calculate_problem_dict(ip_solution, print_stats=True):
+def calculate_problem_dict(ip_solution, print_stats=True, print_time=False):
     """
     Recreate solution with quantity constraints enabled to gather problem dict
     """
+    start = time.time()
     _, problem_dict = get_imitation_solution(ip_solution, print_stats=print_stats)
+    end = time.time()
+    if print_time:
+        print(colored("Imitation calculated in {:.2f}s".format(end - start), "green"))
     return problem_dict
 
 

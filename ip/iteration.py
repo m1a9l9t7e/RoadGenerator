@@ -510,7 +510,8 @@ def get_imitation_solution(original_solution, print_stats=False):
     for length in range(2, len(original_solution)):
         quantity_constraints.append(QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=length, quantity=0))
 
-    problem = Problem(len(original_solution), len(original_solution[0]), quantity_constraints=quantity_constraints, imitate=original_solution)
+    problem = Problem(len(original_solution), len(original_solution[0]), quantity_constraints=quantity_constraints, imitate=original_solution,
+                      allow_adjacent_intersections=True, allow_gap_intersections=True)
     solution, status = problem.solve(_print=False, print_zeros=False)
     if status <= 0:
         raise ValueError("Original Solution Infeasible")

@@ -10,11 +10,13 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None, allow_gap_intersection=True):
+    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None,
+                 allow_gap_intersections=False, allow_adjacent_intersections=False):
         # arguments
         self.width = width
         self.height = height
-        self.allow_gap_intersections = allow_gap_intersection
+        self.allow_gap_intersections = allow_gap_intersections
+        self.allow_adjacent_intersections = allow_adjacent_intersections
         self.quantity_constraints = sort_quantity_constraints(quantity_constraints)
 
         # variables
@@ -117,10 +119,7 @@ class Problem:
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
             if _type == TrackProperties.intersection:
-                if self.allow_gap_intersections:
-                    variables = self.add_intersection_constraints_w_gaps()
-                else:
-                    variables = self.add_intersection_constraints()
+                variables = self.add_intersection_constraints()
             elif _type == TrackProperties.straight:
                 variables = self.add_straights_constraints(quantity_constraint.length)
             elif _type == TrackProperties.turn_90:
@@ -263,9 +262,10 @@ class Problem:
                 self.node_grid_intersections[x][y] = v_intersection
                 self.nodes_intersections.append(v_intersection)
 
-        # intersection can only exist at selected cells.
-        for index in range(len(self.nodes_intersections)):
-            self.problem += self.nodes_intersections[index] <= self.nodes[index]
+        if not self.allow_gap_intersections:
+            # intersection can only exist at selected cells.
+            for index in range(len(self.nodes_intersections)):
+                self.problem += self.nodes_intersections[index] <= self.nodes[index]
 
         # No adjacency constraints:
         indices = []
@@ -277,45 +277,7 @@ class Problem:
         for (x1, y1) in indices:
             for (x2, y2) in indices:
                 if is_adjacent((x1, y1), (x2, y2)):
-                    self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
-
-        # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
-        # an intersection to exist. This implies that the degree of the cell must be 2
-        for (x, y) in indices:
-            adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, 1), (0, -1), (1, 0), (-1, 0)]]
-            # Exclude the following cases:
-            # Right adjacent, but not left
-            self.problem += self.node_grid_intersections[x][y] <= adjacent[0] * 1 + adjacent[1] * - 1 + 1
-            # Left adjacent, but not right
-            self.problem += self.node_grid_intersections[x][y] <= adjacent[1] * 1 + adjacent[0] * - 1 + 1
-            # Top adjacent, but not bottom
-            self.problem += self.node_grid_intersections[x][y] <= adjacent[2] * 1 + adjacent[3] * - 1 + 1
-            # Bottom adjacent, but not top
-            self.problem += self.node_grid_intersections[x][y] <= adjacent[3] * 1 + adjacent[2] * - 1 + 1
-            # Not more than 2 adjacent
-            self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
-
-        # Add quantity condition
-        return self.nodes_intersections
-
-    def add_intersection_constraints_w_gaps(self, allow_adjacent=False):
-        for x in range(self.width):
-            for y in range(self.height):
-                v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
-                self.node_grid_intersections[x][y] = v_intersection
-                self.nodes_intersections.append(v_intersection)
-
-        # No adjacency constraints:
-        indices = []
-        for x in range(self.width):
-            for y in range(self.height):
-                indices.append((x, y))
-
-        # Two adjacent intersections can not both be selected
-        for (x1, y1) in indices:
-            for (x2, y2) in indices:
-                if is_adjacent((x1, y1), (x2, y2)):
-                    if allow_adjacent:
+                    if self.allow_adjacent_intersections:
                         self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x1][y1] - self.node_grid[x2][y2])
                         self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x2][y2] - self.node_grid[x1][y1])
                     else:
@@ -337,7 +299,6 @@ class Problem:
             # Not more than 2 adjacent
             self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
 
-        # Add quantity condition
         return self.nodes_intersections
 
     def add_turn_constraints(self):

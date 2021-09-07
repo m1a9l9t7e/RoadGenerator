@@ -6,6 +6,7 @@ from graph import Graph, custom_joins
 from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight, parse_ip_config
 from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph, get_solution_from_config
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
+from ip.problem import Problem
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line, extract_graph_tours
 from fm.model import FeatureModel
 
@@ -189,7 +190,30 @@ class FMTrack(AnimationSequenceScene):
         self.wait(4)
 
 
+class CC20(AnimationSequenceScene):
+    def construct(self):
+        square_size, track_width = (1, 0.15)
+
+        original = [[1, 1, 1], [2, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
+        p = Problem(6, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
+                    quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
+        solution, status = p.solve(_print=True)
+        width, height = [value+1 for value in np.shape(solution)]
+        fm = FeatureModel(solution, scale=square_size)
+
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        self.play_animations(grid.get_animation_sequence())
+
+        anim_sequence = []
+        for index, feature in enumerate(fm.features):
+            animation = feature.draw(track_width=track_width)
+            if animation is not None:
+                anim_sequence.append(animation)
+        self.play_animations(anim_sequence)
+        self.wait(4)
+
+
 if __name__ == '__main__':
-    # scene = CustomTrack()
     scene = FMTrack()
     scene.construct()
