@@ -6,7 +6,7 @@ from graph import Graph, custom_joins
 from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight, parse_ip_config
 from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph, get_solution_from_config
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
-from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line
+from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line, extract_graph_tours
 from fm.model import FeatureModel
 
 
@@ -40,7 +40,8 @@ class MultiGraphIP(AnimationSequenceScene):
             track_animations_list = []  # Animations for each graph
             track_width = 0.4
             for graph in graph_list:
-                gen_track_points, remove_track_points, points, _ = generate_track_points(graph, track_width=track_width)
+                graph_tours = extract_graph_tours(graph)
+                gen_track_points, remove_track_points, points, _ = generate_track_points(graph_tours[0], track_width=track_width)
                 interpolation_animation = get_interpolation_animation_continuous(points)
                 # animations = gen_track_points + interpolation_animation + remove_graph(graph, animate=True) + remove_track_points
                 animations = gen_track_points + interpolation_animation + remove_track_points
@@ -63,7 +64,8 @@ class IPCircuitCreation(AnimationSequenceScene):
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, scale=square_size)
-        gen_track_points, remove_track_points, points, _ = generate_track_points(graph, track_width=track_width)
+        graph_tours = extract_graph_tours(graph)
+        gen_track_points, remove_track_points, points, _ = generate_track_points(graph_tours[0], track_width=track_width)
         # interpolation_animation = get_interpolation_animation_continuous(points)
         interpolation_animation = get_interpolation_animation_piece_wise(points)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
@@ -106,7 +108,8 @@ class CircuitCreation(AnimationSequenceScene):
         show_cycles = graph.init_cycles()
         make_joins = custom_joins(graph)
         # make_joins = random_joins(graph)
-        gen_track_points, remove_track_points, points, _ = generate_track_points(graph, track_width=track_width)
+        graph_tours = extract_graph_tours(graph)
+        gen_track_points, remove_track_points, points, _ = generate_track_points(graph_tours[0], track_width=track_width)
         interpolation_animation = get_interpolation_animation_continuous(points)
 
         animations_list = [
@@ -143,7 +146,8 @@ class CustomTrack(AnimationSequenceScene):
 
         # Animate Solution
         graph = convert_solution_to_graph(solution, problem_dict=problem_dict, scale=square_size)
-        gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph, track_width=track_width)
+        graph_tours = extract_graph_tours(graph)
+        gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tours[0], track_width=track_width)
         track_colors = track_properties_to_colors(track_properties)
         interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors)
         grid = Grid(graph, square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
@@ -165,8 +169,8 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.2)
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/demo.txt')
+        square_size, track_width = (1, 0.15)
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/gap.txt')
 
         solution = get_solution_from_config(path_to_config, _print=False)
         width, height = [value+1 for value in np.shape(solution)]

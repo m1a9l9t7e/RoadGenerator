@@ -8,7 +8,7 @@ from interpolation import get_interpolation_animation_piece_wise
 from ip.ip_util import QuantityConstraint, ConditionTypes
 from ip.problem import Problem
 from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution, get_solution_from_config
-from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points, TrackProperties
+from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points, TrackProperties, extract_graph_tours
 from graph import Graph
 from anim_sequence import AnimationObject, AnimationSequenceScene, make_concurrent
 
@@ -170,7 +170,7 @@ class IPVisualization:
         self.add_squares()
         if self.show_edges:
             self.add_edges()
-        self.add_legend()
+        # self.add_legend()
         self.add_pause(3)
         if self.show_graph:
             self.remove_edges()
@@ -287,23 +287,28 @@ class IPVisualization:
                                                    problem_dict=self.problem_dict)
             self.animation_sequence += draw_graph(self.graph, z_index=15)
 
-    def add_track(self, track_width=0.2, colored=False):
-        gen_track_points, remove_track_points, points, track_properties = generate_track_points(self.graph, track_width=track_width, z_index=20)
-        if colored:
-            track_colors = track_properties_to_colors(track_properties)
-        else:
-            track_colors = None
-        interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+    def add_track(self, track_width=0.2, colored=True):
         grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size)
+        animations_list = [grid.get_animation_sequence()]
 
-        animations_list = [
-            grid.get_animation_sequence(),
-            gen_track_points,
-            remove_graph(self.graph, animate=True),
-            interpolation_animation,
-            remove_track_points,
-        ]
+        graph_tours = extract_graph_tours(self.graph)
+        for graph_tour in graph_tours:
+            gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+            if colored:
+                track_colors = track_properties_to_colors(track_properties)
+            else:
+                track_colors = None
+            interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
 
+            animations_list += [
+                grid.get_animation_sequence(),
+                gen_track_points,
+                remove_graph(self.graph, animate=True),
+                interpolation_animation,
+                remove_track_points,
+            ]
+
+        animations_list.append(remove_graph(self.graph, animate=True))
         for animations in animations_list:
             self.animation_sequence += animations
 
@@ -356,7 +361,7 @@ def get_legend(legend_list, shift, scale=1.0):
 
 class IPExtra(AnimationSequenceScene):
     def construct(self):
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini_no_intersect.txt')
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/gap.txt')
         viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True)
         camera_position, camera_size, shift = viz.get_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)

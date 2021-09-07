@@ -3,7 +3,7 @@ import sys
 import time
 from tqdm import tqdm
 from graph import Graph, GraphSearcher
-from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config
+from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config, SolutionEntries
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
 from util import GridShowCase, get_adjacent, TrackProperties
@@ -297,7 +297,7 @@ def convert_solution_to_graph(ip_solution, problem_dict={}, shift=[0, 0], scale=
     intersections = []
     for x in range(width):
         for y in range(height):
-            if ip_solution[x][y] == 2:
+            if ip_solution[x][y] in [SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection]:
                 searcher = GraphSearcher(graph)
                 intersection = searcher.evaluate_position((x, y), ignore_cycles=True)
                 intersections.append(intersection)

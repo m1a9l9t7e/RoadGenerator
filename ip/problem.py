@@ -116,7 +116,7 @@ class Problem:
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
             if _type == TrackProperties.intersection:
-                variables = self.add_intersection_constraints()
+                variables = self.add_intersection_constraintsMK2()
             elif _type == TrackProperties.straight:
                 variables = self.add_straights_constraints(quantity_constraint.length)
             elif _type == TrackProperties.turn_90:
@@ -294,7 +294,7 @@ class Problem:
         # Add quantity condition
         return self.nodes_intersections
 
-    def add_intersection_constraintsMK2(self):
+    def add_intersection_constraintsMK2(self, allow_adjacent=False):
         for x in range(self.width):
             for y in range(self.height):
                 v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
@@ -311,7 +311,11 @@ class Problem:
         for (x1, y1) in indices:
             for (x2, y2) in indices:
                 if is_adjacent((x1, y1), (x2, y2)):
-                    self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
+                    if allow_adjacent:
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x1][y1] - self.node_grid[x2][y2])
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x2][y2] - self.node_grid[x1][y1])
+                    else:
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
 
         # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
         # an intersection to exist. This implies that the degree of the cell must be 2
@@ -357,6 +361,7 @@ class Problem:
         for (x, y) in indices:
             self.node_grid_90s_outer[x][y] = list()
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
+            adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
             for (idx1, idx2) in [(0, 1), (1, 2), (2, 3), (3, 0)]:
                 v_90 = LpVariable("v{}_{}(90_outer_{}_{})".format(x, y, idx1, idx2), cat=const.LpBinary)
                 self.node_grid_90s_outer[x][y].append(v_90)
@@ -365,8 +370,10 @@ class Problem:
                 self.problem += v_90 <= self.node_grid[x][y]
                 # the two cells adjacent to the corner must both not exist
                 self.problem += v_90 <= 1 - (adjacent[idx1] + adjacent[idx2]) / 2
+                # None of the two adjacent cells may be intersections
+                self.problem += v_90 <= 1 - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) / 2
                 # The reverse must also hold)
-                self.problem += adjacent[idx1] + adjacent[idx2] >= self.node_grid[x][y] - v_90
+                self.problem += adjacent[idx1] + adjacent[idx2] + adjacent_intersections[idx1] + adjacent_intersections[idx2] >= self.node_grid[x][y] - v_90
 
         # Two inner 90s result in a 180
         # Adjacent inner 90s between corners of adjacent cells
@@ -452,7 +459,9 @@ class Problem:
                 horizontal = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top += [self.get_safe(x + _x, y + 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_bottom += [self.get_safe(x + _x, y - 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
                 straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
@@ -467,7 +476,9 @@ class Problem:
                 vertical = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right += [self.get_safe(x + 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_left += [self.get_safe(x - 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
                 straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
@@ -482,7 +493,8 @@ class Problem:
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
         """
-        It is assumed, that the cells are two longer than each
+        Set up a single straight variable independent of direction and side.
+        Note that parallel includes vars for parallel cells and parallel intersections as both can be true independent of each other.
         """
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
         straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y), cat=const.LpBinary)
