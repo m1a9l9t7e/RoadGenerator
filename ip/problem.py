@@ -10,10 +10,11 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None):
+    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None, allow_gap_intersection=True):
         # arguments
         self.width = width
         self.height = height
+        self.allow_gap_intersections = allow_gap_intersection
         self.quantity_constraints = sort_quantity_constraints(quantity_constraints)
 
         # variables
@@ -116,7 +117,10 @@ class Problem:
         for quantity_constraint in self.quantity_constraints:
             _type = quantity_constraint.property_type
             if _type == TrackProperties.intersection:
-                variables = self.add_intersection_constraintsMK2()
+                if self.allow_gap_intersections:
+                    variables = self.add_intersection_constraints_w_gaps()
+                else:
+                    variables = self.add_intersection_constraints()
             elif _type == TrackProperties.straight:
                 variables = self.add_straights_constraints(quantity_constraint.length)
             elif _type == TrackProperties.turn_90:
@@ -180,7 +184,7 @@ class Problem:
         self.problem += sum(all_variables) == self.get_n()
 
     def get_n(self):
-        return np.ceil(self.width / 2) * self.height + np.floor(self.width / 2)
+        return ((self.width + 1) * (self.height + 1) - 4) / 2 + 1
 
     ################################
     ######## CONNECTIVITY ##########
@@ -294,7 +298,7 @@ class Problem:
         # Add quantity condition
         return self.nodes_intersections
 
-    def add_intersection_constraintsMK2(self, allow_adjacent=False):
+    def add_intersection_constraints_w_gaps(self, allow_adjacent=False):
         for x in range(self.width):
             for y in range(self.height):
                 v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
@@ -889,7 +893,7 @@ if __name__ == '__main__':
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ]
-    p = Problem(5, 5, quantity_constraints=_quantity_constraints)
+    p = Problem(6, 3, quantity_constraints=_quantity_constraints)
     start = time.time()
     _solution, status = p.solve(_print=True)
     end = time.time()
