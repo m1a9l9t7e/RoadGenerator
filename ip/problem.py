@@ -792,42 +792,58 @@ class Problem:
 
 
 class IntersectionProblem:
-    def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
-        self.non_zero_indices = non_zero_indices
+    def __init__(self, intersection_indices, gap_intersection_indices=None, allow_adjacent=False, n=None, iteration_constraints=None):
+        self.intersection_indices = intersection_indices
+        if gap_intersection_indices is None:
+            self.gap_intersection_indices = []
+        else:
+            self.gap_intersection_indices = gap_intersection_indices
         self.problem = LpProblem("IntersectionProblem", LpMinimize)
-        self.variables = self.init_variables()
-        self.add_all_constraints(n, allow_adjacent, extra_constraints)
+        self.variables = self.init_variables(self.intersection_indices, tag="std")
+        self.gap_variables = self.init_variables(self.gap_intersection_indices, tag="gap")
+        self.add_no_adjacency_constraints(allow_adjacent)
+        if n is not None:
+            self.problem += sum(self.variables + self.gap_variables) == n
+        self.add_iteration_constraints(iteration_constraints)
 
-    def init_variables(self):
-        variables = [LpVariable("{}".format(index), cat=const.LpBinary) for index in range(len(self.non_zero_indices))]
+    @staticmethod
+    def init_variables(indices, tag):
+        variables = [LpVariable("{}_{}".format(index, tag), cat=const.LpBinary) for index in range(len(indices))]
         return variables
 
-    def add_no_adjacency_constraints(self):
+    def add_no_adjacency_constraints(self, allow_adjacent):
         """
         Adjacent intersection are not allowed
         """
-        for i, indices1 in enumerate(self.non_zero_indices):
-            for j, indices2 in enumerate(self.non_zero_indices):
-                if is_adjacent(indices1, indices2):
-                    self.problem += self.variables[i] + self.variables[j] <= 1
+        # Std Intersections and Gap Intersection may never be adjacent
+        for i, indices in enumerate(self.intersection_indices):
+            for j, gap_indices in enumerate(self.gap_intersection_indices):
+                if is_adjacent(indices, gap_indices):
+                    self.problem += self.variables[i] + self.gap_variables[j] <= 1
 
-    def add_extra_constraints(self, extra_constraints):
+        if not allow_adjacent:
+            # If chosen, std intersection may not be adjacent among themselves
+            for i, indices1 in enumerate(self.intersection_indices):
+                for j, indices2 in enumerate(self.intersection_indices):
+                    if is_adjacent(indices1, indices2):
+                        self.problem += self.variables[i] + self.variables[j] <= 1
+
+            # If chosen, gap intersection may not be adjacent among themselves
+            for i, indices1 in enumerate(self.gap_intersection_indices):
+                for j, indices2 in enumerate(self.gap_intersection_indices):
+                    if is_adjacent(indices1, indices2):
+                        self.problem += self.gap_variables[i] + self.gap_variables[j] <= 1
+
+    def add_iteration_constraints(self, forced_intersections):
         """
         Add intersections that must exist
         """
-        for index in range(len(self.non_zero_indices)):
-            if index in extra_constraints:
-                self.problem += self.variables[index] == 1
+        all_variables = self.variables + self.gap_variables
+        for index in range(len(all_variables)):
+            if index in forced_intersections:
+                self.problem += all_variables[index] == 1
             else:
-                self.problem += self.variables[index] == 0
-
-    def add_all_constraints(self, n, allow_adjacent, extra_constraints):
-        if not allow_adjacent:
-            self.add_no_adjacency_constraints()
-        if extra_constraints is not None:
-            self.add_extra_constraints(extra_constraints)
-        if n is not None:
-            self.problem += sum(self.variables) == n
+                self.problem += all_variables[index] == 0
 
     def solve(self, _print=False):
         try:

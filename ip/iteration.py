@@ -6,7 +6,7 @@ from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config, SolutionEntries
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
-from util import GridShowCase, get_adjacent, TrackProperties
+from util import GridShowCase, get_adjacent, TrackProperties, print_2d, max_adjacent
 import numpy as np
 import itertools
 from termcolor import colored
@@ -21,7 +21,7 @@ class IteratorType(Enum):
 
 
 class GraphModel:
-    def __init__(self, width, height, generate_intersections=True, intersections_ip=True, sample_random=None, iterator_type=IteratorType.iterative_construction):
+    def __init__(self, width, height, generate_intersections=True, intersections_ip=False, sample_random=None, iterator_type=IteratorType.iterative_construction):
         self.width = width - 1
         self.height = height - 1
 
@@ -49,9 +49,10 @@ class GraphModel:
             print(colored("Time elapsed: {:.2f}s".format(end - start), 'blue'))
             start = time.time()
             if intersections_ip:
-                self.variants += add_intersection_variants_ip(self.variants)
+                self.variants += add_intersection_variants_ip(self.variants, allow_gap_intersection=True)
             else:
-                self.variants = add_intersection_variants(self.variants)
+                # self.variants = add_intersection_variants(self.variants, allow_intersect_at_gaps=False, multi_processing=False)
+                self.variants += get_intersection_variants(self.variants, allow_gaps=True, allow_adjacent=True)
             end = time.time()
 
         print(colored("Number of variants: {}".format(len(self.variants)), 'green'))
@@ -197,10 +198,15 @@ class ProhibitionIterator:
 
 
 class IntersectionIterator:
-    def __init__(self, non_zero_indices, allow_adjacent=False, n=None, _print=False):
-        self.non_zero_indices = non_zero_indices
-        self.n = n
+    def __init__(self, intersection_indices, gap_intersection_indices=None, allow_adjacent=False, n=None, _print=False):
+        self.intersection_indices = intersection_indices
+        if gap_intersection_indices is None:
+            self.gap_intersection_indices = []
+        else:
+            self.gap_intersection_indices = gap_intersection_indices
+
         self.allow_adjacent = allow_adjacent
+        self.n = n
         self._print = _print
         self.counter = 0
         self.solutions = []
@@ -235,19 +241,20 @@ class IntersectionIterator:
             last_element = -1
         else:
             last_element = sequence[-1]
-        next_choices = np.arange(last_element + 1, len(self.non_zero_indices), 1)  # since order is irrelevant, we always choose elements in ascending order
+        next_choices = np.arange(last_element + 1, len(self.intersection_indices) + len(self.gap_intersection_indices), 1)  # since order is irrelevant, we always choose elements in ascending order
         # print("Parent sequence: {}, available options: {}".format(sequence, next_choices))
         for index in next_choices:
             _sequence = sequence + [index]
             # print("Evaluating sequence: {}".format(_sequence))
             if self.n is not None:
-                if len(self.non_zero_indices) - index < self.n - len(_sequence):  # not enough indices left to satisfy n
+                if len(self.intersection_indices) - index < self.n - len(_sequence):  # not enough indices left to satisfy n
                     # print("PREEMPTIVE DENY")
                     continue
                 if len(_sequence) > self.n:  # sequence has more intersection than n
                     # print("PREEMPTIVE DENY")
                     continue
-            problem = IntersectionProblem(self.non_zero_indices, n=self.n, allow_adjacent=self.allow_adjacent, extra_constraints=_sequence)
+            problem = IntersectionProblem(self.intersection_indices, gap_intersection_indices=self.gap_intersection_indices,
+                                          n=self.n, allow_adjacent=self.allow_adjacent, iteration_constraints=_sequence)
             solution, feasible = problem.solve()
             # solution, feasible = ([0], 1)
             if feasible:
@@ -405,9 +412,9 @@ def get_edges_adjacent_to_cell(coords):
     return [edge_right, edge_top, edge_left, edge_bottom]
 
 
-def generate_intersection_variants(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
+def generate_intersection_variants(solution, allow_adjacent_intersections=False, allow_intersect_at_gaps=False, allow_intersect_at_stubs=False):
     variants = []
-    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_gaps, allow_intersect_at_stubs)
     combinations = [list(i) for i in itertools.product([0, 1], repeat=n)]
     non_zero_indices = np.argwhere(intersect_matrix > 0)
     for variation in combinations:
@@ -423,22 +430,31 @@ def generate_intersection_variants(solution, n_intersections=None, allow_adjacen
 
 
 def count_intersection_variants(solution):
-    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs=False)
+    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_gap=False, allow_intersect_at_stubs=False)
     return 2**n
 
 
-def generate_intersection_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_intersect_at_stubs=False):
+def generate_intersection_variants_ip(solution, n_intersections=None, allow_adjacent_intersections=False, allow_gap_intersections=False):
     variants = []
-    intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_stubs)
-    # TODO: calculate second intersect matrix for zero cells and add to first one!
-    non_zero_indices = np.argwhere(intersect_matrix > 0)
-    iterator = IntersectionIterator(non_zero_indices, allow_adjacent=allow_adjacent_intersections, n=n_intersections, _print=False)
+    if allow_gap_intersections:
+        all_intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_gap=True)
+        intersect_matrix = np.where(np.array(solution) > 0, all_intersect_matrix, np.zeros_like(solution))
+        gap_intersect_matrix = np.where(np.array(solution) == 0, all_intersect_matrix, np.zeros_like(solution))
+        gap_intersection_indices = np.argwhere(gap_intersect_matrix > 0)
+    else:
+        intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_gap=False)
+        gap_intersection_indices = []
+
+    intersection_indices = np.argwhere(intersect_matrix > 0)
+    iterator = IntersectionIterator(intersection_indices, gap_intersection_indices=gap_intersection_indices,
+                                    allow_adjacent=allow_adjacent_intersections, n=n_intersections, _print=False)
+
     combinations = iterator.iterate()
 
     for variation in combinations:
         variant = np.copy(intersect_matrix)
         for index, joint_decision in enumerate(variation):
-            x, y = non_zero_indices[index]
+            x, y = intersection_indices[index]
             variant[x][y] = joint_decision
 
         variant = variant + np.array(solution)
@@ -447,7 +463,7 @@ def generate_intersection_variants_ip(solution, n_intersections=None, allow_adja
     return variants
 
 
-def add_intersection_variants(solutions, allow_intersect_at_stubs=False, multi_processing=True):
+def add_intersection_variants(solutions, allow_intersect_at_gaps=False, allow_intersect_at_stubs=False, multi_processing=True):
     complete_list = []
     if multi_processing:
         pool = mp.Pool(mp.cpu_count())
@@ -459,15 +475,112 @@ def add_intersection_variants(solutions, allow_intersect_at_stubs=False, multi_p
         # print("All variants: {}".format(num_intersect_variants))
     else:
         for solution in tqdm(solutions, desc='Generating Intersections'):
-            complete_list += generate_intersection_variants(solution, allow_intersect_at_stubs=allow_intersect_at_stubs)
+            complete_list += generate_intersection_variants(solution, allow_intersect_at_gaps=allow_intersect_at_gaps, allow_intersect_at_stubs=allow_intersect_at_stubs)
 
     return complete_list
 
 
-def add_intersection_variants_ip(solutions, allow_intersect_at_stubs=False, n_intersections=None):
+def get_intersection_variants(solutions, allow_adjacent, allow_gaps):
+    duplicate_lookup = dict()
+    duplicate_counter = 0
+    intersection_variants = []
+    for solution in tqdm(solutions, desc='Generating Intersections'):
+        all_intersect_matrix, n = get_intersect_matrix(solution, allow_intersect_at_gap=True)
+        intersect_matrix = np.where(np.array(solution) > 0, all_intersect_matrix, np.zeros_like(solution))
+        gap_intersect_matrix = np.where(np.array(solution) == 0, all_intersect_matrix, np.zeros_like(solution))
+        gap_intersection_indices = np.argwhere(gap_intersect_matrix > 0)
+        intersection_indices = np.argwhere(intersect_matrix > 0)
+
+        # get variants without gap intersections
+        intersection_variants += generate_intersection_variants_v2(solution, intersection_indices, gap_intersection_indices, duplicate_lookup, allow_adjacent=allow_adjacent)
+
+        # get variants with gap intersections
+        # this requires more effort to avoid duplicates
+        # specifically, possibilities are iterated starting from a single gap intersection, which is checked for duplicates
+        # for index, gap_intersection in enumerate(gap_intersection_indices):
+        #     variant = np.copy(solution)
+        #     variant[gap_intersection[0]][gap_intersection[1]] = SolutionEntries.negative_and_intersection
+        #     hashed = hash_np(variant)
+        #     if hashed in duplicate_lookup:
+        #         duplicate_counter += 1
+        #         continue
+        #     else:
+        #         duplicate_lookup[hashed] = True
+        #         rm_gap_indices = list(gap_intersection_indices)
+        #         del rm_gap_indices[index]
+        #         intersection_variants += generate_intersection_variants_v2(variant, intersection_indices, rm_gap_indices, duplicate_lookup, allow_adjacent=allow_adjacent)
+
+    print("{} duplicates found.".format(len(duplicate_lookup.keys())))
+    # for intersection_variant in intersection_variants:
+    #     print_2d(intersection_variant)
+    # sys.exit(0)
+    return intersection_variants
+
+
+def generate_intersection_variants_v2(solution, indices, gap_indices, duplicate_lookup, allow_adjacent=False):
+    variants = []
+    if len(gap_indices) > 0:
+        all_indices = np.concatenate([indices, gap_indices])
+    else:
+        all_indices = indices
+
+    # print("X indices:\n{}".format(indices))
+    # print("X GAP indices:\n{}".format(gap_indices))
+    # print("ALL X indices:\n{}".format(all_indices))
+    combinations = [list(i) for i in itertools.product([0, 1], repeat=len(indices) + len(gap_indices))]
+    skip = False
+    for variation in combinations:
+        variant = np.zeros_like(solution)
+        enumeration = [(index, joint_decision) for index, joint_decision in enumerate(variation)]
+        for index, joint_decision in enumeration[:len(indices)]:
+            x, y = all_indices[index]
+            variant[x][y] = joint_decision
+        for index, joint_decision in enumeration[len(indices):]:
+            x, y = all_indices[index]
+            if index >= len(indices):
+                # check for adjacent non gap intersections
+                if max_adjacent(variant, (x, y)) == 1:
+                    skip = True
+                    break
+                # This is a hack, to be able to use max(adjacent) == 1 to detect normal intersections
+                variant[x][y] = -joint_decision
+        if skip:
+            skip = False
+            continue
+
+        variant = np.where(variant == -1, SolutionEntries.negative_and_intersection, variant)
+        variant = variant + np.array(solution)
+
+        variation += [0]
+        # contains gap intersections
+        if np.max(variation[len(indices):]) > 0:
+            # check for duplicate
+            hashed = hash_np(variant)
+            # if variant is a duplicate, we can return right away, because all further variants will have been reached
+            # TODO: fix combination ordering, so this is actually true
+            if hashed in duplicate_lookup:
+                continue
+            # else add duplicate to lookup dict
+            else:
+                duplicate_lookup[hash_np(variant)] = True
+
+        variants.append(variant)
+    return variants
+
+
+def hash_np(arr):
+    arr = np.where(arr == SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection, arr)
+    arr.flags.writeable = False
+    # return hash(arr.data)
+    return hash(arr.tobytes())
+
+
+def add_intersection_variants_ip(solutions, allow_adjacent_intersections=False, allow_gap_intersection=False, n_intersections=None):
     join_variants = []
     for solution in tqdm(solutions, desc='Generating Intersections'):
-        join_variants += generate_intersection_variants_ip(solution, n_intersections=n_intersections, allow_intersect_at_stubs=allow_intersect_at_stubs)
+        join_variants += generate_intersection_variants_ip(solution, n_intersections=n_intersections,
+                                                           allow_adjacent_intersections=allow_adjacent_intersections,
+                                                           allow_gap_intersections=allow_gap_intersection)
     return join_variants
 
 
@@ -531,4 +644,4 @@ def get_solution_from_config(path, _print=True):
 
 
 if __name__ == '__main__':
-    GraphModel(4, 4, generate_intersections=True, iterator_type=IteratorType.iterative_construction, intersections_ip=True)
+    GraphModel(6, 6, generate_intersections=True, iterator_type=IteratorType.iterative_construction, intersections_ip=False)

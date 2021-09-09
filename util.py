@@ -2,6 +2,8 @@ import random
 import math
 import numpy as np
 from manim import *
+from numba import jit
+
 from anim_sequence import AnimationObject
 from io import StringIO
 import sys
@@ -128,6 +130,20 @@ def is_adjacent(coords1, coords2):
             return True
     return False
 
+
+@jit(nopython=True)
+def max_adjacent(grid, coords):
+    """
+    Get value of maximum adjacent element
+    :returns value of biggest adjacent element
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if not (x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0):
+            adjacent.append(grid[x + _x][y + _y])
+
+    return max(adjacent)
 
 #######################
 ##### MANIM STUFF #####

@@ -1,6 +1,9 @@
 import os
 
 from manim import *
+from termcolor import colored
+from tqdm import tqdm
+
 from anim_sequence import AnimationSequenceScene, AnimationObject
 from graph import Graph, custom_joins
 from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight, parse_ip_config
@@ -194,8 +197,8 @@ class CC20(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.15)
 
-        original = [[1, 1, 1], [2, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
-        p = Problem(6, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
+        original = [[1, 1, 1], [2, 0, 1], [1, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
+        p = Problem(7, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
                     quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
         solution, status = p.solve(_print=True)
         width, height = [value+1 for value in np.shape(solution)]
@@ -214,6 +217,62 @@ class CC20(AnimationSequenceScene):
         self.wait(4)
 
 
+class MultiGraphFM(AnimationSequenceScene):
+    def construct(self):
+        show_ip = False
+        show_graph = False
+        show_track = True
+        colored_track = False
+
+        width, height = (4, 4)
+        square_size = 1.5
+        graph_model = GraphModel(width, height, generate_intersections=True, sample_random=None, intersections_ip=False)
+        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[16, 9])
+        camera_position, camera_size = helper.get_global_camera_settings()
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
+
+        if show_ip:
+            animations = []
+            for index, ip_solution in enumerate(graph_model.variants):
+                shift = helper.get_element_coords(index)
+                animations.append(draw_ip_solution(ip_solution, square_size, shift))
+            self.play_concurrent(animations)
+            self.wait(3)
+
+        if show_graph:
+            animations = [add_graph(graph, z_index=15) for graph in graph_list]
+            self.play_concurrent(animations)
+            self.wait(3)
+
+        if show_track:
+            track_animations_list = []  # Animations for each graph
+            track_width = 0.4
+            for graph in tqdm(graph_list, desc="drawing tracks"):
+                graph_tours = extract_graph_tours(graph)
+                for graph_tour in graph_tours:
+                    gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+                    if colored_track:
+                        track_colors = track_properties_to_colors(track_properties)
+                    else:
+                        track_colors = None
+                    interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+                    # interpolation_animation = get_interpolation_animation_continuous(points)
+
+                    track_animations_list += [
+                        # gen_track_points,
+                        remove_graph(graph, animate=False),
+                        interpolation_animation,
+                        # remove_track_points,
+                    ]
+
+            print(colored("Rendering...", 'cyan'))
+            for animations in tqdm(track_animations_list, desc="rendering"):
+                self.play_animations(animations)
+            # self.play_concurrent(track_animations_list)
+            self.wait(3)
+
+
 if __name__ == '__main__':
-    scene = FMTrack()
+    # scene = FMTrack()
+    scene = MultiGraphFM()
     scene.construct()
