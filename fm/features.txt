@@ -1,0 +1,40 @@
+InterpolatedLine:
+
+"leftLine": ["solid", "dashed", "missing"]
+"middleLine": ["solid", "dashed", "missing"]
+"rightLine": ["solid", "dashed", "missing"]
+"isStart": bool
+
+TrafficIsland:
+
+"islandWidth": float
+"zebraLength": float
+"signDistance": float
+"zebraMarkingType": ["zebra", "lines"]
+"pedestrian": ["left", "right", "none"]
+
+TrafficSign:
+
+"type": ["30_zone_beginn", "ende_30_zone"]
+"on_opposite_side": bool
+
+ZebraCrossing:
+
+"pedestrian": ["left", "right", "none"]
+
+StraightLineDynamicObstacle:
+
+"activationDistance": float
+"activationDelay": float
+"on_opposite_side": bool
+
+StraightLineObstacle:
+
+"anchor": ["left", "right", "center"]
+"position": float
+
+Intersection:
+
+"turn": ["left", "right", "straight"]
+"rule": ["equal", "priority-yield", "priority-stop", "yield", "stop"]
+"dynamicObstacle": [right-to-left", "left-to-right", ""]
