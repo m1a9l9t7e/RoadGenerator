@@ -1,9 +1,11 @@
 import os
 import pickle
+import time
+
 from fm.enums import TLFeatures
-from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight
+from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config
-from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -39,7 +41,11 @@ class FeatureModel:
     def get_features(self):
         intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
         straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict)
-        basic_features = get_basic_features(self.graph, intersection_callback, coordinates_to_straights)
+
+        basic_features = []
+        for graph_tour in extract_graph_tours(self.graph):
+            basic_features += get_basic_features(graph_tour, intersection_callback, coordinates_to_straights)
+
         features = basic_features + intersection_features
         return features
 
@@ -118,9 +124,7 @@ def get_featureIDE_graphics_properties():
     return properties
 
 
-def get_basic_features(graph, intersection_callback, coordinates_to_straights, intersection_size=0.5):
-    features = []
-    graph_tour = GraphTour(graph)
+def get_basic_features(graph_tour, intersection_callback, coordinates_to_straights, intersection_size=0.5):
     nodes = graph_tour.get_nodes()
     nodes.append(nodes[0])
     nodes.append(nodes[1])
@@ -128,6 +132,7 @@ def get_basic_features(graph, intersection_callback, coordinates_to_straights, i
     prev_track_property = None
     intersection_counter = 0
 
+    features = []
     for idx in range(len(nodes)-1):
         node1 = nodes[idx]
         node2 = nodes[idx + 1]
@@ -243,7 +248,7 @@ def get_intersection_features(ip_solution):
     features = []
     indices = get_grid_indices(len(ip_solution), len(ip_solution[0]))
     for (x, y) in indices:
-        if ip_solution[x][y] == 2:
+        if ip_solution[x][y] in [SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection]:
             coords_list = []
             for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
                 coords_list.append((x + _x, y + _y))
@@ -307,11 +312,15 @@ def get_straight_features(ip_solution, problem_dict):
     return features, coordinates_to_feature
 
 
-def calculate_problem_dict(ip_solution, print_stats=True):
+def calculate_problem_dict(ip_solution, print_stats=True, print_time=False):
     """
     Recreate solution with quantity constraints enabled to gather problem dict
     """
+    start = time.time()
     _, problem_dict = get_imitation_solution(ip_solution, print_stats=print_stats)
+    end = time.time()
+    if print_time:
+        print(colored("Imitation calculated in {:.2f}s".format(end - start), "green"))
     return problem_dict
 
 
@@ -341,7 +350,7 @@ def make_concrete_track():
 
 
 if __name__ == '__main__':
-    path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
+    path_to_config = os.path.join(os.getcwd(), '../ip/configs/gap.txt')
     _solution = get_solution_from_config(path_to_config, _print=False)
     fm = FeatureModel(_solution, scale=3)
     print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))

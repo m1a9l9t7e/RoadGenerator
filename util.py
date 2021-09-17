@@ -2,6 +2,8 @@ import random
 import math
 import numpy as np
 from manim import *
+from numba import jit
+
 from anim_sequence import AnimationObject
 from io import StringIO
 import sys
@@ -20,16 +22,20 @@ class GraphTour:
     The tour can be retrieved as a sequence of nodes or edges.
     """
 
-    def __init__(self, graph):
+    def __init__(self, graph, start=None):
         self.graph = graph
         self.nodes = list()
         self.edges = list()
-        self.extract_tour()
+        self.extract_tour(start)
 
-    def extract_tour(self):
+    def extract_tour(self, start):
         grid = self.graph.grid
+        if start is None:
+            start_node = grid[0][0]
+        else:
+            start_node = grid[start[0]][start[1]]
+
         tour = list()
-        start_node = grid[0][0]
         tour.append(start_node)
         next_node = get_next_node(start_node)
 
@@ -57,6 +63,23 @@ class GraphTour:
         :returns tour as sequence of edges
         """
         return self.edges
+
+
+def extract_graph_tours(graph):
+    """
+    Extracts all sub-tours from given graph and returns them as list
+    """
+    tours = list()
+    check_off = np.zeros_like(graph.grid)
+    while np.count_nonzero(check_off == 0) > 0:
+        unvisited = np.argwhere(check_off == 0)
+        tour = GraphTour(graph, start=unvisited[0])
+        for node in tour.nodes:
+            x, y = node.get_coords()
+            check_off[x][y] = 1
+        tours.append(tour)
+
+    return tours
 
 
 def get_next_node(node, previous_node=None):
@@ -108,6 +131,34 @@ def is_adjacent(coords1, coords2):
     return False
 
 
+@jit(nopython=True)
+def max_adjacent(grid, coords):
+    """
+    Get value of maximum adjacent element
+    :returns value of biggest adjacent element
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if not (x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0):
+            adjacent.append(grid[x + _x][y + _y])
+
+    return max(adjacent)
+
+
+@jit(nopython=True)
+def get_adjacent(grid, coords):
+    """
+    Get value of maximum adjacent element
+    :returns value of biggest adjacent element
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if not (x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0):
+            adjacent.append(grid[x + _x][y + _y])
+
+    return adjacent
 #######################
 ##### MANIM STUFF #####
 #######################
@@ -326,7 +377,7 @@ class TrackPoint:
         return [x, y, dx, dy]
 
 
-def generate_track_points(graph, track_width, z_index=None):
+def generate_track_points(graph_tour, track_width, z_index=None):
     """
     Generate track points resulting from tour found in given graph.
     For each edge in the tour, three points are generated.
@@ -336,7 +387,6 @@ def generate_track_points(graph, track_width, z_index=None):
     """
     track_points = []
     track_properties = []
-    graph_tour = GraphTour(graph)
     nodes = graph_tour.get_nodes()
     nodes.append(nodes[0])
 

@@ -1,0 +1,5 @@
+7x4
+intersection:equals:1
+turn_90:minimum:1
+turn_180:minimum:1
+straight_2:minimum:1

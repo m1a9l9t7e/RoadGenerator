@@ -1,7 +1,7 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, \
-    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight
+    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries
 from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties
 from termcolor import colored
 
@@ -10,10 +10,13 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None):
+    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None,
+                 allow_gap_intersections=False, allow_adjacent_intersections=False):
         # arguments
         self.width = width
         self.height = height
+        self.allow_gap_intersections = allow_gap_intersections
+        self.allow_adjacent_intersections = allow_adjacent_intersections
         self.quantity_constraints = sort_quantity_constraints(quantity_constraints)
 
         # variables
@@ -147,7 +150,10 @@ class Problem:
             for x in range(self.width):
                 solution_x_y = int(value(self.node_grid[x][y]))
                 if self.node_grid_intersections[x][y] is not None:
-                    solution_x_y += int(value(self.node_grid_intersections[x][y]))
+                    if solution_x_y == 0:
+                        solution_x_y += SolutionEntries.negative_and_intersection * int(value(self.node_grid_intersections[x][y]))
+                    else:
+                        solution_x_y += int(value(self.node_grid_intersections[x][y]))
                 solution[x][y] = solution_x_y
                 if not print_zeros:
                     solution_x_y = " " if solution_x_y == 0 else solution_x_y
@@ -177,7 +183,7 @@ class Problem:
         self.problem += sum(all_variables) == self.get_n()
 
     def get_n(self):
-        return np.ceil(self.width / 2) * self.height + np.floor(self.width / 2)
+        return ((self.width + 1) * (self.height + 1) - 4) / 2 + 1
 
     ################################
     ######## CONNECTIVITY ##########
@@ -256,9 +262,10 @@ class Problem:
                 self.node_grid_intersections[x][y] = v_intersection
                 self.nodes_intersections.append(v_intersection)
 
-        # intersection can only exist at selected cells.
-        for index in range(len(self.nodes_intersections)):
-            self.problem += self.nodes_intersections[index] <= self.nodes[index]
+        if not self.allow_gap_intersections:
+            # intersection can only exist at selected cells.
+            for index in range(len(self.nodes_intersections)):
+                self.problem += self.nodes_intersections[index] <= self.nodes[index]
 
         # No adjacency constraints:
         indices = []
@@ -270,7 +277,11 @@ class Problem:
         for (x1, y1) in indices:
             for (x2, y2) in indices:
                 if is_adjacent((x1, y1), (x2, y2)):
-                    self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
+                    if self.allow_adjacent_intersections:
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x1][y1] - self.node_grid[x2][y2])
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 2 - (self.node_grid[x2][y2] - self.node_grid[x1][y1])
+                    else:
+                        self.problem += self.node_grid_intersections[x1][y1] + self.node_grid_intersections[x2][y2] <= 1
 
         # There must an adjacent cell on both sides of a cell (left and right or top and bottom), for
         # an intersection to exist. This implies that the degree of the cell must be 2
@@ -288,7 +299,6 @@ class Problem:
             # Not more than 2 adjacent
             self.problem += self.node_grid_intersections[x][y] <= -sum(adjacent) + 3
 
-        # Add quantity condition
         return self.nodes_intersections
 
     def add_turn_constraints(self):
@@ -316,6 +326,7 @@ class Problem:
         for (x, y) in indices:
             self.node_grid_90s_outer[x][y] = list()
             adjacent = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
+            adjacent_intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, -1), (1, 0), (0, 1), (-1, 0)]]
             for (idx1, idx2) in [(0, 1), (1, 2), (2, 3), (3, 0)]:
                 v_90 = LpVariable("v{}_{}(90_outer_{}_{})".format(x, y, idx1, idx2), cat=const.LpBinary)
                 self.node_grid_90s_outer[x][y].append(v_90)
@@ -324,8 +335,10 @@ class Problem:
                 self.problem += v_90 <= self.node_grid[x][y]
                 # the two cells adjacent to the corner must both not exist
                 self.problem += v_90 <= 1 - (adjacent[idx1] + adjacent[idx2]) / 2
+                # None of the two adjacent cells may be intersections
+                self.problem += v_90 <= 1 - (adjacent_intersections[idx1] + adjacent_intersections[idx2]) / 2
                 # The reverse must also hold)
-                self.problem += adjacent[idx1] + adjacent[idx2] >= self.node_grid[x][y] - v_90
+                self.problem += adjacent[idx1] + adjacent[idx2] + adjacent_intersections[idx1] + adjacent_intersections[idx2] >= self.node_grid[x][y] - v_90
 
         # Two inner 90s result in a 180
         # Adjacent inner 90s between corners of adjacent cells
@@ -400,7 +413,6 @@ class Problem:
         2: All cells are selected and there are no adjacent cells on either side of the sequence
         The value of the variable represents the number of resulting straights.
         :param length:
-        :param n_straights:
         :return:
         """
         straights = []
@@ -412,7 +424,9 @@ class Problem:
                 horizontal = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top += [self.get_safe(x + _x, y + 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_bottom += [self.get_safe(x + _x, y - 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
                 straights.append(bottom_straight)
                 top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
@@ -427,7 +441,9 @@ class Problem:
                 vertical = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right += [self.get_safe(x + 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_left += [self.get_safe(x - 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
                 straights.append(left_straight)
                 right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
@@ -442,7 +458,8 @@ class Problem:
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
         """
-        It is assumed, that the cells are two longer than each
+        Set up a single straight variable independent of direction and side.
+        Note that parallel includes vars for parallel cells and parallel intersections as both can be true independent of each other.
         """
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
         straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y), cat=const.LpBinary)
@@ -477,11 +494,11 @@ class Problem:
 
     def add_imitation_constraints(self, original_solution):
         for (x, y) in self.get_grid_indices():
-            if original_solution[x][y] > 0:
+            if original_solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
                 self.problem += self.node_grid[x][y] == 1
             else:
                 self.problem += self.node_grid[x][y] == 0
-            if original_solution[x][y] == 2:
+            if original_solution[x][y] in [SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection]:
                 self.problem += self.node_grid_intersections[x][y] == 1
             else:
                 self.problem += self.node_grid_intersections[x][y] == 0
@@ -774,45 +791,67 @@ class Problem:
 
 
 class IntersectionProblem:
-    def __init__(self, non_zero_indices, n=None, allow_adjacent=False, extra_constraints=None):
-        self.non_zero_indices = non_zero_indices
+    def __init__(self, intersection_indices, gap_intersection_indices=None, allow_adjacent=False, n=None, iteration_constraints=None):
+        self.intersection_indices = intersection_indices
+        if gap_intersection_indices is None:
+            self.gap_intersection_indices = []
+        else:
+            self.gap_intersection_indices = gap_intersection_indices
         self.problem = LpProblem("IntersectionProblem", LpMinimize)
-        self.variables = self.init_variables()
-        self.add_all_constraints(n, allow_adjacent, extra_constraints)
+        self.variables = self.init_variables(self.intersection_indices, tag="std")
+        self.gap_variables = self.init_variables(self.gap_intersection_indices, tag="gap")
+        self.add_no_adjacency_constraints(allow_adjacent)
+        if n is not None:
+            self.problem += sum(self.variables + self.gap_variables) == n
+        self.add_iteration_constraints(iteration_constraints)
 
-    def init_variables(self):
-        variables = [LpVariable("{}".format(index), cat=const.LpBinary) for index in range(len(self.non_zero_indices))]
+    @staticmethod
+    def init_variables(indices, tag):
+        variables = [LpVariable("{}_{}".format(index, tag), cat=const.LpBinary) for index in range(len(indices))]
         return variables
 
-    def add_no_adjacency_constraints(self):
+    def add_no_adjacency_constraints(self, allow_adjacent):
         """
         Adjacent intersection are not allowed
         """
-        for i, indices1 in enumerate(self.non_zero_indices):
-            for j, indices2 in enumerate(self.non_zero_indices):
-                if is_adjacent(indices1, indices2):
-                    self.problem += self.variables[i] + self.variables[j] <= 1
+        # Std Intersections and Gap Intersection may never be adjacent
+        for i, indices in enumerate(self.intersection_indices):
+            for j, gap_indices in enumerate(self.gap_intersection_indices):
+                if is_adjacent(indices, gap_indices):
+                    self.problem += self.variables[i] + self.gap_variables[j] <= 1
 
-    def add_extra_constraints(self, extra_constraints):
+        if not allow_adjacent:
+            # If chosen, std intersection may not be adjacent among themselves
+            for i, indices1 in enumerate(self.intersection_indices):
+                for j, indices2 in enumerate(self.intersection_indices):
+                    if is_adjacent(indices1, indices2):
+                        self.problem += self.variables[i] + self.variables[j] <= 1
+
+            # If chosen, gap intersection may not be adjacent among themselves
+            for i, indices1 in enumerate(self.gap_intersection_indices):
+                for j, indices2 in enumerate(self.gap_intersection_indices):
+                    if is_adjacent(indices1, indices2):
+                        self.problem += self.gap_variables[i] + self.gap_variables[j] <= 1
+
+    def add_iteration_constraints(self, forced_intersections):
         """
         Add intersections that must exist
         """
-        for index in range(len(self.non_zero_indices)):
-            if index in extra_constraints:
-                self.problem += self.variables[index] == 1
+        all_variables = self.variables + self.gap_variables
+        for index in range(len(all_variables)):
+            if index in forced_intersections:
+                self.problem += all_variables[index] == 1
             else:
-                self.problem += self.variables[index] == 0
-
-    def add_all_constraints(self, n, allow_adjacent, extra_constraints):
-        if not allow_adjacent:
-            self.add_no_adjacency_constraints()
-        if extra_constraints is not None:
-            self.add_extra_constraints(extra_constraints)
-        if n is not None:
-            self.problem += sum(self.variables) == n
+                self.problem += all_variables[index] == 0
 
     def solve(self, _print=False):
-        status = self.problem.solve(PULP_CBC_CMD(msg=0))
+        try:
+            with Capturing() as output:
+                status = self.problem.solve(GUROBI(msg=0))
+        except:
+            print(colored('GUROBI IS NOT AVAILABLE. DEFAULTING TO CBM!', 'red'))
+            status = self.problem.solve(PULP_CBC_CMD(msg=0))
+
         solution = [value(variable) for variable in self.variables]
         if _print:
             print("{} Solution: {}".format(LpStatus[status], solution))
@@ -830,7 +869,7 @@ if __name__ == '__main__':
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ]
-    p = Problem(5, 5, quantity_constraints=_quantity_constraints)
+    p = Problem(6, 3, quantity_constraints=_quantity_constraints)
     start = time.time()
     _solution, status = p.solve(_print=True)
     end = time.time()

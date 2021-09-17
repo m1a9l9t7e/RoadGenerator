@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum, auto, IntEnum
 from pulp import *
 import numpy as np
 from termcolor import colored
@@ -131,6 +131,13 @@ def export_variable(var, save_name=False):
         return var_value
 
 
+class SolutionEntries(IntEnum):
+    negative = 0
+    positive = 1
+    positive_and_intersection = 2
+    negative_and_intersection = 3
+
+
 class ConditionTypes(Enum):
     less_or_equals = auto()
     more_or_equals = auto()
@@ -206,7 +213,7 @@ def sort_quantity_constraints(constraints):
     return sorted_constraints + constraints
 
 
-def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
+def get_degree_matrix(matrix, value_at_none=None, multipliers=None):
     """
     Given a matrix where each entry is either 1 or 0, return a matrix of equal size where each entry describes how many of the bordering cells are 1
     :param value_at_none: Defines value of degree matrix, where there is no graph. If None, degree is still calculated. Otherwise only positive
@@ -233,12 +240,16 @@ def get_degree_matrix(matrix, value_at_none=0, multipliers=None):
     return degree_matrix
 
 
-def get_intersect_matrix(ip_solution, allow_intersect_at_stubs=False):
+def get_intersect_matrix(ip_solution, allow_intersect_at_gap=False, allow_intersect_at_stubs=False):
     ip_solution = list(ip_solution)
-    direction_matrix = np.absolute(get_degree_matrix(ip_solution, multipliers=[1, 1, -1, -1]))
+    if allow_intersect_at_gap:
+        direction_matrix = np.absolute(get_degree_matrix(ip_solution, multipliers=[1, 1, -1, -1]))
+    else:
+        direction_matrix = np.absolute(get_degree_matrix(ip_solution, multipliers=[1, 1, -1, -1], value_at_none=0))
+
     intersect_matrix = np.where(direction_matrix > 1, np.ones_like(ip_solution), np.zeros_like(ip_solution))
     if allow_intersect_at_stubs:
-        degree_matrix = get_degree_matrix(ip_solution)
+        degree_matrix = get_degree_matrix(ip_solution, value_at_none=0)
         intersect_matrix = np.where(degree_matrix == 1, np.ones_like(ip_solution), intersect_matrix)
 
     return intersect_matrix, np.count_nonzero(intersect_matrix)
