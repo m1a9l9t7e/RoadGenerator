@@ -5,10 +5,10 @@ from manim import *
 from creation_scenes import track_properties_to_colors
 from fm.model import calculate_problem_dict
 from interpolation import get_interpolation_animation_piece_wise
-from ip.ip_util import QuantityConstraint, ConditionTypes
+from ip.ip_util import QuantityConstraint, ConditionTypes, SolutionEntries
 from ip.problem import Problem
 from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution, get_solution_from_config
-from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points, TrackProperties, extract_graph_tours
+from util import Grid, GridShowCase, draw_graph, get_square, get_text, get_arrow, remove_graph, generate_track_points, TrackProperties, extract_graph_tours, print_2d
 from graph import Graph
 from anim_sequence import AnimationObject, AnimationSequenceScene, make_concurrent
 
@@ -137,7 +137,11 @@ class IPVisualization:
     def __init__(self, path_to_config, show_graph=True, show_text='names', show_intersections=True, show_all_intersections=False, show_edges=False, show_track=False):
         if show_text not in ['names', 'values']:
             raise ValueError('Unknown value for show_text: {}'.format(show_text))
-        self.solution = get_solution_from_config(path_to_config, _print=False)
+        # self.solution = get_solution_from_config(path_to_config, _print=False)
+        original = [[1, 1, 1], [1, 0, 3], [1, 0, 1], [1, 1, 1]]
+        p = Problem(4, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
+                    quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
+        self.solution, _ = p.solve()
         self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
         self.width, self.height = [value+1 for value in np.shape(self.solution)]
         self.ip_width, self.ip_height = (self.width - 1, self.height - 1)
@@ -151,7 +155,7 @@ class IPVisualization:
         self.n = (self.width * self.height - 4) / 2 + 1
         self.square_size = 1
         self.num_elements = self.ip_width * self.ip_height
-        self.helper = GridShowCase(self.num_elements, [self.square_size, self.square_size], spacing=[0, 0], space_ratio=[1, 1])
+        self.helper = GridShowCase(self.num_elements, [self.square_size, self.square_size], spacing=[0, 0], space_ratio=[self.ip_width, self.ip_height])
         self.animation_sequence = []
 
         # Descriptors
@@ -192,40 +196,45 @@ class IPVisualization:
         pc3, sc3, _ = self.intersection_cell_desc
         pc4, sc4, _ = self.root_cell_desc
 
-        node_grid_values = self.problem_dict['node_grid_values']
+        # if self.show_all_intersections:
+        #     intersect_matrix, n = get_intersect_matrix(self.solution, allow_intersect_at_stubs=False)
+        # elif self.show_intersections:
+        #     intersect_matrix = self.problem_dict['intersections']
+        # else:
+        #     intersect_matrix = np.zeros_like(self.solution)
+        # solution_flat = np.ravel(self.solution, order='F')
+        # intersect_matrix_flat = np.ravel(intersect_matrix, order='F')
 
-        if self.show_all_intersections:
-            intersect_matrix, n = get_intersect_matrix(self.solution, allow_intersect_at_stubs=False)
-        elif self.show_intersections:
-            intersect_matrix = self.problem_dict['intersections']
-        else:
-            intersect_matrix = np.zeros_like(self.solution)
-
-        solution_flat = np.ravel(self.solution, order='F')
-        intersect_matrix_flat = np.ravel(intersect_matrix, order='F')
+        print_2d(self.solution)
         self.squares = []
         self.captions = []
-        for index in range(self.num_elements):
-            x, y = (index % self.ip_width, int(np.floor(index / self.ip_width)))
-            coords = self.helper.get_element_coords(index)
-            if solution_flat[index] > 0:
-                if intersect_matrix_flat[index] > 0:
-                    square = get_square(coords, self.square_size, pc3, sc3, border_width=2 * self.square_size)
-                else:
+        counter = 0
+        for y in range(self.ip_height):
+            for x in range(self.ip_width):
+                coords = self.helper.get_element_coords(counter)
+                counter += 1
+                if self.solution[x][y] == SolutionEntries.positive:
+                    primary_color, secondary_color, _ = self.positive_cell_desc
+                    square = get_square(coords, self.square_size, primary_color, secondary_color, border_width=2 * self.square_size)
                     if x == 0 and y == 0 and self.show_root:
-                        square = get_square(coords, self.square_size, pc4, sc4, border_width=2 * self.square_size)
-                    else:
-                        square = get_square(coords, self.square_size, pc1, sc1, border_width=2 * self.square_size)
+                        primary_color, secondary_color, _ = self.root_cell_desc
+                        square = get_square(coords, self.square_size, primary_color, secondary_color, border_width=2 * self.square_size)
+                elif self.solution[x][y] == SolutionEntries.positive_and_intersection:
+                    primary_color, secondary_color, _ = self.intersection_cell_desc
+                    square = get_square(coords, self.square_size, primary_color, secondary_color, border_width=2 * self.square_size)
+                elif self.solution[x][y] == SolutionEntries.negative_and_intersection:
+                    primary_color, secondary_color, _ = self.root_cell_desc
+                    square = get_square(coords, self.square_size, primary_color, secondary_color, border_width=2 * self.square_size)
+                elif self.solution[x][y] == SolutionEntries.negative_and_intersection:
+                    primary_color, secondary_color, _ = self.negative_cell_desc
+                    square = get_square(coords, self.square_size, primary_color, secondary_color, border_width=2 * self.square_size)
 
                 self.squares.append(square)
-                if self.show_text == 'values':
+                if self.show_text == 'values' and self.solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
+                    node_grid_values = self.problem_dict['node_grid_values']
                     self.captions.append(get_text('{}'.format(node_grid_values[x][y]), coords))
-            else:
-                square = get_square(coords, self.square_size, pc2, sc2, border_width=2)
-                self.squares.append(square)
-
-            if self.show_text == 'names':
-                self.captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords))
+                elif self.show_text == 'names':
+                    self.captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords))
 
         self.animation_sequence += [
             AnimationObject('add', content=self.squares, z_index=0),
@@ -361,8 +370,8 @@ def get_legend(legend_list, shift, scale=1.0):
 
 class IPExtra(AnimationSequenceScene):
     def construct(self):
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/gap.txt')
-        viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True)
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/duplicate.txt')
+        viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=False, show_graph=True)
         camera_position, camera_size, shift = viz.get_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)
         self.play_animations(viz.get_animation_sequence())

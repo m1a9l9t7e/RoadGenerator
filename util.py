@@ -145,6 +145,20 @@ def max_adjacent(grid, coords):
 
     return max(adjacent)
 
+
+@jit(nopython=True)
+def get_adjacent(grid, coords):
+    """
+    Get value of maximum adjacent element
+    :returns value of biggest adjacent element
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if not (x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0):
+            adjacent.append(grid[x + _x][y + _y])
+
+    return adjacent
 #######################
 ##### MANIM STUFF #####
 #######################

@@ -494,7 +494,6 @@ class Problem:
 
     def add_imitation_constraints(self, original_solution):
         for (x, y) in self.get_grid_indices():
-            # TODO: this assumes that intersection may only be placed at cells
             if original_solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
                 self.problem += self.node_grid[x][y] == 1
             else:

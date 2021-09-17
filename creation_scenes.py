@@ -173,8 +173,9 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.15)
+        square_size, track_width = (1, 0.2)
         path_to_config = os.path.join(os.getcwd(), 'ip/configs/gap.txt')
+        anim_fm = False
 
         solution = get_solution_from_config(path_to_config, _print=False)
         width, height = [value+1 for value in np.shape(solution)]
@@ -185,11 +186,34 @@ class FMTrack(AnimationSequenceScene):
         self.play_animations(grid.get_animation_sequence())
 
         anim_sequence = []
-        for index, feature in enumerate(fm.features):
-            animation = feature.draw(track_width=track_width)
-            if animation is not None:
-                anim_sequence.append(animation)
-        self.play_animations(anim_sequence)
+
+        if anim_fm:
+            for index, feature in enumerate(fm.features):
+                animation = feature.draw(track_width=track_width)
+                if animation is not None:
+                    anim_sequence.append(animation)
+            self.play_animations(anim_sequence)
+        else:
+            graph_tours = extract_graph_tours(fm.graph)
+            colored_by_properties = False
+            colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
+            for index, graph_tour in enumerate(graph_tours):
+                gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+                if colored_by_properties:
+                    track_colors = track_properties_to_colors(track_properties)
+                else:
+                    track_colors = [colors[index] for _ in track_properties]
+
+                interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+                # interpolation_animation = get_interpolation_animation_continuous(points)
+
+                anim_sequence += [
+                    interpolation_animation,
+                ]
+                print(colored("Rendering...", 'cyan'))
+                for animations in tqdm(anim_sequence, desc="rendering"):
+                    self.play_animations(animations)
+
         self.wait(4)
 
 
@@ -228,6 +252,7 @@ class MultiGraphFM(AnimationSequenceScene):
         square_size = 1.5
         graph_model = GraphModel(width, height, generate_intersections=True, sample_random=None, intersections_ip=False)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[16, 9])
+        meta_info = graph_model.get_meta_info()
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
 
@@ -247,14 +272,19 @@ class MultiGraphFM(AnimationSequenceScene):
         if show_track:
             track_animations_list = []  # Animations for each graph
             track_width = 0.4
-            for graph in tqdm(graph_list, desc="drawing tracks"):
+            for index, graph in tqdm(enumerate(graph_list), desc="drawing tracks"):
+                track_info = meta_info[index]
                 graph_tours = extract_graph_tours(graph)
                 for graph_tour in graph_tours:
                     gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
                     if colored_track:
                         track_colors = track_properties_to_colors(track_properties)
                     else:
-                        track_colors = None
+                        if track_info.number_gap_intersections > 0:
+                            track_colors = [YELLOW for _ in track_properties]
+                        else:
+                            track_colors = None
+
                     interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
                     # interpolation_animation = get_interpolation_animation_continuous(points)
 
