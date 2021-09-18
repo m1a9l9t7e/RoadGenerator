@@ -250,7 +250,7 @@ class MultiGraphFM(AnimationSequenceScene):
 
         width, height = (4, 4)
         square_size = 1.5
-        graph_model = GraphModel(width, height, generate_intersections=True, sample_random=None, intersections_ip=False)
+        graph_model = GraphModel(width, height, allow_gap_intersections=True, allow_adjacent_intersections=False, sample_random=None)
         graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[16, 9])
         meta_info = graph_model.get_meta_info()
         camera_position, camera_size = helper.get_global_camera_settings()
