@@ -1,8 +1,6 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from random import randrange
-
 np.random.seed(192251)
 
 
@@ -14,7 +12,7 @@ def get_points(n=50):
 
 def draw_points(points, collision=None):
     if collision is None:
-        colors = [get_cmap(20)(randrange(19))] * len(points)
+        colors = [1] * len(points)
     else:
         colors = ['g' if entry else 'r' for entry in collision]
 
@@ -51,18 +49,7 @@ def rotate_points(points, radians):
     return np.squeeze(np.asarray(rotated_points))
 
 
-def get_cmap(n, name='hsv'):
-    '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
-    RGB color; the keyword argument name must be a standard mpl colormap name.'''
-    return plt.cm.get_cmap(name, n)
-
-
 if __name__ == '__main__':
-    # _min = -0.1
-    # _max = 1.5
-    # plt.xlim(_min, _max)
-    # plt.ylim(_min, _max)
-
     # Rect, representing car outline
     bbox = [(0, 0), (0.5, 0), (0, 1), (0.5, 1)]
     bbox_rotation = math.pi * 0.1
@@ -77,24 +64,11 @@ if __name__ == '__main__':
 
     # 2. Check if points are in bbox
     in_bbox = bounding_box_check(rotated_points, rotated_bbox)
-    # in_bbox = bounding_box_check(points, bbox)
 
     # Draw all
     draw_rect(*bbox)
     draw_points(points, in_bbox)
 
-    # draw_rect(*bbox)
-    # draw_points(points)
-    # draw_rect(*rotated_bbox)
-    # draw_points(rotated_points)
-
-    # interval = 1
-    # for i in range(int(math.pi / (interval/2))):
-    #     draw_points(rotate_points(points, interval * i))
-    #     draw_rect(*rotate_points(bbox, interval * i))
-
-    # draw origin
-    # plt.scatter(0, 0, s=40, color=(0, 0, 0), alpha=1)
     plt.show()
 
 
