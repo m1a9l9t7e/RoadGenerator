@@ -76,6 +76,28 @@ def calculate_polynomial_values(x, rank, derivative, descending=True):
     return values
 
 
+class InterpolatedLine:
+    def __init__(self, px, py):
+        self.py = py
+        self.px = px
+        self.length = self.get_length()
+
+    def get_points(self, n=None):
+        if n is None:
+            n = int(self.length * 7)
+        points = []
+        for value in np.linspace(0, 1, n):
+            points.append(np.array([self.px(value), self.py(value)]))
+        return points
+
+    def get_length(self):
+        length = 0
+        points = self.get_points(100)
+        for index in range(len(points) - 1):
+            length += np.linalg.norm(points[index] - points[index+1])
+        return length
+
+
 class Spline:
     def __init__(self, polynomials=None):
         if polynomials is None:

@@ -8,7 +8,7 @@ from anim_sequence import AnimationObject
 from io import StringIO
 import sys
 from enum import Enum, auto
-from interpolation import interpolate_single
+from interpolation import interpolate_single, InterpolatedLine
 
 
 #######################
@@ -341,7 +341,7 @@ def make_unitary(graph):
     return animation_sequence
 
 
-def get_continued_interpolation(track_point, coords, dashed=False, track_color=WHITE, z_index=0):
+def get_continued_interpolation_animation(track_point, coords, dashed=False, track_color=WHITE, z_index=0):
     """
     Create Animation Object for interpolating a line from a trackpoint to given coordinates, keeping the direction from the trackpoint.
     Used for interpolating the individual lines of an intersection.
@@ -355,6 +355,18 @@ def get_continued_interpolation(track_point, coords, dashed=False, track_color=W
         # choose num dashes in relation to line length
         line = DashedVMobject(line, num_dashes=2, positive_space_ratio=0.6)
     return AnimationObject(type='play', content=[Create(line)], duration=0.25, z_index=z_index)
+
+
+def get_continued_interpolation_line(track_point, coords):
+    """
+    Create Animation Object for interpolating a line from a trackpoint to given coordinates, keeping the direction from the trackpoint.
+    Used for interpolating the individual lines of an intersection.
+    """
+    # set direction of track_point to point towards coords
+    direction = np.array(coords[:2]) - track_point.coords[:2]
+    track_point.direction = direction / np.linalg.norm(direction)
+    px, py = interpolate_single(track_point, TrackPoint(coords, track_point.direction))
+    return InterpolatedLine(px, py)
 
 #######################
 #### GEOMETRY STUFF ###

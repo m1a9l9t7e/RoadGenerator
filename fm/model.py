@@ -5,7 +5,7 @@ import time
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config
-from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -106,6 +106,12 @@ class FeatureModel:
 
     def calculate_possible_configurations(self):
         return self.feature_root.get_num_possibilities()
+
+    def get_collision_lines(self, track_width=0.42):
+        lines = []
+        for feature in self.features:
+            lines += feature.get_collision_lines(track_width)
+        return lines
 
     def _scale(self, factor):
         for feature in self.features:
@@ -350,7 +356,7 @@ def make_concrete_track():
 
 
 if __name__ == '__main__':
-    path_to_config = os.path.join(os.getcwd(), '../ip/configs/gap.txt')
+    path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
     _solution = get_solution_from_config(path_to_config, _print=False)
     fm = FeatureModel(_solution, scale=3)
     print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
