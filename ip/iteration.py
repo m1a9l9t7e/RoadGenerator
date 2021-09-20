@@ -311,7 +311,7 @@ def convert_solution_to_graph(ip_solution, problem_dict={}, shift=[0, 0], scale=
     # construct base graph
     for x in range(width):
         for y in range(height):
-            if ip_solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
+            if ip_solution[x][y] > 0:
                 adjacent_cells = get_adjacent_bool(ip_solution, (x, y))
                 adjacent_edges = get_edges_adjacent_to_cell((x, y))
                 for index, adjacent in enumerate(adjacent_cells):
