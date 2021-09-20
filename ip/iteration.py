@@ -6,7 +6,7 @@ from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config, SolutionEntries
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
-from util import GridShowCase, get_adjacent, TrackProperties, max_adjacent, extract_graph_tours
+from util import GridShowCase, get_adjacent, get_adjacent_bool, TrackProperties, max_adjacent, extract_graph_tours
 import numpy as np
 import itertools
 from termcolor import colored
@@ -311,8 +311,8 @@ def convert_solution_to_graph(ip_solution, problem_dict={}, shift=[0, 0], scale=
     # construct base graph
     for x in range(width):
         for y in range(height):
-            if ip_solution[x][y] > 0:
-                adjacent_cells = get_adjacent(ip_solution, (x, y))
+            if ip_solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
+                adjacent_cells = get_adjacent_bool(ip_solution, (x, y))
                 adjacent_edges = get_edges_adjacent_to_cell((x, y))
                 for index, adjacent in enumerate(adjacent_cells):
                     if not adjacent_cells[index]:

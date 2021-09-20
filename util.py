@@ -159,6 +159,24 @@ def get_adjacent(grid, coords):
             adjacent.append(grid[x + _x][y + _y])
 
     return adjacent
+
+
+def get_adjacent_bool(grid, coords):
+    """
+    Get list of booleans indicating which adjacent cells given coords have in a given grid.
+    :returns list of booleans: [right, up, left, down]
+    """
+    x, y = coords
+    adjacent = []
+    for _x, _y in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+        if x + _x >= len(grid) or y + _y >= len(grid[0]) or x + _x < 0 or y + _y < 0:
+            adjacent.append(False)
+        else:
+            adjacent.append(grid[x + _x][y + _y] > 0)
+
+    return adjacent
+
+
 #######################
 ##### MANIM STUFF #####
 #######################
