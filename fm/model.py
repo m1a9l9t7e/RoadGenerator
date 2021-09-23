@@ -224,9 +224,9 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             if straight not in features:
                 features.append(straight)
             if prev_track_property is not TrackProperties.straight:
-                straight.start = prev_track_point
+                straight._start = prev_track_point
             if next_track_property is not TrackProperties.straight:
-                straight.end = track_point
+                straight._end = track_point
 
         prev_track_point = track_point
         prev_track_property = track_property
