@@ -180,7 +180,9 @@ class ZoneProblem:
         n = self.n
         for i, (start, end) in enumerate(self.zone_pointers):
             for b, (start_b, end_b) in enumerate(self.blocked_zones):
-                # TODO before and after currently if blocked is directly adjacent! (one overlap)
+                # Substract/Add gap + 1 to before and after to prevent directly adjacent zones
+                start_b -= (self.min_gap + 1)
+                end_b += (self.min_gap + 1)
 
                 # New var 'before' that is 1, if zone i is before blocked area b, 0 else
                 before = LpVariable("{}_{}_{}".format("before", i, b), cat=const.LpBinary)
@@ -231,7 +233,7 @@ if __name__ == '__main__':
     path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
     solution = get_solution_from_config(path_to_config, _print=False)
     graph_tour = extract_graph_tours(convert_solution_to_graph(solution))[0]
-    p = ZoneProblem(zone_descriptions=[(2, 4), (5, 5), (3, 10)], blocked_zones=[(2, 5), (10, 13), (19, 21)], n=len(graph_tour.get_nodes()))
+    p = ZoneProblem(zone_descriptions=[(2, 4), (5, 5), (4, 10)], blocked_zones=[(0, 4), (10, 13)], n=len(graph_tour.get_nodes()))
     _start = time.time()
     solution, status = p.solve()
     _end = time.time()
