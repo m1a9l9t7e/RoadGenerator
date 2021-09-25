@@ -4,7 +4,7 @@ import time
 
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
-from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config
+from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config, get_zone_solution, ZoneDescription, ZoneTypes
 from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d
 from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
 import xml.etree.ElementTree as ET
@@ -224,9 +224,9 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             if straight not in features:
                 features.append(straight)
             if prev_track_property is not TrackProperties.straight:
-                straight._start = prev_track_point
+                straight.start = prev_track_point
             if next_track_property is not TrackProperties.straight:
-                straight._end = track_point
+                straight.end = track_point
 
         prev_track_point = track_point
         prev_track_property = track_property
