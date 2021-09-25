@@ -178,11 +178,11 @@ def parse_ip_config(path):
             continue
         element_type, condition_type, quantity = line.split(':')
         quantity = int(quantity)
-        if condition_type == 'minimum':
+        if condition_type in ['minimum', 'min']:
             condition_type = ConditionTypes.more_or_equals
-        elif condition_type == 'maximum':
+        elif condition_type in ['maximum', 'max']:
             condition_type = ConditionTypes.less_or_equals
-        elif condition_type == 'equals':
+        elif condition_type in ['equals', 'eq']:
             condition_type = ConditionTypes.equals
 
         if element_type == 'intersection':

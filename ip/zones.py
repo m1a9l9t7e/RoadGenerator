@@ -1,9 +1,6 @@
 from pulp import *
-import numpy as np
-from ip.iteration import get_solution_from_config, convert_solution_to_graph
-from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties, extract_graph_tours
+from util import time, Capturing
 from termcolor import colored
-from enum import Enum, auto
 
 """
 ## Zone Problem ##
@@ -59,24 +56,9 @@ from enum import Enum, auto
 """
 
 
-class ZoneTypes(Enum):
-    rural_area = auto()  # This is the deafault
-    urban_area = auto()
-    no_passing = auto()
-    motorway = auto()  # min 10 meters
-    parking = auto()  # min 20 meters
-
-
-class ZoneDescription:
-    def __init__(self, zone_type, min_length, max_length):
-        self.zone_type = zone_type
-        self.min_length = min_length
-        self.max_length = max_length
-
-
 class ZoneProblem:
     def __init__(self, zone_descriptions, blocked_zones, n, min_gap=1):
-        print("ZONE IP PROBLEM:\ndesc: {}\nblocked: {}\nn={}\ngap={}".format(zone_descriptions, blocked_zones, n, min_gap))
+        # print("ZONE IP PROBLEM:\ndesc: {}\nblocked: {}\nn={}\ngap={}".format(zone_descriptions, blocked_zones, n, min_gap))
         self.zone_descriptions = zone_descriptions
         self.blocked_zones = blocked_zones
         self.n = n
@@ -229,11 +211,7 @@ class ZoneProblem:
 
 
 if __name__ == '__main__':
-    # TODO this will be a cyclical import
-    path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
-    solution = get_solution_from_config(path_to_config, _print=False)
-    graph_tour = extract_graph_tours(convert_solution_to_graph(solution))[0]
-    p = ZoneProblem(zone_descriptions=[(2, 4), (5, 5), (4, 10)], blocked_zones=[(0, 4), (10, 13)], n=len(graph_tour.get_nodes()))
+    p = ZoneProblem(zone_descriptions=[(2, 4), (5, 5), (4, 10)], blocked_zones=[(0, 4), (10, 13)], n=30)
     _start = time.time()
     solution, status = p.solve()
     _end = time.time()

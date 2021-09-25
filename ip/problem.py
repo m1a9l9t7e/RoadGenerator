@@ -38,7 +38,7 @@ class Problem:
         self.nodes_intersections = []
         self.nodes_90s = []
         self.nodes_180s = []
-        self.nodes_straights = []
+        self.nodes_straights = dict()
         self.node_grid_intersections = [[None for y in range(self.height)] for x in range(self.width)]
         self.node_grid_90s_inner = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom_right, top_right, top_left, bottom_left]
         self.node_grid_90s_outer = [[[] for y in range(self.height)] for x in range(self.width)]  # [bottom_right, top_right, top_left, bottom_left]
@@ -452,8 +452,7 @@ class Problem:
             else:
                 self.node_grid_straights_vertical[x][y][length] = [0, 0]
 
-        # TODO: this currently is overwritten for each straight_length
-        self.nodes_straights = straights
+        self.nodes_straights[length] = straights
         return straights
 
     def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
@@ -780,13 +779,17 @@ class Problem:
         if len(self.nodes_180s) > 0:
             num_180s = sum([int(value(v)) for v in self.nodes_180s])
 
-        if len(self.nodes_straights) > 0:
-            num_straights = sum([int(value(v)) for v in self.nodes_straights])
+        if len(self.nodes_straights.keys()) > 0:
+            num_straights = ''
+            for length in self.nodes_straights.keys():
+                num_straights_l = sum([int(value(v)) for v in self.nodes_straights[length]])
+                if num_straights_l > 0:
+                    num_straights += '(l={}, n={}) '.format(length, num_straights_l)
 
         intersection_str = colored('{} intersections'.format(num_intersections), 'yellow')
         _90_str = colored('{} 90 degree turns'.format(num_90s), 'blue')
         _180_str = colored('{} 180 degree turns'.format(num_180s), 'magenta')
-        straights_str = colored('{} straights of length 3'.format(num_straights), 'cyan')
+        straights_str = colored('straights {}'.format(num_straights), 'cyan')
         print("Solution has {}, {}, {} and {}".format(intersection_str, _90_str, _180_str, straights_str))
 
 
