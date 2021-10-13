@@ -7,7 +7,7 @@ from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes,
 from ip.problem import Problem, IntersectionProblem
 from ip.iterative_construction import Iterator as IterativeConstructionIterator
 from ip.zones import ZoneProblem
-from util import GridShowCase, get_adjacent, get_adjacent_bool, TrackProperties, max_adjacent, extract_graph_tours
+from util import GridShowCase, get_adjacent, get_adjacent_bool, TrackProperties, max_adjacent, extract_graph_tours, ZoneTypes, print_2d, ZoneMisc
 import numpy as np
 import itertools
 from termcolor import colored
@@ -623,10 +623,11 @@ def get_random_solution(width, height):
     return solution
 
 
-def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None, print_stats=True):
+def get_custom_solution(width, height, quantity_constraints=[], iteration_constraints=None, print_stats=True, allow_gap_intersections=True):
     # Get Solution
     start = time.time()
-    problem = Problem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints, allow_gap_intersections=True)
+    problem = Problem(width - 1, height - 1, iteration_constraints=iteration_constraints, quantity_constraints=quantity_constraints,
+                      allow_gap_intersections=allow_gap_intersections)
     solution, status = problem.solve(_print=False, print_zeros=False)
     end = time.time()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
@@ -667,14 +668,6 @@ def get_solution_from_config(path, _print=True):
     return solution
 
 
-class ZoneTypes(Enum):
-    rural_area = auto()  # This is the default
-    urban_area = auto()
-    no_passing = auto()
-    motorway = auto()  # min 10 meters
-    parking = auto()  # min 20 meters
-
-
 class ZoneDescription:
     def __init__(self, zone_type, min_length, max_length):
         self.zone_type = zone_type
@@ -689,8 +682,8 @@ def get_zone_solution(path_to_config, zone_descriptions):
     new_constraints = constraints
 
     # solve problem with new constraints
-    solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True)
-    graph = convert_solution_to_graph(solution, problem_dict)
+    ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True, allow_gap_intersections=False)
+    graph = convert_solution_to_graph(ip_solution, problem_dict)
     graph_tour = extract_graph_tours(graph)[0]
     straight_zones = find_straight_zones(graph_tour)
 
@@ -737,8 +730,12 @@ def get_zone_solution(path_to_config, zone_descriptions):
             for description in no_passing_descriptions:
                 for length in range(description.min_length, description.max_length + 1, 1):
                     if i + length not in blocked_indices:
+                        # print("Spot for new no passing zone found!")
+                        # print("Blocked indices: {}".format(blocked_indices))
+                        # print("Zone Description: {}-{}".format(i, i+length))
+                        # print("New blocked indices: {}".format([i + j for j in range(length+1)]))
                         no_passing.append((i, i+length))
-                        blocked_indices.append([i + j for j in range(length)])
+                        blocked_indices += [i + j for j in range(length+1)]
                         no_passing_descriptions.remove(description)
                         continue_outer = True
                         break
@@ -752,7 +749,7 @@ def get_zone_solution(path_to_config, zone_descriptions):
         ZoneTypes.urban_area: urban_areas,
         ZoneTypes.no_passing: no_passing
     }
-    return solution, zone_selection
+    return ip_solution, zone_selection
 
 
 def filter_zones(zone_desriptions, zone_type):
@@ -785,9 +782,31 @@ def find_straight_zones(graph_tour):
     return straight_zones
 
 
+def get_zones_at_index(graph_tour_index, zone_selection):
+    """
+    return list of all zone_types that are applicable to a given index (of graph tour)
+    """
+
+    if zone_selection is None:
+        return [], None
+
+    zones = []
+    start_or_end = None
+    for zone_type in zone_selection.keys():
+        for (start, end) in zone_selection[zone_type]:
+            if start <= graph_tour_index <= end:
+                zones.append(zone_type)
+                if start == graph_tour_index:
+                    start_or_end = (ZoneMisc.start, zone_type)
+                elif end == graph_tour_index:
+                    start_or_end = (ZoneMisc.end, zone_type)
+
+    return zones, start_or_end
+
+
 if __name__ == '__main__':
     # GraphModel(6, 6, generate_intersections=True, allow_gap_intersections=True, allow_adjacent_intersections=False, intersections_ip=False)
-    solution, zone_selection = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
+    _solution, _zone_selection = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
                                                  zone_descriptions=[
                                                      ZoneDescription(ZoneTypes.motorway, min_length=3, max_length=4),
                                                      ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),

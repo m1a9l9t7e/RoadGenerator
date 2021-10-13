@@ -1,23 +1,25 @@
 import os
 import pickle
+import sys
 import time
 
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
-from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config, get_zone_solution, ZoneDescription, ZoneTypes
-from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d
-from fm.features import Intersection, Straight, StraightStreet, CurvedStreet, Feature, IntersectionConnector
+from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config, get_zone_solution, ZoneDescription, \
+    get_zones_at_index
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d, ZoneTypes
+from fm.features import Intersection, StraightStreet, CurvedStreet, Feature, IntersectionConnector  # , Straight
 import xml.etree.ElementTree as ET
 import numpy as np
 from termcolor import colored
 
 
 class FeatureModel:
-    def __init__(self, ip_solution, problem_dict=None, straight_length=3, intersection_size=0.5, scale=1, shift=[0, 0]):
+    def __init__(self, ip_solution, zone_selection=None, problem_dict=None, intersection_size=0.5, scale=1, shift=[0, 0]):
+        self.ip_solution = ip_solution
+        self.zone_selection = zone_selection
         self.scale = scale
         self.intersection_size = intersection_size
-        self.ip_solution = ip_solution
-        self.straight_length = straight_length
         if problem_dict is None:
             self.problem_dict = calculate_problem_dict(ip_solution)
         else:
@@ -27,7 +29,7 @@ class FeatureModel:
         self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift)
 
         # Extract features from ip solution
-        self.features = self.get_features()
+        self.features = self.get_features(self.zone_selection)
 
         # Scale elements
         self._scale(scale)
@@ -38,13 +40,13 @@ class FeatureModel:
         # build map
         self.name_to_feature_map = self.build_feature_map()
 
-    def get_features(self):
+    def get_features(self, zone_selection=None):
         intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
-        straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict)
+        # straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict)
 
         basic_features = []
         for graph_tour in extract_graph_tours(self.graph):
-            basic_features += get_basic_features(graph_tour, intersection_callback, coordinates_to_straights)
+            basic_features += get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection)
 
         features = basic_features + intersection_features
         return features
@@ -130,7 +132,7 @@ def get_featureIDE_graphics_properties():
     return properties
 
 
-def get_basic_features(graph_tour, intersection_callback, coordinates_to_straights, intersection_size=0.5):
+def get_basic_features(graph_tour, intersection_callback, coordinates_to_straights, intersection_size=0.5, zone_selection=None):
     nodes = graph_tour.get_nodes()
     nodes.append(nodes[0])
     nodes.append(nodes[1])
@@ -153,10 +155,10 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             continue
 
         if track_property is None:
-            features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+            features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
             intersection_counter = 0
         elif track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:
-            features.append(CurvedStreet(TLFeatures.turn.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point, suffix=idx))
+            features.append(CurvedStreet(TLFeatures.turn.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
             intersection_counter = 0
         elif track_property is TrackProperties.intersection:
             """
@@ -177,7 +179,7 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             if len(callbacks) == 2:
                 track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=True, exiting=True)
                 feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
-                                                start=track_point1, end=track_point2, suffix=idx, entering=True, exiting=True)
+                                                start=track_point1, end=track_point2, entering=True, exiting=True)
                 intersection1 = callbacks[0](track_point1, track_point2)
                 intersection2 = callbacks[1](track_point1, track_point2)
                 if np.linalg.norm(track_point1.logical_coords() - intersection1.center) < np.linalg.norm(track_point2.logical_coords() - intersection1.center):
@@ -196,7 +198,7 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
                 exiting = intersection_counter % 2 == 1
                 track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=entering, exiting=exiting)
                 feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
-                                                start=track_point1, end=track_point2, suffix=idx, entering=entering, exiting=exiting)
+                                                start=track_point1, end=track_point2, entering=entering, exiting=exiting)
                 intersection = callbacks[0](track_point1, track_point2)
                 if entering:
                     intersection.add_predecessor(feature)
@@ -220,13 +222,15 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             Straights are handled similar to simple straights, except they are only added once.
             Additionally, start and end are set when the corresponding single piece is reached.
             """
-            straight = coordinates_to_straights[node1.get_coords()]
-            if straight not in features:
-                features.append(straight)
-            if prev_track_property is not TrackProperties.straight:
-                straight.start = prev_track_point
-            if next_track_property is not TrackProperties.straight:
-                straight.end = track_point
+            # straight = coordinates_to_straights[node1.get_coords()]
+            # if straight not in features:
+            #     features.append(straight)
+            # if prev_track_property is not TrackProperties.straight:
+            #     straight.start = prev_track_point
+            # if next_track_property is not TrackProperties.straight:
+            #     straight.end = track_point
+            features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
+            intersection_counter = 0
 
         prev_track_point = track_point
         prev_track_property = track_property
@@ -239,6 +243,19 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             continue
         prev_feature.add_successor(feature)
         feature.add_predecessor(prev_feature)
+
+    # add zone attributes to features
+    for index, feature in enumerate(features[::-1]):
+        feature.zones, feature.start_or_end = get_zones_at_index(index, zone_selection)
+        # if feature.start_or_end is not None:
+        #     print("{}: {}".format(index, feature.start_or_end))
+
+    # intit sub_features of all TL features
+    for idx, feature in enumerate(features):
+        feature.sub_features = feature.get_features()
+        if feature.in_zone(ZoneTypes.urban_area) and (feature.track_property is None or feature.track_property == TrackProperties.straight):
+            print("hello")
+        feature.apply_suffix(idx)
 
     return features
 
@@ -265,57 +282,57 @@ def get_intersection_features(ip_solution):
     return features, intersection_callback
 
 
-def get_straight_features(ip_solution, problem_dict):
-    """
-    Create features for straights
-    """
-    width, height = (len(ip_solution), len(ip_solution[0]))
-    features = []
-    coordinates_to_feature = {}
-
-    if 'horizontal_straights' in problem_dict.keys():
-        horizontal_straights = problem_dict['horizontal_straights']
-        vertical_straights = problem_dict['vertical_straights']
-        for (x, y) in get_grid_indices(width, height):
-            for straight_length in range(2, width):
-                if straight_length not in horizontal_straights[x][y].keys():
-                    continue
-
-                bottom, top = horizontal_straights[x][y][straight_length]
-                if bottom > 0:
-                    coords_list = []
-                    for i in range(straight_length):
-                        coords_list.append((x + i, y))
-                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                    features.append(feature)
-                    for i in range(straight_length):
-                        coordinates_to_feature[(x + i, y)] = feature
-                if top > 0:
-                    coords_list = []
-                    for i in range(straight_length):
-                        coords_list.append((x + i, y + 1))
-                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                    features.append(feature)
-                    for i in range(straight_length):
-                        coordinates_to_feature[(x + i, y + 1)] = feature
-                left, right = vertical_straights[x][y][straight_length]
-                if left > 0:
-                    coords_list = []
-                    for i in range(straight_length):
-                        coords_list.append((x, y + i))
-                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                    features.append(feature)
-                    for i in range(straight_length):
-                        coordinates_to_feature[(x, y + i)] = feature
-                if right > 0:
-                    coords_list = []
-                    for i in range(straight_length):
-                        coords_list.append((x + 1, y + i))
-                    feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
-                    features.append(feature)
-                    for i in range(straight_length):
-                        coordinates_to_feature[(x + 1, y + i)] = feature
-    return features, coordinates_to_feature
+# def get_straight_features(ip_solution, problem_dict):
+#     """
+#     Create features for straights
+#     """
+#     width, height = (len(ip_solution), len(ip_solution[0]))
+#     features = []
+#     coordinates_to_feature = {}
+#
+#     if 'horizontal_straights' in problem_dict.keys():
+#         horizontal_straights = problem_dict['horizontal_straights']
+#         vertical_straights = problem_dict['vertical_straights']
+#         for (x, y) in get_grid_indices(width, height):
+#             for straight_length in range(2, width):
+#                 if straight_length not in horizontal_straights[x][y].keys():
+#                     continue
+#
+#                 bottom, top = horizontal_straights[x][y][straight_length]
+#                 if bottom > 0:
+#                     coords_list = []
+#                     for i in range(straight_length):
+#                         coords_list.append((x + i, y))
+#                     feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+#                     features.append(feature)
+#                     for i in range(straight_length):
+#                         coordinates_to_feature[(x + i, y)] = feature
+#                 if top > 0:
+#                     coords_list = []
+#                     for i in range(straight_length):
+#                         coords_list.append((x + i, y + 1))
+#                     feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+#                     features.append(feature)
+#                     for i in range(straight_length):
+#                         coordinates_to_feature[(x + i, y + 1)] = feature
+#                 left, right = vertical_straights[x][y][straight_length]
+#                 if left > 0:
+#                     coords_list = []
+#                     for i in range(straight_length):
+#                         coords_list.append((x, y + i))
+#                     feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+#                     features.append(feature)
+#                     for i in range(straight_length):
+#                         coordinates_to_feature[(x, y + i)] = feature
+#                 if right > 0:
+#                     coords_list = []
+#                     for i in range(straight_length):
+#                         coords_list.append((x + 1, y + i))
+#                     feature = Straight(TLFeatures.straight.value, coords_list, suffix="s{}".format(len(features) + 1))
+#                     features.append(feature)
+#                     for i in range(straight_length):
+#                         coordinates_to_feature[(x + 1, y + i)] = feature
+#     return features, coordinates_to_feature
 
 
 def calculate_problem_dict(ip_solution, print_stats=True, print_time=False):
@@ -349,16 +366,38 @@ def make_concrete_track():
     feature_model.export('fm.xml')
 
     # Use the generated model xml to create a config in FeatureIDE and load this config
-    feature_model.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00001.config')
+    feature_model.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00003.config')
 
     # Save Feature Model as pickle
     feature_model.save('fm.pkl')
 
 
+def print_features(fm):
+    for feature in fm.features:
+        print(colored("=====================", 'cyan'))
+        print("{}, {}".format(feature.track_property, feature.zones))
+        print(feature)
+        print(feature.get_selected_sub_features())
+
+
 if __name__ == '__main__':
     path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
-    _solution = get_solution_from_config(path_to_config, _print=False)
-    fm = FeatureModel(_solution, scale=3)
+    # _solution = get_solution_from_config(path_to_config, _print=False)
+    zone_descriptions = [
+        ZoneDescription(ZoneTypes.motorway, min_length=3, max_length=4),
+        ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
+        # ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
+        # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+        # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+    ]
+    _solution, _zone_selection = get_zone_solution(path_to_config, zone_descriptions)
+    fm = FeatureModel(_solution, _zone_selection, scale=3)
+    fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00003.config')
+    for feature in fm.features:
+        print(colored("=====================", 'cyan'))
+        print("{}, {}".format(feature.track_property, feature.zones))
+        # print(feature)
+        print(feature.get_selected_sub_features())
     print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
     fm.export('fm.xml')
     fm.save('fm.pkl')

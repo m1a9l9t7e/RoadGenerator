@@ -4,10 +4,10 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from termcolor import colored
 from anim_sequence import AnimationObject, make_concurrent
-from fm.enums import Features, LineMarkings, RightOfWay, TurnDirection, Zones, Specials
+from fm.enums import Features, Level3, RightOfWay, TurnDirection, Zones, Specials, Level2
 from interpolation import interpolate_single, InterpolatedLine
 from util import TrackProperties, get_track_points, get_track_points_from_center, track_properties_to_colors, choose_closest_track_point, get_intersect, \
-    get_continued_interpolation_animation, TrackPoint, get_continued_interpolation_line
+    get_continued_interpolation_animation, TrackPoint, get_continued_interpolation_line, zones_to_color, ZoneTypes, ZoneMisc
 from manim import *
 
 
@@ -42,6 +42,7 @@ class Feature:
 
     def apply_suffix(self, suffix):
         self.name = "{} {}".format(self.name, suffix)
+        print(self.name)
         for sub_feature in self.sub_features:
             sub_feature.apply_suffix(suffix)
 
@@ -108,15 +109,20 @@ class TLFeature(Feature):
     Top Level Feature. A TLFeature represents a track element and can be drawn.
     """
     def __init__(self, name, track_property, suffix=None):
-        super().__init__(name, sub_features=self.get_features(), mandatory=True, alternative=False, suffix=suffix)
+        super().__init__(name, mandatory=True, alternative=False, suffix=suffix)
         self.track_property = track_property
+        self.zones = []
+        self.start_or_end = None  # (['start', 'end'], zone_type)
         self.predecessor = []
         self.successor = []
 
     def get_features(self):
         raise NotImplementedError()
 
-    def draw(self, track_width):
+    def draw(self, track_width, color_by=None):
+        """
+        color_by in ['property', 'zone', None]
+        """
         raise NotImplementedError()
 
     def get_collision_lines(self, track_width):
@@ -127,6 +133,41 @@ class TLFeature(Feature):
 
     def add_successor(self, element):
         self.successor.append(element)
+
+    def in_zone(self, zone_type):
+        return zone_type in self.zones
+
+    def is_zone_start(self):
+        if self.start_or_end is None:
+            return False, None
+        else:
+            start_or_end, zone_type = self.start_or_end
+            if start_or_end == ZoneMisc.start:
+                return True, zone_type
+            else:
+                return False, zone_type
+
+    def is_zone_end(self):
+        if self.start_or_end is None:
+            return False, None
+        else:
+            start_or_end, zone_type = self.start_or_end
+            if start_or_end == ZoneMisc.end:
+                return True, zone_type
+            else:
+                return False, zone_type
+
+    def get_color(self, color_by):
+        if color_by == 'track_property':
+            track_color = track_properties_to_colors([self.track_property])
+        elif color_by == 'zone':
+            track_color = zones_to_color(self.zones)
+        elif color_by is None:
+            track_color = WHITE
+        else:
+            track_color = color_by
+
+        return track_color
 
 
 class BasicFeature(TLFeature):
@@ -148,15 +189,12 @@ class BasicFeature(TLFeature):
         self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
 
     def get_features(self):
-        lane_markings = Feature(Features.line_marking.value, sub_features=[Feature(entry.value) for entry in LineMarkings],
-                                mandatory=True, alternative=True)
-        return [lane_markings]
+        level3 = Feature(Features.level3.value, sub_features=[Feature(entry.value) for entry in Level3], mandatory=False, alternative=False)
+        return [level3]
 
-    def draw(self, track_width, z_index=0, color_overwrite=None):
-        if color_overwrite is None:
-            track_color = track_properties_to_colors([self.track_property])
-        else:
-            track_color = color_overwrite
+    def draw(self, track_width, z_index=0, color_by=None):
+        track_color = self.get_color(color_by)
+
         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
         px, py = interpolate_single(left1, left2)
@@ -165,9 +203,12 @@ class BasicFeature(TLFeature):
         right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
         px, py = interpolate_single(center1, center2)
         center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
-        distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
-        # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
-        center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+
+        if not self.in_zone(ZoneTypes.no_passing):
+            # distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
+            # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
+            center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+
         return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
 
     def get_collision_lines(self, track_width):
@@ -188,9 +229,19 @@ class StraightStreet(BasicFeature):
     """
 
     def get_features(self):
-        parent_features = super().get_features()
-        features = []
-        return parent_features + features
+        """
+        this depends on the zone now!
+        """
+        if self.in_zone(ZoneTypes.urban_area):
+            self.alternative = True
+            level2 = [Feature(entry.value) for entry in Level2]
+            level3 = super().get_features()
+            return level3 + level2
+        elif self.in_zone(ZoneTypes.motorway):
+            # No obstacles on motorway!
+            return [Feature(Features.level3.value, sub_features=[Feature(entry) for entry in [Level3.missing_left.value, Level3.missing_right.value]], mandatory=False, alternative=False)]
+        else:
+            return super().get_features()
 
 
 class CurvedStreet(BasicFeature):
@@ -199,9 +250,7 @@ class CurvedStreet(BasicFeature):
     """
 
     def get_features(self):
-        parent_features = super().get_features()
-        features = []
-        return parent_features + features
+        return super().get_features()
 
 
 class IntersectionConnector(CurvedStreet):
@@ -274,11 +323,8 @@ class Intersection(CompositeFeature):
         turn_direction = Feature(Features.turn_direction.value, sub_features=[Feature(entry.value) for entry in TurnDirection], mandatory=True, alternative=True)
         return [right_of_way, turn_direction]
 
-    def draw(self, track_width, z_index=0, color_overwrite=None):
-        if color_overwrite is None:
-            track_color = track_properties_to_colors([self.track_property])
-        else:
-            track_color = color_overwrite
+    def draw(self, track_width, z_index=0, color_by=None):
+        track_color = self.get_color(color_by)
 
         if self.bottom_left is None or self.bottom_right is None or self.top_left is None or self.top_right is None:
             raise ValueError('Geometric description not complete. At least on track point is missing')
@@ -413,67 +459,61 @@ class Intersection(CompositeFeature):
         return lines
 
 
-class Straight(CompositeFeature):
-    """
-    A feature representing a straight of fixed length
-    Geometrically, the element is represented by the left and right points of start and end
-    start: Trackpoint(coords, direction)
-    end: Trackpoint(coords, direction)
-    """
-    def __init__(self, name, coords_list, start=None, end=None, suffix=None):
-        super().__init__(name, track_property=TrackProperties.straight, coords_list=coords_list, suffix=suffix)
-        self.length = len(coords_list)
-        self.start = start
-        self.end = end
-
-    def scale(self, factor):
-        self.start = TrackPoint(np.array(self.start.coords) * factor, self.start.direction)
-        self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
-
-    def get_features(self):
-        motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
-        special_subs = [Feature(entry.value) for entry in Specials] + [Feature('parking', sub_features=[Feature('left'), Feature('right')], alternative=False)]
-        special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
-        return [motorway, special_element]
-
-    def draw(self, track_width, z_index=0, color_overwrite=None):
-        if color_overwrite is None:
-            # if self.length == 3:
-            #     track_color = track_properties_to_colors([self.track_property])
-            # else:
-            #     track_color = WHITE
-            track_color = track_properties_to_colors([self.track_property])
-        else:
-            track_color = color_overwrite
-        right1, left1, center1 = get_track_points_from_center(self.start, track_width)
-        right2, left2, center2 = get_track_points_from_center(self.end, track_width)
-        px, py = interpolate_single(left1, left2)
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
-        px, py = interpolate_single(right1, right2)
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
-        px, py = interpolate_single(center1, center2)
-        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
-        distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
-        # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
-        center_line = DashedVMobject(center_line, num_dashes=5 * self.length, positive_space_ratio=0.6)
-        return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
-
-    def get_collision_lines(self, track_width):
-        right1, left1, center1 = get_track_points_from_center(self.start, track_width)
-        right2, left2, center2 = get_track_points_from_center(self.end, track_width)
-        left_line = InterpolatedLine(*interpolate_single(left1, left2))
-        right_line = InterpolatedLine(*interpolate_single(right1, right2))
-        # if self.sub_features['center_line'] == 'solid':
-        #     center_line = InterpolatedLine(*interpolate_single(center1, center2))
-        #     return [left_line, right_line, center_line]
-
-        return [left_line, right_line]
+# class Straight(CompositeFeature):
+#     """
+#     A feature representing a straight of fixed length
+#     Geometrically, the element is represented by the left and right points of start and end
+#     start: Trackpoint(coords, direction)
+#     end: Trackpoint(coords, direction)
+#     """
+#     def __init__(self, name, coords_list, start=None, end=None, suffix=None):
+#         super().__init__(name, track_property=TrackProperties.straight, coords_list=coords_list, suffix=suffix)
+#         self.length = len(coords_list)
+#         self.start = start
+#         self.end = end
+#
+#     def scale(self, factor):
+#         self.start = TrackPoint(np.array(self.start.coords) * factor, self.start.direction)
+#         self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
+#
+#     def get_features(self):
+#         motorway = Feature(Features.zone.value, sub_features=[Feature(entry.value) for entry in Zones], mandatory=True, alternative=True)
+#         special_subs = [Feature(entry.value) for entry in Specials] + [Feature('parking', sub_features=[Feature('left'), Feature('right')], alternative=False)]
+#         special_element = Feature(Features.special.value, sub_features=special_subs, mandatory=True, alternative=True)
+#         return [motorway, special_element]
+#
+#     def draw(self, track_width, z_index=0, color_by=None):
+#         track_color = self.get_color(color_by)
+#
+#         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
+#         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
+#         px, py = interpolate_single(left1, left2)
+#         left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+#         px, py = interpolate_single(right1, right2)
+#         right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+#         px, py = interpolate_single(center1, center2)
+#         center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+#         distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
+#         # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
+#         center_line = DashedVMobject(center_line, num_dashes=5 * self.length, positive_space_ratio=0.6)
+#         return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
+#
+#     def get_collision_lines(self, track_width):
+#         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
+#         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
+#         left_line = InterpolatedLine(*interpolate_single(left1, left2))
+#         right_line = InterpolatedLine(*interpolate_single(right1, right2))
+#         # if self.sub_features['center_line'] == 'solid':
+#         #     center_line = InterpolatedLine(*interpolate_single(center1, center2))
+#         #     return [left_line, right_line, center_line]
+#
+#         return [left_line, right_line]
 
 
-if __name__ == '__main__':
-    feature = Straight('intersection', coords_list=None, start=None, end=None)
-    feature.sub_features[0].sub_features[0].value = True
-    feature.sub_features[1].sub_features[1].value = True
-    feature.sub_features[1].sub_features[3].sub_features[0].value = True
-    feature.sub_features[1].sub_features[3].sub_features[1].value = True
-    print(feature.get_selected_sub_features())
+# if __name__ == '__main__':
+    # feature = Straight('intersection', coords_list=None, start=None, end=None)
+    # feature.sub_features[0].sub_features[0].value = True
+    # feature.sub_features[1].sub_features[1].value = True
+    # feature.sub_features[1].sub_features[3].sub_features[0].value = True
+    # feature.sub_features[1].sub_features[3].sub_features[1].value = True
+    # print(feature.get_selected_sub_features())

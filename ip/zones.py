@@ -57,7 +57,7 @@ from termcolor import colored
 
 
 class ZoneProblem:
-    def __init__(self, zone_descriptions, blocked_zones, n, min_gap=1):
+    def __init__(self, zone_descriptions, blocked_zones, n, min_gap=2):
         # print("ZONE IP PROBLEM:\ndesc: {}\nblocked: {}\nn={}\ngap={}".format(zone_descriptions, blocked_zones, n, min_gap))
         self.zone_descriptions = zone_descriptions
         self.blocked_zones = blocked_zones

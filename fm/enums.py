@@ -13,16 +13,40 @@ class TLFeatures(Enum):
 
 class Features(Enum):
     line_marking = 'line marking'
+    level2 = 'level2'
+    level3 = 'level3'
     right_of_way = 'right of way'
     turn_direction = 'turn direction'
     zone = 'zone'
     special = 'special'
 
 
-class LineMarkings(Enum):
-    dashed = 'dashed'
-    solid = 'solid'
-    double_solid = 'double solid'
+class Level3(Enum):
+    missing_right = 'missing_right'
+    missing_left = 'missing_left'
+    obstacle = 'obstacle'
+
+
+class Level2(Enum):
+    zebra = 'zebra'
+    island = 'island'
+    barred_area = 'barred_area'
+
+
+class Zebra(Enum):
+    island = 'zebra_island'
+    pedestrian = 'pedestrian'
+
+
+class Pedestrian(Enum):
+    left = 'left'
+    right = 'right'
+
+
+class Offest(Enum):
+    offset1 = 'offset1'
+    offset2 = 'offset2'
+    offset3 = 'offset3'
 
 
 class RightOfWay(Enum):

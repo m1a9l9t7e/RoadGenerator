@@ -850,6 +850,19 @@ class TrackProperties(Enum):
     intersection_connector = 5
 
 
+class ZoneTypes(Enum):
+    rural_area = 1  # This is the default
+    urban_area = 2
+    no_passing = 3
+    motorway = 4  # min 10 meters
+    parking = 5  # max 20 meters
+
+
+class ZoneMisc(Enum):
+    start = 1
+    end = 2
+
+
 def track_properties_to_colors(track_properties):
     colors = []
     property_to_color = {
@@ -867,6 +880,28 @@ def track_properties_to_colors(track_properties):
     if len(colors) == 1:
         return colors[0]
     return colors
+
+
+def zones_to_color(zones):
+    color_map = {
+        ZoneTypes.motorway: BLUE_C,
+        ZoneTypes.urban_area: RED_C,
+        ZoneTypes.rural_area: WHITE,
+        ZoneTypes.no_passing: ORANGE,
+    }
+
+    if ZoneTypes.urban_area in zones:
+        return RED_C
+    elif ZoneTypes.motorway in zones:
+        return BLUE_C
+    else:
+        return WHITE
+    # if len(zones) > 0:
+    #     zone = zones[0]
+    # else:
+    #     zone = ZoneTypes.rural_area
+    #
+    # return color_map[zone]
 
 
 if __name__ == '__main__':

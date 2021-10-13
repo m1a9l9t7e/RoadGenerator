@@ -114,7 +114,7 @@ def points_in_rect(rect, rect_rotation, points):
     return in_rect
 
 
-def main(num_cars=100):
+def main(num_cars=50):
     scale = 3
 
     # 1. Get Feature Model INCLUDING ZONES
@@ -148,7 +148,8 @@ def main(num_cars=100):
 
     draw_points(collision_points, complete_collision)
 
-    plt.show()
+    # plt.show()
+    plt.savefig('collision_detection.png', dpi=500)
 
 
 if __name__ == '__main__':
