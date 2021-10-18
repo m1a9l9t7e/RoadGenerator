@@ -662,9 +662,9 @@ def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
 
-def get_solution_from_config(path, _print=True):
+def get_solution_from_config(path, _print=True, allow_gap_intersections=True):
     dimensions, quantity_constraints = parse_ip_config(path)
-    solution, _ = get_custom_solution(*dimensions, quantity_constraints=quantity_constraints, print_stats=_print)
+    solution, _ = get_custom_solution(*dimensions, quantity_constraints=quantity_constraints, print_stats=_print, allow_gap_intersections=allow_gap_intersections)
     return solution
 
 

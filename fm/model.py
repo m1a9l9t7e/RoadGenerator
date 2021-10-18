@@ -26,7 +26,7 @@ class FeatureModel:
             self.problem_dict = problem_dict
 
         # convert solution to graph
-        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift)
+        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift, scale=scale)
 
         # Extract features from ip solution
         self.features = self.get_features(self.zone_selection)
@@ -253,8 +253,8 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
     # intit sub_features of all TL features
     for idx, feature in enumerate(features):
         feature.sub_features = feature.get_features()
-        if feature.in_zone(ZoneTypes.urban_area) and (feature.track_property is None or feature.track_property == TrackProperties.straight):
-            print("hello")
+        # if feature.in_zone(ZoneTypes.urban_area) and (feature.track_property is None or feature.track_property == TrackProperties.straight):
+        #     print("hello")
         feature.apply_suffix(idx)
 
     return features

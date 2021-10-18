@@ -42,7 +42,7 @@ class Feature:
 
     def apply_suffix(self, suffix):
         self.name = "{} {}".format(self.name, suffix)
-        print(self.name)
+        # print(self.name)
         for sub_feature in self.sub_features:
             sub_feature.apply_suffix(suffix)
 

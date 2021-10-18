@@ -252,6 +252,9 @@ def get_arrow(coord1, coord2, scale=1, color=WHITE):
 
 
 def get_square(coords, size, color=WHITE, secondary_color=GREY, border_width=2):
+    # counter = int(coords[0] * 3 + coords[1])
+    # colors = [BLUE, GREEN, YELLOW_E, RED, TEAL, PURPLE, GREY_BROWN, ORANGE, DARK_GREY]
+    # color = colors[counter]
     square = Square(side_length=size)
     square.set_fill(color, opacity=1)
     square.set_stroke(secondary_color, width=border_width)
@@ -305,7 +308,7 @@ def draw_ip_solution(ip_solution, square_size, shift):
             square = get_square(coords + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc2, sc2, border_width=2 * square_size)
             squares.append(square)
 
-        captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', coords + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size])))
+        captions.append(get_text(r'$c_{' + str(x+1) + ',' + str(y+1) + '}$', coords + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size])))
 
     animation_sequence = [
         AnimationObject('add', content=squares, z_index=0),
@@ -431,8 +434,8 @@ def generate_track_points(graph_tour, track_width, z_index=None):
         right, left, center = get_track_points(coord1, coord2, track_width)
         track_points.append((right, left, center))
         track_properties.append(node2.track_property)
-        line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=GREEN))
-        line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=GREEN))
+        line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=ORANGE))
+        line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=ORANGE))
         point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
         point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
 

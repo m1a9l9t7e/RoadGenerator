@@ -22,9 +22,9 @@ class MultiGraphIP(AnimationSequenceScene):
         show_track = True
 
         width, height = (4, 4)
-        square_size = 1.5
+        square_size = 1
         graph_model = GraphModel(width, height, generate_intersections=False, sample_random=None)
-        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[16, 9])
+        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[1, 1], ratio=[6, 1])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
 
@@ -174,17 +174,18 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.2)
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/gap.txt')
+        square_size, track_width = (1, 0.266)
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/plain.txt')
         anim_fm = False
+        show_graph = True
 
         solution = get_solution_from_config(path_to_config, _print=False)
         width, height = [value+1 for value in np.shape(solution)]
         fm = FeatureModel(solution, scale=square_size)
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
-        self.play_animations(grid.get_animation_sequence())
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=1.5)
+        self.play_animations(grid.get_animation_sequence(z_index=20))
 
         anim_sequence = []
 
@@ -195,25 +196,28 @@ class FMTrack(AnimationSequenceScene):
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)
         else:
-            graph_tours = extract_graph_tours(fm.graph)
-            colored_by_properties = False
-            colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
-            for index, graph_tour in enumerate(graph_tours):
-                gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
-                if colored_by_properties:
-                    track_colors = track_properties_to_colors(track_properties)
-                else:
-                    track_colors = [colors[index] for _ in track_properties]
+            if show_graph:
+                self.play_animations(add_graph(fm.graph, z_index=25))
+            else:
+                graph_tours = extract_graph_tours(fm.graph)
+                colored_by_properties = False
+                colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
+                for index, graph_tour in enumerate(graph_tours):
+                    gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+                    if colored_by_properties:
+                        track_colors = track_properties_to_colors(track_properties)
+                    else:
+                        track_colors = [colors[index] for _ in track_properties]
 
-                interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
-                # interpolation_animation = get_interpolation_animation_continuous(points)
+                    # interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+                    interpolation_animation = get_interpolation_animation_continuous(points)
 
-                anim_sequence += [
-                    interpolation_animation,
-                ]
-                print(colored("Rendering...", 'cyan'))
-                for animations in tqdm(anim_sequence, desc="rendering"):
-                    self.play_animations(animations)
+                    anim_sequence += [
+                        interpolation_animation,
+                    ]
+                    print(colored("Rendering...", 'cyan'))
+                    for animations in tqdm(anim_sequence, desc="rendering"):
+                        self.play_animations(animations)
 
         self.wait(4)
 

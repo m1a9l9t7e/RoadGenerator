@@ -1,0 +1,4 @@
+4x4
+intersection:equals:0
+turn_90:minimum:0
+turn_180:equals:3
