@@ -271,7 +271,7 @@ def get_text(text, coords, scale=1):
     return text
 
 
-def draw_graph(graph, z_index=None):
+def draw_graph(graph, z_index=None, duration=1):
     """
     Creates manim animations for drawing a given graph.
     :returns animations
@@ -280,11 +280,11 @@ def draw_graph(graph, z_index=None):
     node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
     edge_drawables = [Create(edge.drawable) for edge in graph.edges]
     if z_index is None:
-        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, bring_to_front=True))
-        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=True))
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=duration, bring_to_front=True))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=duration, bring_to_back=True))
     else:
-        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=1, z_index=z_index+1))
-        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=1, bring_to_back=z_index))
+        animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=duration, z_index=z_index+1))
+        animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=duration, bring_to_back=z_index))
     return animation_sequence
 
 
@@ -638,6 +638,14 @@ class GridShowCase:
         cols, rows = self.grid_dimensions
         x = index % cols
         y = np.floor(index / cols)
+        bottom_left_x = x * (self.element_width + self.x_spacing)
+        bottom_left_y = y * (self.element_height + self.y_spacing)
+        return self.transform_coords((bottom_left_x, bottom_left_y))
+
+    def get_element_coords2d(self, x, y):
+        """
+        :returns position of bottom left corner of cell with given index.
+        """
         bottom_left_x = x * (self.element_width + self.x_spacing)
         bottom_left_y = y * (self.element_height + self.y_spacing)
         return self.transform_coords((bottom_left_x, bottom_left_y))

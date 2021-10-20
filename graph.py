@@ -333,6 +333,16 @@ class Graph:
                 if node.cycle_id == cycle_id1 or node.cycle_id == cycle_id2:
                     node.cycle_id = merge_id
 
+    def get_covered_nodes(self, cell):
+        """
+        returns all nodes covered by cell (x, y)
+        """
+        x, y = cell
+        covered_nodes = []
+        for _x, _y in [(0, 0), (0, 1), (1, 0), (1, 1)]:
+            covered_nodes.append(self.grid[x + _x][y + _y])
+        return covered_nodes
+
 
 class GraphSearcher:
     def __init__(self, graph):
