@@ -11,15 +11,9 @@
 	<struct>
 		<alt abstract="true" mandatory="true" name="single straight">
 			<graphics key="collapsed" value="false"/>
-			<and name="default">
-				<alt name="center markings">
-					<feature name="dashed"/>
-					<feature name="solid"/>
-					<feature name="dashed_solid"/>
-					<feature name="solid_dashed"/>
-				</alt>
-				<feature name="left markings"/>
-				<feature name="right markings"/>
+			<and name="lane markings">
+				<feature name="missing left"/>
+				<feature name="missing right"/>
 			</and>
 			<and name="zebra">
 				<alt name="pedestrian">
