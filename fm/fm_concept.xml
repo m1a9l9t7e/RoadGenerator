@@ -9,21 +9,24 @@
 		<graphics key="layoutalgorithm" value="1"/>
 	</properties>
 	<struct>
-		<alt abstract="true" mandatory="true" name="track">
+		<and abstract="true" mandatory="true" name="track">
 			<graphics key="collapsed" value="false"/>
-			<and name="element 1">
+			<and abstract="true" mandatory="true" name="element 1">
 				<graphics key="collapsed" value="false"/>
-				<feature name="option A, 1"/>
-				<feature name="option B, 1"/>
-				<feature name="option C, 1"/>
+				<and abstract="true" name="lane markings 1">
+					<feature name="missing left 1"/>
+					<feature name="missing right 1"/>
+				</and>
 			</and>
-			<feature name="..."/>
-			<and name="element n">
+			<feature abstract="true" mandatory="true" name="..."/>
+			<and abstract="true" mandatory="true" name="element n">
 				<graphics key="collapsed" value="false"/>
-				<feature name="option A, n"/>
-				<feature name="option B, n"/>
-				<feature name="option C, n"/>
+				<and abstract="true" name="lane markings n">
+					<graphics key="collapsed" value="false"/>
+					<feature name="missing left n"/>
+					<feature name="missing right n"/>
+				</and>
 			</and>
-		</alt>
+		</and>
 	</struct>
 </extendedFeatureModel>
