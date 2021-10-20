@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extendedFeatureModel>
+	<properties>
+		<graphics key="legendautolayout" value="true"/>
+		<graphics key="showshortnames" value="false"/>
+		<graphics key="layout" value="horizontal"/>
+		<graphics key="showcollapsedconstraints" value="true"/>
+		<graphics key="legendhidden" value="false"/>
+		<graphics key="layoutalgorithm" value="1"/>
+	</properties>
+	<struct>
+		<alt abstract="true" mandatory="true" name="single straight">
+			<graphics key="collapsed" value="false"/>
+			<and name="default">
+				<alt name="center markings">
+					<feature name="dashed"/>
+					<feature name="solid"/>
+					<feature name="dashed_solid"/>
+					<feature name="solid_dashed"/>
+				</alt>
+				<feature name="left markings"/>
+				<feature name="right markings"/>
+			</and>
+			<and name="zebra">
+				<alt name="pedestrian">
+					<feature name="left"/>
+					<feature name="right"/>
+				</alt>
+				<feature name="zebra island"/>
+			</and>
+			<feature name="island"/>
+			<and name="obstacle">
+				<alt name="offset">
+					<feature name="offset1"/>
+					<feature name="offset2"/>
+					<feature name="offset3"/>
+				</alt>
+			</and>
+			<and name="barred area">
+				<feature name="dynamic obstacle"/>
+				<alt name="length">
+					<feature name="length1"/>
+					<feature name="length2"/>
+					<feature name="length3"/>
+				</alt>
+			</and>
+		</alt>
+	</struct>
+</extendedFeatureModel>
