@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extendedFeatureModel>
+	<properties>
+		<graphics key="legendautolayout" value="true"/>
+		<graphics key="showshortnames" value="false"/>
+		<graphics key="layout" value="horizontal"/>
+		<graphics key="showcollapsedconstraints" value="true"/>
+		<graphics key="legendhidden" value="false"/>
+		<graphics key="layoutalgorithm" value="1"/>
+	</properties>
+	<struct>
+		<alt abstract="true" mandatory="true" name="track">
+			<graphics key="collapsed" value="false"/>
+			<and name="element 1">
+				<graphics key="collapsed" value="false"/>
+				<feature name="option A, 1"/>
+				<feature name="option B, 1"/>
+				<feature name="option C, 1"/>
+			</and>
+			<feature name="..."/>
+			<and name="element n">
+				<graphics key="collapsed" value="false"/>
+				<feature name="option A, n"/>
+				<feature name="option B, n"/>
+				<feature name="option C, n"/>
+			</and>
+		</alt>
+	</struct>
+</extendedFeatureModel>
