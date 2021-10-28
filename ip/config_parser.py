@@ -1,8 +1,7 @@
 import json
 from pprint import pprint
-
+from argparse import Namespace
 import numpy as np
-
 from ip.ip_util import QuantityConstraint, ConditionTypes
 from util import TrackProperties
 
@@ -24,7 +23,7 @@ class Config:
         layout = parse_layout(config_dict.get('layout'))
         zones = parse_zones(config_dict.get('zones'))
         features = parse_features(config_dict.get('features'))
-        pprint(layout)
+        print(layout.solution)
 
 
 def parse_layout(layout_dict):
@@ -66,7 +65,8 @@ def parse_layout(layout_dict):
         solution = np.array(layout_dict['solution'])
     layout_dict['solution'] = solution
 
-    return layout_dict
+    # pprint(layout_dict)
+    return Namespace(**layout_dict)
 
 
 def parse_zones(layout_dict):
