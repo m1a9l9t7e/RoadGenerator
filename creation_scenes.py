@@ -230,6 +230,7 @@ class FMTrackZones(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.2)
         anim_fm = True
+        color_zone_start_end = True
         path_to_config = os.path.join(os.getcwd(), 'ip/configs/cc20.txt')
 
         zone_descriptions = [
@@ -241,7 +242,6 @@ class FMTrackZones(AnimationSequenceScene):
         solution, zone_selection, start_index = get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections=True)
 
         fm = FeatureModel(solution, zone_selection, scale=1)
-        # fm = FeatureModel(solution, scale=1)
         width, height = [value + 1 for value in np.shape(solution)]
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
@@ -252,7 +252,14 @@ class FMTrackZones(AnimationSequenceScene):
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
-                animation = feature.draw(track_width=track_width, color_by='zone')
+                zone_start, zone_type = feature.is_zone_start()
+                zone_end, zone_type = feature.is_zone_end()
+                if zone_start and color_zone_start_end:
+                    animation = feature.draw(track_width=track_width, color_by=GREEN)
+                elif zone_end and color_zone_start_end:
+                    animation = feature.draw(track_width=track_width, color_by=RED)
+                else:
+                    animation = feature.draw(track_width=track_width, color_by='zone')
                 if animation is not None:
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)
@@ -307,19 +314,6 @@ class FMTrackZonesDebug(AnimationSequenceScene):
 
         anim_sequence = []
 
-        # for index, feature in enumerate(fm.features):
-        #     # if index > 5:
-        #     #     continue
-        #     zone_start, zone_type = feature.is_zone_start()
-        #     if zone_start:
-        #         animation = feature.draw(track_width=track_width, color_by=ORANGE)
-        #     else:
-        #         animation = feature.draw(track_width=track_width, color_by='zone')
-        #     # animation = feature.draw(track_width=track_width, color_by='track_property')
-        #     if animation is not None:
-        #         anim_sequence.append(animation)
-
-        ## TODO -->
         features = fm.features
         start_feature = features[0]
         feature = start_feature
@@ -358,7 +352,6 @@ class FMTrackZonesDebug(AnimationSequenceScene):
             if zone_end and zone_type is not ZoneTypes.parking:
                 print("{} end: {}".format(counter, zone_type))
             counter += 1
-        ## TODO <--
 
         self.play_animations(anim_sequence)
         self.wait(4)
