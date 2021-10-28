@@ -31,6 +31,7 @@ class Level2(Enum):
     zebra = 'zebra'
     island = 'island'
     barred_area = 'barred_area'
+    parking = 'parking'
 
 
 class Zebra(Enum):

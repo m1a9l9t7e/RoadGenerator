@@ -675,16 +675,25 @@ class ZoneDescription:
         self.max_length = max_length
 
 
-def get_zone_solution(path_to_config, zone_descriptions):
+def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections=False):
+    """
+    Calcualte Zone Assignment in 3 Steps:
+    1. Determine Start: The Start is set at the first parking zone. Parking zones are placed at matching straights.
+       If there is no parking zone, the start is at node (0, 0). Describe Placement of Zones by indices. Index 0 is always at the start.
+    2. Assign Expressway zones to remaining straights.
+    3. Solve IP Problem for placement of urban and no passing.
+    4. Shift indices so that description starts at (0, 0)! (This needs to be done so that zone descriptions match with indicees of graph tour)
+    """
     dimensions, constraints = parse_ip_config(path_to_config)
 
     # change quantity constraints to accomodate parking and motorway
     new_constraints = constraints
 
     # solve problem with new constraints
-    ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True, allow_gap_intersections=False)
+    ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True, allow_gap_intersections=allow_gap_intersections)
     graph = convert_solution_to_graph(ip_solution, problem_dict)
     graph_tour = extract_graph_tours(graph)[0]
+    description_length = len(graph_tour.get_nodes())
     straight_zones = find_straight_zones(graph_tour)
 
     # decide which straights become parking/motorway
@@ -693,63 +702,79 @@ def get_zone_solution(path_to_config, zone_descriptions):
         straight_tuples += [(key, start, end) for (start, end) in straight_zones[key]]
 
     # shuffle straight tuples for more balanced selection?
-    blocked = []
-    for zone_description in filter_zones(zone_descriptions, ZoneTypes.motorway):
+    parking = []
+    for zone_description in filter_zones(zone_descriptions, ZoneTypes.parking):
         for index, straight_tuple in enumerate(straight_tuples):
             (length, start, end) = straight_tuple
             if zone_description.min_length <= length <= zone_description.max_length:
-                blocked.append((start, end))
+                parking.append((start, end))
                 straight_tuples.remove(straight_tuple)
                 break
+
+    # shuffle straight tuples for more balanced selection?
+    express_way = []
+    for zone_description in filter_zones(zone_descriptions, ZoneTypes.express_way):
+        for index, straight_tuple in enumerate(straight_tuples):
+            (length, start, end) = straight_tuple
+            if zone_description.min_length <= length <= zone_description.max_length:
+                express_way.append((start, end))
+                straight_tuples.remove(straight_tuple)
+                break
+
+    blocked = parking + express_way
+    # SET START TO FIRST PARKING ZONE AND SHIFT DESCRIPTION INDICEES
+    if len(parking) == 0:
+        start_index = 0
+    else:
+        start_index = parking[0][0]
+        shifted = []
+        for (start, end) in blocked:
+            shifted.append(((start - start_index) % description_length, (end - start_index) % description_length))
+        blocked = shifted
+
+    # TODO -->
+    # parking = [((start - start_index) % description_length, (end - start_index) % description_length) for (start, end) in parking]
+    # TODO <--
 
     # Solve Zone Problem to place urban areas
     urban_area_descriptions = []
     for zone_description in filter_zones(zone_descriptions, ZoneTypes.urban_area):
         urban_area_descriptions.append((zone_description.min_length, zone_description.max_length))
+    # Also add no-passing descriptions
+    for zone_description in filter_zones(zone_descriptions, ZoneTypes.no_passing):
+        urban_area_descriptions.append((zone_description.min_length, zone_description.max_length))
 
-    p = ZoneProblem(zone_descriptions=urban_area_descriptions, blocked_zones=blocked, n=len(graph_tour.get_nodes()))
+    p = ZoneProblem(zone_descriptions=urban_area_descriptions, blocked_zones=blocked, n=description_length)
     solution, status = p.solve()
     if status > 0:
-        # p.show_solution()
-        urban_areas = [(int(start), int(end)) for (start, end) in solution]
+        # solution = [(int(start), int(end)) for (start, end) in solution]
+        solution = [(int(start), int(end)) for (start, end) in solution]
+        solution = [((start + start_index) % description_length, (end + start_index) % description_length) for (start, end) in solution]
+
+        p.show_solution()
+        description_idx_to_zone_idx = p.get_solution_dict()
+
+        urban_zones = []
+        for description_idx, description in enumerate(filter_zones(zone_descriptions, ZoneTypes.urban_area)):
+            urban_zone = solution[description_idx_to_zone_idx[description_idx]]
+            urban_zones.append(urban_zone)
+        no_passing_zones = []
+        for description_idx, description in enumerate(filter_zones(zone_descriptions, ZoneTypes.no_passing)):
+            description_idx += len(filter_zones(zone_descriptions, ZoneTypes.urban_area))
+            no_passing_zone = solution[description_idx_to_zone_idx[description_idx]]
+            no_passing_zones.append(no_passing_zone)
     else:
-        print("Selected Zones infeasible for Solution")
-        return
+        print(colored("Selected Zones infeasible for Solution", 'red'))
+        sys.exit(0)
 
-    # Place no-passing zones
-    no_passing = []
-
-    blocked_indices = []
-    for (start, end) in blocked + urban_areas:
-        blocked_indices += [start, end]
-
-    continue_outer = False
-    no_passing_descriptions = filter_zones(zone_descriptions, ZoneTypes.no_passing)
-    for i in range(len(graph_tour.get_nodes())):
-        if i not in blocked_indices:
-            for description in no_passing_descriptions:
-                for length in range(description.min_length, description.max_length + 1, 1):
-                    if i + length not in blocked_indices:
-                        # print("Spot for new no passing zone found!")
-                        # print("Blocked indices: {}".format(blocked_indices))
-                        # print("Zone Description: {}-{}".format(i, i+length))
-                        # print("New blocked indices: {}".format([i + j for j in range(length+1)]))
-                        no_passing.append((i, i+length))
-                        blocked_indices += [i + j for j in range(length+1)]
-                        no_passing_descriptions.remove(description)
-                        continue_outer = True
-                        break
-                if continue_outer:
-                    continue_outer = False
-                    break
-
-    print("Selected Zones:\nMotorways: {}\nUrban Areas: {}\nNo Passing: {}".format(colored(blocked, 'blue'), colored(urban_areas, 'yellow'), colored(no_passing, 'red')))
+    print("Selected Zones:\nParking: {}\nExpressways: {}\nUrban Areas: {}\nNo Passing: {}".format(colored(parking, 'cyan'), colored(express_way, 'blue'), colored(urban_zones, 'yellow'), colored(no_passing_zones, 'red')))
     zone_selection = {
-        ZoneTypes.motorway: blocked,
-        ZoneTypes.urban_area: urban_areas,
-        ZoneTypes.no_passing: no_passing
+        ZoneTypes.parking: parking,
+        ZoneTypes.express_way: express_way,
+        ZoneTypes.urban_area: urban_zones,
+        ZoneTypes.no_passing: no_passing_zones
     }
-    return ip_solution, zone_selection
+    return ip_solution, zone_selection, start_index
 
 
 def filter_zones(zone_desriptions, zone_type):
@@ -774,9 +799,9 @@ def find_straight_zones(graph_tour):
                 counter_end = index - 1
                 length = counter_end - counter_start + 1
                 if length in straight_zones.keys():
-                    straight_zones[length].append((counter_start, counter_end))
+                    straight_zones[length].append((counter_start-1, counter_end-1))
                 else:
-                    straight_zones[length] = [(counter_start, counter_end)]
+                    straight_zones[length] = [(counter_start-1, counter_end-1)]
             counter = 0
 
     return straight_zones
@@ -794,7 +819,14 @@ def get_zones_at_index(graph_tour_index, zone_selection):
     start_or_end = None
     for zone_type in zone_selection.keys():
         for (start, end) in zone_selection[zone_type]:
-            if start <= graph_tour_index <= end:
+            in_zone = False
+            if start > end:  # if zone description rolls over
+                if start <= graph_tour_index or graph_tour_index <= end:
+                    in_zone = True
+            else:
+                if start <= graph_tour_index <= end:
+                    in_zone = True
+            if in_zone:
                 zones.append(zone_type)
                 if start == graph_tour_index:
                     start_or_end = (ZoneMisc.start, zone_type)
@@ -806,10 +838,10 @@ def get_zones_at_index(graph_tour_index, zone_selection):
 
 if __name__ == '__main__':
     # GraphModel(6, 6, generate_intersections=True, allow_gap_intersections=True, allow_adjacent_intersections=False, intersections_ip=False)
-    _solution, _zone_selection = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
-                                                 zone_descriptions=[
-                                                     ZoneDescription(ZoneTypes.motorway, min_length=3, max_length=4),
-                                                     ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
-                                                     ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
-                                                     ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
-                                                 ])
+    _solution, _zone_selection, _start_index = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
+                                                                 zone_descriptions=[
+                                                                     ZoneDescription(ZoneTypes.express_way, min_length=3, max_length=4),
+                                                                     ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
+                                                                     ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
+                                                                     ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+                                                                 ])

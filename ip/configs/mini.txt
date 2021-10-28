@@ -1,5 +1,5 @@
 4x4
-intersection:equals:1
+intersection:equals:2
 turn_90:minimum:1
 turn_180:minimum:0
-straight_2:minimum:2
+straight_2:minimum:1

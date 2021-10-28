@@ -174,17 +174,20 @@ class CustomTrack(AnimationSequenceScene):
 
 class FMTrack(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.266)
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/plain.txt')
-        anim_fm = False
-        show_graph = True
+        # square_size, track_width = (1, 0.266)
+        square_size, track_width = (1, 0.2)
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/cc20.txt')
+        # path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini.txt')
+        anim_fm = True
+        show_graph = False
 
         solution = get_solution_from_config(path_to_config, _print=False)
         width, height = [value+1 for value in np.shape(solution)]
         fm = FeatureModel(solution, scale=square_size)
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=1.5)
+        # grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=2)
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
         self.play_animations(grid.get_animation_sequence(z_index=20))
 
         anim_sequence = []
@@ -198,6 +201,7 @@ class FMTrack(AnimationSequenceScene):
         else:
             if show_graph:
                 self.play_animations(add_graph(fm.graph, z_index=25))
+                # self.play_animations(add_graph(Graph(width=width, height=height), z_index=25))
             else:
                 graph_tours = extract_graph_tours(fm.graph)
                 colored_by_properties = False
@@ -226,19 +230,18 @@ class FMTrackZones(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.2)
         anim_fm = True
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/demo.txt')
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/cc20.txt')
 
         zone_descriptions = [
-            ZoneDescription(ZoneTypes.motorway, min_length=3, max_length=4),
-            # ZoneDescription(ZoneTypes.motorway, min_length=4, max_length=4),
-            ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
-            # ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
-            # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
-            # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
-            # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+            ZoneDescription(ZoneTypes.parking, min_length=6, max_length=6),
+            ZoneDescription(ZoneTypes.urban_area, min_length=10, max_length=10),
+            ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
         ]
-        solution, zone_selection = get_zone_solution(path_to_config, zone_descriptions)
+
+        solution, zone_selection, start_index = get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections=True)
+
         fm = FeatureModel(solution, zone_selection, scale=1)
+        # fm = FeatureModel(solution, scale=1)
         width, height = [value + 1 for value in np.shape(solution)]
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
@@ -274,6 +277,90 @@ class FMTrackZones(AnimationSequenceScene):
                 for animations in tqdm(anim_sequence, desc="rendering"):
                     self.play_animations(animations)
 
+        fm._scale(2)
+        fm.save('/home/malte/PycharmProjects/circuit-creator/fm/fm.pkl')
+        self.wait(4)
+
+
+class FMTrackZonesDebug(AnimationSequenceScene):
+    def construct(self):
+        square_size, track_width = (1, 0.2)
+        anim_fm = True
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/mini.txt')
+
+        zone_descriptions = [
+            ZoneDescription(ZoneTypes.express_way, min_length=2, max_length=2),
+            ZoneDescription(ZoneTypes.urban_area, min_length=5, max_length=5),
+            # ZoneDescription(ZoneTypes.no_passing, min_length=2, max_length=2),
+            ZoneDescription(ZoneTypes.no_passing, min_length=3, max_length=3),
+        ]
+
+        solution, zone_selection, start_index = get_zone_solution(path_to_config, zone_descriptions)
+
+        fm = FeatureModel(solution, zone_selection, scale=1)
+        # fm = FeatureModel(solution, scale=1)
+        width, height = [value + 1 for value in np.shape(solution)]
+
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        self.play_animations(grid.get_animation_sequence())
+
+        anim_sequence = []
+
+        # for index, feature in enumerate(fm.features):
+        #     # if index > 5:
+        #     #     continue
+        #     zone_start, zone_type = feature.is_zone_start()
+        #     if zone_start:
+        #         animation = feature.draw(track_width=track_width, color_by=ORANGE)
+        #     else:
+        #         animation = feature.draw(track_width=track_width, color_by='zone')
+        #     # animation = feature.draw(track_width=track_width, color_by='track_property')
+        #     if animation is not None:
+        #         anim_sequence.append(animation)
+
+        ## TODO -->
+        features = fm.features
+        start_feature = features[0]
+        feature = start_feature
+        visited_intersections = []
+        counter = 0
+        while feature is not start_feature or counter == 0:
+            # if counter > 5:
+            #     break
+
+            zone_start, zone_type = feature.is_zone_start()
+            zone_end, zone_type = feature.is_zone_end()
+
+            if zone_start:
+                print("{} start: {}".format(counter, zone_type))
+
+            # intersections
+            if feature.track_property is TrackProperties.intersection:
+                if feature not in visited_intersections:
+                    animation = feature.draw(track_width=track_width, color_by='zone')
+                    anim_sequence.append(animation)
+                    index = 0
+                    visited_intersections.append(feature)
+                    feature = feature.successor[index]
+                else:
+                    feature = feature.successor[(index + 1) % 2]
+            else:
+                if zone_start:
+                    animation = feature.draw(track_width=track_width, color_by=GREEN)
+                elif zone_end:
+                    animation = feature.draw(track_width=track_width, color_by=RED)
+                else:
+                    animation = feature.draw(track_width=track_width, color_by='zone')
+                anim_sequence.append(animation)
+                feature = feature.successor[0]
+
+            if zone_end and zone_type is not ZoneTypes.parking:
+                print("{} end: {}".format(counter, zone_type))
+            counter += 1
+        ## TODO <--
+
+        self.play_animations(anim_sequence)
         self.wait(4)
 
 
@@ -363,6 +450,6 @@ class MultiGraphFM(AnimationSequenceScene):
 
 
 if __name__ == '__main__':
-    # scene = FMTrack()
-    scene = MultiGraphFM()
+    # scene = MultiGraphFM()
+    scene = FMTrackZones()
     scene.construct()

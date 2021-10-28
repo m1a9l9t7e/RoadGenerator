@@ -93,7 +93,8 @@ def get_next_node(node, previous_node=None):
     if node.get_degree() != 2:
         raise ValueError("Graph not 2 factorized!")
 
-    node1, node2 = node.adjacent_nodes
+    # node1, node2 = node.adjacent_nodes
+    node2, node1 = node.adjacent_nodes
 
     if previous_node is None or previous_node == node2:
         return node1
@@ -865,7 +866,7 @@ class ZoneTypes(Enum):
     rural_area = 1  # This is the default
     urban_area = 2
     no_passing = 3
-    motorway = 4  # min 10 meters
+    express_way = 4  # min 10 meters
     parking = 5  # max 20 meters
 
 
@@ -895,16 +896,18 @@ def track_properties_to_colors(track_properties):
 
 def zones_to_color(zones):
     color_map = {
-        ZoneTypes.motorway: BLUE_C,
-        ZoneTypes.urban_area: RED_C,
+        ZoneTypes.express_way: BLUE_C,
+        ZoneTypes.urban_area: PURPLE,
         ZoneTypes.rural_area: WHITE,
-        ZoneTypes.no_passing: ORANGE,
+        ZoneTypes.no_passing: GREY,
     }
 
     if ZoneTypes.urban_area in zones:
-        return RED_C
-    elif ZoneTypes.motorway in zones:
+        return ORANGE
+    elif ZoneTypes.express_way in zones:
         return BLUE_C
+    elif ZoneTypes.parking in zones:
+        return TEAL_B
     else:
         return WHITE
     # if len(zones) > 0:

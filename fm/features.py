@@ -235,11 +235,13 @@ class StraightStreet(BasicFeature):
         if self.in_zone(ZoneTypes.urban_area):
             self.alternative = True
             level2 = [Feature(entry.value) for entry in Level2]
-            level3 = super().get_features()
-            return level3 + level2
-        elif self.in_zone(ZoneTypes.motorway):
+            # level3 = super().get_features()
+            return level2  # + level3
+        elif self.in_zone(ZoneTypes.express_way) or self.in_zone(ZoneTypes.no_passing):
             # No obstacles on motorway!
             return [Feature(Features.level3.value, sub_features=[Feature(entry) for entry in [Level3.missing_left.value, Level3.missing_right.value]], mandatory=False, alternative=False)]
+        elif self.in_zone(ZoneTypes.parking):
+            return [Feature('parking')]
         else:
             return super().get_features()
 

@@ -42,7 +42,9 @@ class FeatureModel:
 
     def get_features(self, zone_selection=None):
         intersection_features, intersection_callback = get_intersection_features(self.ip_solution)
-        # straight_features, coordinates_to_straights = get_straight_features(self.ip_solution, self.problem_dict)
+        for index, feature in enumerate(intersection_features):
+            feature.sub_features = feature.get_features()
+            feature.apply_suffix("i{}".format(index))
 
         basic_features = []
         for graph_tour in extract_graph_tours(self.graph):
@@ -245,7 +247,8 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
         feature.add_predecessor(prev_feature)
 
     # add zone attributes to features
-    for index, feature in enumerate(features[::-1]):
+    # for index, feature in enumerate(features[::-1]):
+    for index, feature in enumerate(features):
         feature.zones, feature.start_or_end = get_zones_at_index(index, zone_selection)
         # if feature.start_or_end is not None:
         #     print("{}: {}".format(index, feature.start_or_end))
@@ -381,23 +384,28 @@ def print_features(fm):
 
 
 if __name__ == '__main__':
-    path_to_config = os.path.join(os.getcwd(), '../ip/configs/demo.txt')
-    # _solution = get_solution_from_config(path_to_config, _print=False)
+    path_to_config = os.path.join('/home/malte/PycharmProjects/circuit-creator/ip/configs/mini.txt')
+
     zone_descriptions = [
-        ZoneDescription(ZoneTypes.motorway, min_length=3, max_length=4),
-        ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
-        # ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
-        # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
-        # ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+        ZoneDescription(ZoneTypes.express_way, min_length=2, max_length=2),
+        ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
+        ZoneDescription(ZoneTypes.no_passing, min_length=3, max_length=6),
     ]
-    _solution, _zone_selection = get_zone_solution(path_to_config, zone_descriptions)
-    fm = FeatureModel(_solution, _zone_selection, scale=3)
-    fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00003.config')
+
+    solution, zone_selection, start_index = get_zone_solution(path_to_config, zone_descriptions)
+    fm = FeatureModel(solution, zone_selection, scale=1.75)
+
+    try:
+        fm.load_config('/home/malte/PycharmProjects/circuit-creator/fm/00002.config')
+    except:
+        print("Given config does not match model")
+
     for feature in fm.features:
         print(colored("=====================", 'cyan'))
         print("{}, {}".format(feature.track_property, feature.zones))
-        # print(feature)
+        print(feature)
         print(feature.get_selected_sub_features())
-    print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
+
+    # print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
     fm.export('fm.xml')
     fm.save('fm.pkl')

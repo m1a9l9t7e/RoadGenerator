@@ -57,7 +57,7 @@ from termcolor import colored
 
 
 class ZoneProblem:
-    def __init__(self, zone_descriptions, blocked_zones, n, min_gap=2):
+    def __init__(self, zone_descriptions, blocked_zones, n, min_gap=1):
         # print("ZONE IP PROBLEM:\ndesc: {}\nblocked: {}\nn={}\ngap={}".format(zone_descriptions, blocked_zones, n, min_gap))
         self.zone_descriptions = zone_descriptions
         self.blocked_zones = blocked_zones
@@ -195,6 +195,17 @@ class ZoneProblem:
             # Each Zone must fullfil a single requirement
             self.problem += sum(requirements_i) == 1
 
+    def get_solution_dict(self):
+        description_index_to_zone_index = dict()
+        for i, (start, end) in enumerate(self.zone_pointers):
+            requirements_i = []
+            for j, (mic, mac, r) in enumerate(self.zone_requirements[i]):
+                if value(r) > 0:
+                    description_index_to_zone_index[j] = i
+                requirements_i.append(r)
+
+        return description_index_to_zone_index
+
     def solve(self, _print=False):
         try:
             with Capturing() as output:
@@ -211,7 +222,7 @@ class ZoneProblem:
 
 
 if __name__ == '__main__':
-    p = ZoneProblem(zone_descriptions=[(2, 4), (5, 5), (4, 10)], blocked_zones=[(0, 4), (10, 13)], n=30)
+    p = ZoneProblem(zone_descriptions=[(2, 4), (2, 2)], blocked_zones=[(0, 4), (10, 13)], n=30)
     _start = time.time()
     solution, status = p.solve()
     _end = time.time()
