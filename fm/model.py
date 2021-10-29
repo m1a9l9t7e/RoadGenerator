@@ -1,12 +1,9 @@
 import os
 import pickle
-import sys
-import time
-
 from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config, get_zone_solution, ZoneDescription, \
-    get_zones_at_index
+    get_zones_at_index, calculate_problem_dict
 from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d, ZoneTypes
 from fm.features import Intersection, StraightStreet, CurvedStreet, Feature, IntersectionConnector  # , Straight
 import xml.etree.ElementTree as ET
@@ -336,19 +333,6 @@ def get_intersection_features(ip_solution):
 #                     for i in range(straight_length):
 #                         coordinates_to_feature[(x + 1, y + i)] = feature
 #     return features, coordinates_to_feature
-
-
-def calculate_problem_dict(ip_solution, print_stats=True, print_time=False):
-    """
-    Recreate solution with quantity constraints enabled to gather problem dict
-    """
-    start = time.time()
-    _, problem_dict = get_imitation_solution(ip_solution, print_stats=print_stats)
-    end = time.time()
-    if print_time:
-        print(colored("Imitation calculated in {:.2f}s".format(end - start), "green"))
-    return problem_dict
-
 
 def make_concrete_track():
     quantitiy_constraints = [

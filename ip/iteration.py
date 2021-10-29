@@ -2,6 +2,7 @@ import random
 import sys
 import time
 from tqdm import tqdm
+
 from graph import Graph, GraphSearcher
 from ip.ip_util import get_intersect_matrix, QuantityConstraint, ConditionTypes, get_grid_indices, list_grid_as_str, QuantityConstraintStraight, parse_ip_config, SolutionEntries
 from ip.problem import Problem, IntersectionProblem
@@ -630,7 +631,7 @@ def get_custom_solution(width, height, quantity_constraints=[], iteration_constr
                       allow_gap_intersections=allow_gap_intersections)
     solution, status = problem.solve(_print=False, print_zeros=False)
     end = time.time()
-    print(colored("Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
+    print(colored("Layout Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
     if status <= 0:
         sys.exit(0)
 
@@ -658,6 +659,18 @@ def get_imitation_solution(original_solution, print_stats=False):
     return solution, problem.export_variables()
 
 
+def calculate_problem_dict(ip_solution, print_stats=False, print_time=False):
+    """
+    Recreate solution with quantity constraints enabled to gather problem dict
+    """
+    start = time.time()
+    _, problem_dict = get_imitation_solution(ip_solution, print_stats=print_stats)
+    end = time.time()
+    if print_time:
+        print(colored("Imitation calculated in {:.2f}s".format(end - start), "green"))
+    return problem_dict
+
+
 def get_problem(graph_width, graph_height):
     return Problem(graph_width - 1, graph_height - 1)
 
@@ -674,8 +687,23 @@ class ZoneDescription:
         self.min_length = min_length
         self.max_length = max_length
 
+    def __str__(self):
+        return "{}: ({}, {})".format(self.zone_type, self.min_length, self.max_length)
+
 
 def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections=False):
+    dimensions, constraints = parse_ip_config(path_to_config)
+
+    # change quantity constraints to accomodate parking and motorway
+    new_constraints = constraints
+
+    # solve problem with new constraints
+    ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True, allow_gap_intersections=allow_gap_intersections)
+    zone_selection, start_index = get_zone_assignment(ip_solution, zone_descriptions, problem_dict)
+    return ip_solution, zone_selection, start_index
+
+
+def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _print=False):
     """
     Calcualte Zone Assignment in 3 Steps:
     1. Determine Start: The Start is set at the first parking zone. Parking zones are placed at matching straights.
@@ -684,13 +712,9 @@ def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections
     3. Solve IP Problem for placement of urban and no passing.
     4. Shift indices so that description starts at (0, 0)! (This needs to be done so that zone descriptions match with indicees of graph tour)
     """
-    dimensions, constraints = parse_ip_config(path_to_config)
+    if problem_dict is None:
+        problem_dict = calculate_problem_dict(ip_solution)
 
-    # change quantity constraints to accomodate parking and motorway
-    new_constraints = constraints
-
-    # solve problem with new constraints
-    ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=new_constraints, print_stats=True, allow_gap_intersections=allow_gap_intersections)
     graph = convert_solution_to_graph(ip_solution, problem_dict)
     graph_tour = extract_graph_tours(graph)[0]
     description_length = len(graph_tour.get_nodes())
@@ -732,10 +756,6 @@ def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections
             shifted.append(((start - start_index) % description_length, (end - start_index) % description_length))
         blocked = shifted
 
-    # TODO -->
-    # parking = [((start - start_index) % description_length, (end - start_index) % description_length) for (start, end) in parking]
-    # TODO <--
-
     # Solve Zone Problem to place urban areas
     urban_area_descriptions = []
     for zone_description in filter_zones(zone_descriptions, ZoneTypes.urban_area):
@@ -745,13 +765,19 @@ def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections
         urban_area_descriptions.append((zone_description.min_length, zone_description.max_length))
 
     p = ZoneProblem(zone_descriptions=urban_area_descriptions, blocked_zones=blocked, n=description_length)
+
+    start = time.time()
     solution, status = p.solve()
+    end = time.time()
+    print(colored("Zone Solution {}, Time elapsed: {:.2f}s".format('optimal' if status > 1 else 'infeasible', end - start), "green" if status > 1 else "red"))
+
     if status > 0:
         # solution = [(int(start), int(end)) for (start, end) in solution]
         solution = [(int(start), int(end)) for (start, end) in solution]
         solution = [((start + start_index) % description_length, (end + start_index) % description_length) for (start, end) in solution]
 
-        p.show_solution()
+        if _print:
+            p.show_solution()
         description_idx_to_zone_idx = p.get_solution_dict()
 
         urban_zones = []
@@ -767,14 +793,14 @@ def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections
         print(colored("Selected Zones infeasible for Solution", 'red'))
         sys.exit(0)
 
-    print("Selected Zones:\nParking: {}\nExpressways: {}\nUrban Areas: {}\nNo Passing: {}".format(colored(parking, 'cyan'), colored(express_way, 'blue'), colored(urban_zones, 'yellow'), colored(no_passing_zones, 'red')))
+    print("Zone Assignment: Parking: {}, Expressways: {}, Urban Areas: {}, No Passing: {}".format(colored(parking, 'cyan'), colored(express_way, 'blue'), colored(urban_zones, 'yellow'), colored(no_passing_zones, 'red')))
     zone_selection = {
         ZoneTypes.parking: parking,
         ZoneTypes.express_way: express_way,
         ZoneTypes.urban_area: urban_zones,
         ZoneTypes.no_passing: no_passing_zones
     }
-    return ip_solution, zone_selection, start_index
+    return zone_selection, start_index
 
 
 def filter_zones(zone_desriptions, zone_type):

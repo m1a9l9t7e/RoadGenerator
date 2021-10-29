@@ -159,11 +159,37 @@ class QuantityConstraint:
         elif self.condition_type == ConditionTypes.equals:
             return sum(variables) == self.quantity
 
+    def __str__(self):
+        operator = ''
+        if self.condition_type == ConditionTypes.less_or_equals:
+            operator = '<='
+        elif self.condition_type == ConditionTypes.more_or_equals:
+            operator = '>='
+        elif self.condition_type == ConditionTypes.equals:
+            operator = '=='
+
+        return "Quantity Constraint: {} {} {}".format(self.property_type, operator, self.quantity)
+
 
 class QuantityConstraintStraight(QuantityConstraint):
     def __init__(self, property_type, condition_type, length, quantity):
         super().__init__(property_type, condition_type, quantity)
         self.length = length
+
+    def __str__(self):
+        operator = ''
+        if self.condition_type == ConditionTypes.less_or_equals:
+            operator = '<='
+        elif self.condition_type == ConditionTypes.more_or_equals:
+            operator = '>='
+        elif self.condition_type == ConditionTypes.equals:
+            operator = '=='
+
+        name = str(self.property_type)[len('TrackProperties.'):]
+        if self.length is not None:
+            name += str(self.length)
+
+        return "Quantity Constraint: {} {} {}".format(name, operator, self.quantity)
 
 
 def parse_ip_config(path):
