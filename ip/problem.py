@@ -511,6 +511,42 @@ class Problem:
             positive_cells = [self.node_grid[x][y] for (x, y) in solution]
             self.problem += sum(positive_cells) <= self.get_n() - 1
 
+    def add_prohibition_constraints_with_intersections(self, cell_solutions, intersection_solutions):
+        """
+        Add constraints prohibiting known solutions.
+        Takes two params: lists of equal size and matching contents
+        :param cell_solutions: A list of solutions. A single solution is a list of tuples (x, y) where the corresponding cell is 1
+        :param intersection_solutions: A list of solutions. A single solution is a list of tuples (x, y) where the corresponding intersection is 1
+        """
+        for index, cell_solution in enumerate(cell_solutions):
+            intersection_solution = intersection_solutions[index]
+            positive_cells = [self.node_grid[x][y] for (x, y) in cell_solution]
+            positive_intersections = [self.node_grid_intersections[x][y] for (x, y) in intersection_solution]
+
+            # meta_var1: 1 if cell solution is identical, 0 else
+            cells_identical = LpVariable("meta_var1_{}".format(index), cat=const.LpBinary)
+            # --> Forward: if cells not identical => 0
+            self.problem += cells_identical <= sum(positive_cells) / self.get_n()
+            # --> Backward: 0 => cells not identical (if cells_identical == 0, then sum(positve cells must be <= n-1!)
+            self.problem += sum(positive_cells) <= self.get_n() - 1 + cells_identical
+
+            # meta_var2: 1 if intersection solution is identical, 0 else
+            intersections_identical = LpVariable("meta_var2_{}".format(index), cat=const.LpBinary)
+            # --> Forward
+            self.problem += intersections_identical
+            # --> Backward
+            self.problem += intersections_identical
+
+            # meta_var3: 1 if cell meta_var1 and meta_var2, 0 else
+            solution_identical = LpVariable("meta_var3_{}".format(index), cat=const.LpBinary)
+            # --> Forward
+            self.problem += solution_identical <= (cells_identical + intersections_identical) / 2
+            # --> Backward
+            self.problem += solution_identical >= cells_identical + intersections_identical - 1
+
+            # Solution may not be found again
+            self.problem += solution_identical == 0
+
     ################################
     ############ UTIL ##############
     ################################

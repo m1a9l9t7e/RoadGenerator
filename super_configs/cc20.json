@@ -22,7 +22,7 @@
       "descriptions": [
           {"type":  "parking", "min_length": 6, "max_length": 6},
           {"type":  "urban_area", "min_length": 8, "max_length": 10},
-          {"type":  "no_passing", "min_length": 3, "max_length": 6}
+          {"type":  "no_passing", "min_length": 6, "max_length": 6}
       ],
       "solution": null
   },
