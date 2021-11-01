@@ -93,8 +93,7 @@ def get_next_node(node, previous_node=None):
     if node.get_degree() != 2:
         raise ValueError("Graph not 2 factorized!")
 
-    # node1, node2 = node.adjacent_nodes
-    node2, node1 = node.adjacent_nodes
+    node1, node2 = node.adjacent_nodes
 
     if previous_node is None or previous_node == node2:
         return node1

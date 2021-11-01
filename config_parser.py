@@ -46,8 +46,9 @@ class Config:
     def get_track(self):
         ip_solution, problem_dict = self.get_layout()
         zone_assignment, start_index = self.get_zones(ip_solution, problem_dict)
-        track_path = self.get_features(ip_solution, zone_assignment, problem_dict)
-        print(colored("Full track generated at: {}".format(os.path.abspath(track_path)), 'green'))
+        fm, fm_path = self.get_features(ip_solution, zone_assignment, problem_dict, start_index)
+        print(colored("Full fm generated at: {}".format(os.path.abspath(fm_path)), 'green'))
+        # TODO generate sdf track with system call?
 
     def get_layout(self):
         layout = self.layout
@@ -70,8 +71,8 @@ class Config:
             self.zones.solution = zone_assignment
         return zone_assignment, start_index
 
-    def get_features(self, ip_solution, zone_assignment, problem_dict=None):
-        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale, problem_dict=problem_dict)
+    def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None):
+        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale, problem_dict=problem_dict, start_index=start_index)
         featureide_source = 'fm-{}.xml'.format(Path(self.path).stem)
         fm.export(featureide_source)
 
@@ -87,8 +88,7 @@ class Config:
             print(colored("Could not load config! Given config does not exist: {}".format(path_to_config), 'red'))
 
         full_save_path = 'fm-{}.pkl'.format(Path(self.path).stem)
-        fm.save(full_save_path)
-        return full_save_path
+        return fm, full_save_path
 
 
 def parse_layout(layout_dict):

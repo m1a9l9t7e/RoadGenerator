@@ -4,7 +4,7 @@ from fm.enums import TLFeatures
 from ip.ip_util import get_grid_indices, QuantityConstraint, ConditionTypes, QuantityConstraintStraight, SolutionEntries
 from ip.iteration import get_custom_solution, get_imitation_solution, convert_solution_to_graph, get_solution_from_config, get_zone_solution, ZoneDescription, \
     get_zones_at_index, calculate_problem_dict
-from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d, ZoneTypes
+from util import TrackProperties, GraphTour, get_track_points, get_intersection_track_points, extract_graph_tours, print_2d, ZoneTypes, TrackPoint
 from fm.features import Intersection, StraightStreet, CurvedStreet, Feature, IntersectionConnector  # , Straight
 import xml.etree.ElementTree as ET
 import numpy as np
@@ -12,15 +12,24 @@ from termcolor import colored
 
 
 class FeatureModel:
-    def __init__(self, ip_solution, zone_selection=None, problem_dict=None, intersection_size=0.5, scale=1, shift=[0, 0]):
+    def __init__(self, ip_solution, zone_selection=None, problem_dict=None, intersection_size=0.5, scale=1, shift=[0, 0], start_index=None):
         self.ip_solution = ip_solution
         self.zone_selection = zone_selection
         self.scale = scale
         self.intersection_size = intersection_size
+
         if problem_dict is None:
             self.problem_dict = calculate_problem_dict(ip_solution)
         else:
             self.problem_dict = problem_dict
+
+        if start_index is None:
+            self.start_index = 0
+
+        # Trackpoint giving start pos and direction for car
+        self.start = None
+
+        self.start_index = start_index
 
         # convert solution to graph
         self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift, scale=scale)
@@ -44,8 +53,18 @@ class FeatureModel:
             feature.apply_suffix("i{}".format(index))
 
         basic_features = []
-        for graph_tour in extract_graph_tours(self.graph):
-            basic_features += get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection)
+        for tour_index, graph_tour in enumerate(extract_graph_tours(self.graph)):
+
+            if tour_index == 0:
+                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection)
+                # get position and orientation of start
+                for feature_index, feature in enumerate(graph_tour_features):
+                    if feature_index == self.start_index:
+                        self.start = feature.start
+            else:
+                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None)
+
+            basic_features += graph_tour_features
 
         features = basic_features + intersection_features
         return features
@@ -100,7 +119,8 @@ class FeatureModel:
     def save(self, path):
         export = {
             'features': self.features,
-            'intersection_size': self.intersection_size
+            'intersection_size': self.intersection_size,
+            'start': self.start
         }
         with open(path, 'wb') as handle:
             pickle.dump(export, handle, protocol=pickle.HIGHEST_PROTOCOL)
