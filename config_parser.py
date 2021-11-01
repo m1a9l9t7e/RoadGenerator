@@ -31,6 +31,7 @@ zone_name_to_type = {
 
 class Config:
     def __init__(self, path=None):
+        self.dimensions = None
         if path is None:
             config_dict = dict()
             self.path = 'none'
@@ -41,23 +42,23 @@ class Config:
         self.layout = parse_layout(config_dict.get('layout'))
         self.zones = parse_zones(config_dict.get('zones'))
         self.features = parse_features(config_dict.get('features'))
-        self.get_track()
 
-    def get_track(self):
+    def get_fm(self):
         ip_solution, problem_dict = self.get_layout()
         zone_assignment, start_index = self.get_zones(ip_solution, problem_dict)
         fm, fm_path = self.get_features(ip_solution, zone_assignment, problem_dict, start_index)
         print(colored("Full fm generated at: {}".format(os.path.abspath(fm_path)), 'green'))
         # TODO generate sdf track with system call?
+        return fm
 
     def get_layout(self):
         layout = self.layout
         if layout.solution is not None:
             ip_solution, problem_dict = get_imitation_solution(layout.solution, print_stats=True)
-            dimensions = [value + 1 for value in np.shape(ip_solution)]
+            self.dimensions = [value + 1 for value in np.shape(ip_solution)]
         else:
-            dimensions = (layout.width, layout.height)
-            ip_solution, problem_dict = get_custom_solution(*dimensions, quantity_constraints=layout.constraints, print_stats=True,
+            self.dimensions = (layout.width, layout.height)
+            ip_solution, problem_dict = get_custom_solution(*self.dimensions, quantity_constraints=layout.constraints, print_stats=True,
                                                             allow_gap_intersections=layout.allow_gap_intersections)
             self.layout.solution = ip_solution
         return ip_solution, problem_dict
