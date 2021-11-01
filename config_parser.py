@@ -11,6 +11,9 @@ from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStr
 from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment
 from util import TrackProperties, ZoneTypes
 
+path_to_configs = os.path.join(os.getcwd(), 'super_configs')
+
+
 property_name_to_type = {
     'intersection': TrackProperties.intersection,
     'turn_90': TrackProperties.turn_90,
@@ -73,7 +76,7 @@ class Config:
         fm.export(featureide_source)
 
         # TODO: generate featureIDE configs with java call -->
-        path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00002.config'
+        path_to_config = '/fm/00002.config'
         # TODO: generate featureIDE configs with java call <--
 
         try:
@@ -167,4 +170,5 @@ def generate_config():
 
 
 if __name__ == '__main__':
-    config = Config('/home/malte/PycharmProjects/circuit-creator/super_configs/config.json')
+    path_to_config = os.path.join(path_to_configs, 'config.json')
+    config = Config(path_to_config)
