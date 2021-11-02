@@ -10,7 +10,7 @@ class Problem:
     """
     Grid Graph Minimum Spanning Tree
     """
-    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, imitate=None,
+    def __init__(self, width, height, quantity_constraints=[], iteration_constraints=None, prohibition_constraints=None, full_prohibition_constraints=None, imitate=None,
                  allow_gap_intersections=False, allow_adjacent_intersections=False):
         # arguments
         self.width = width
@@ -106,6 +106,10 @@ class Problem:
         # prohibition
         if prohibition_constraints is not None:
             self.add_prohibition_constraints(prohibition_constraints)
+
+        # prohibition
+        if full_prohibition_constraints is not None:
+            self.add_prohibition_constraints_with_intersections(full_prohibition_constraints)
 
     ################################
     ######## CORE METHODS ##########
@@ -511,33 +515,61 @@ class Problem:
             positive_cells = [self.node_grid[x][y] for (x, y) in solution]
             self.problem += sum(positive_cells) <= self.get_n() - 1
 
-    def add_prohibition_constraints_with_intersections(self, cell_solutions, intersection_solutions):
+    def add_prohibition_constraints_with_intersections(self, full_solutions):
         """
         Add constraints prohibiting known solutions.
         Takes two params: lists of equal size and matching contents
-        :param cell_solutions: A list of solutions. A single solution is a list of tuples (x, y) where the corresponding cell is 1
-        :param intersection_solutions: A list of solutions. A single solution is a list of tuples (x, y) where the corresponding intersection is 1
+        :param full_solutions: (cell_solution, intersection_solution), ...
+        cell_solution: A list of tuples (x, y) where the corresponding cell is 1
+        intersection_solution: A list of tuples (x, y) where the corresponding intersection is 1
         """
-        for index, cell_solution in enumerate(cell_solutions):
-            intersection_solution = intersection_solutions[index]
+        for index, (cell_solution, intersection_solution) in enumerate(full_solutions):
             positive_cells = [self.node_grid[x][y] for (x, y) in cell_solution]
             positive_intersections = [self.node_grid_intersections[x][y] for (x, y) in intersection_solution]
+            num_intersections = len(positive_intersections)
 
             # meta_var1: 1 if cell solution is identical, 0 else
             cells_identical = LpVariable("meta_var1_{}".format(index), cat=const.LpBinary)
             # --> Forward: if cells not identical => 0
             self.problem += cells_identical <= sum(positive_cells) / self.get_n()
-            # --> Backward: 0 => cells not identical (if cells_identical == 0, then sum(positve cells must be <= n-1!)
+            # --> Backward: 0 -> cells not identical (if cells_identical == 0, then sum(positve cells must be <= n-1!)
             self.problem += sum(positive_cells) <= self.get_n() - 1 + cells_identical
 
-            # meta_var2: 1 if intersection solution is identical, 0 else
+            # meta_var2a: 1 if new solution has less or equal intersections than previous solution, 0 else
+            # Define var and constraints for inverse first, as this is easier:
+            more_intersections = LpVariable("meta_var2a_inv{}".format(index), cat=const.LpBinary)
+            # --> Forward: Less intersections than (num_intersections + 1) -> 0
+            self.problem += more_intersections <= sum(self.nodes_intersections) / (num_intersections + 1)
+            # --> Backward: 0 -> Less intersections than (num_intersections + 1)
+            self.problem += sum(self.nodes_intersections) <= num_intersections + more_intersections * len(self.nodes_intersections)
+            # Inverse
+            less_or_equal_intersections = LpVariable("meta_var2a_{}".format(index), cat=const.LpBinary)
+            self.problem += less_or_equal_intersections == 1 - more_intersections
+
+            # meta_var2b: 1 if all intersections from solution are selected, 0 else
+            all_previous_intersections_positive = LpVariable("meta_var2b_{}".format(index), cat=const.LpBinary)
+            if len(positive_intersections) == 0:
+                self.problem += all_previous_intersections_positive == 1
+            else:
+                # --> Forward: if not all intersections selected => 0
+                self.problem += all_previous_intersections_positive <= sum(positive_intersections) / num_intersections
+                # --> Backward: 0 => cells not identical (if all_previous_intersections_positive == 0, then sum(positve intersections must be <= num_intersections)
+                self.problem += sum(positive_intersections) <= num_intersections - 1 + all_previous_intersections_positive
+
+            # meta_var2: 1 if intersection solution is identical, 0 else (if meta_var2a AND meta_var2b)
+            # EXPLANATION: We will list all cases of meta_var2a and meta_var2b and show that meta_var2 indicates identical intersections solutions for all:
+            # Case1: Not all of the previous intersections are selected: meta_var2 = x AND 0 = 0
+            # Case2: All of the previous intersections are selected, but also additional ones: meta_var2 = 0 AND 1 = 0
+            # --> Here meta_var2a must be 0, because we have more intersections than previously!
+            # Case3: All of the previous intersections are selected, and the number of total intersections is less or equal to before: meta_var2 = 1 AND 1 = 1
+            # --> Solution must be identical
             intersections_identical = LpVariable("meta_var2_{}".format(index), cat=const.LpBinary)
             # --> Forward
-            self.problem += intersections_identical
+            self.problem += intersections_identical <= (less_or_equal_intersections + all_previous_intersections_positive) / 2
             # --> Backward
-            self.problem += intersections_identical
+            self.problem += intersections_identical >= less_or_equal_intersections + all_previous_intersections_positive - 1
 
-            # meta_var3: 1 if cell meta_var1 and meta_var2, 0 else
+            # meta_var3: 1 if new solution is completely identical, 0 else (if meta_var1 AND meta_var2)
             solution_identical = LpVariable("meta_var3_{}".format(index), cat=const.LpBinary)
             # --> Forward
             self.problem += solution_identical <= (cells_identical + intersections_identical) / 2

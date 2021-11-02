@@ -1,4 +1,5 @@
 import json
+import math
 import os.path
 from pathlib import Path
 from pprint import pprint
@@ -8,7 +9,7 @@ from termcolor import colored
 
 from fm.model import FeatureModel
 from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight
-from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment
+from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment, FullProhibitionIterator
 from util import TrackProperties, ZoneTypes
 
 path_to_configs = os.path.join(os.getcwd(), 'super_configs')
@@ -40,8 +41,25 @@ class Config:
             self.path = path
 
         self.layout = parse_layout(config_dict.get('layout'))
+        if self.layout.solution is not None:
+            self.dimensions = [value + 1 for value in np.shape(self.layout.solution)]
+        else:
+            self.dimensions = (self.layout.width, self.layout.height)
+
         self.zones = parse_zones(config_dict.get('zones'))
         self.features = parse_features(config_dict.get('features'))
+
+    def iterate_layouts(self, num=math.inf, _print=False):
+        iterator = FullProhibitionIterator(self, _print=_print)
+        solutions = iterator.iterate(num_solutions=num)
+
+        fms = []
+        for solution in solutions:
+            zone_assignment, start_index = get_zone_assignment(solution, self.zones.descriptions)
+            fm, fm_path = self.get_features(solution, zone_assignment, start_index=start_index)
+            fms.append(fm)
+
+        return fms
 
     def get_fm(self):
         ip_solution, problem_dict = self.get_layout()
@@ -171,5 +189,7 @@ def generate_config():
 
 
 if __name__ == '__main__':
-    path_to_config = os.path.join(path_to_configs, 'config.json')
+    path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/config.json'
     config = Config(path_to_config)
+    feature_models = config.iterate_layouts()
+    print("{} layouts found!".format(len(feature_models)))

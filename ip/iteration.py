@@ -1,3 +1,4 @@
+import math
 import random
 import sys
 import time
@@ -216,6 +217,51 @@ class ProhibitionIterator:
                     flat.append((x, y))
 
         return flat
+
+
+class FullProhibitionIterator:
+    def __init__(self, config, _print=False):
+        self.config = config
+        self.width, self.height = config.dimensions
+        self.width, self.height = (self.width - 1, self.height - 1)
+        self.constraints = config.layout.constraints
+        self._print = _print
+        self.solutions = []
+        self.counter = 0
+        self.total_time = 0
+
+    def iterate(self, num_solutions=math.inf):
+        solutions_raw = []
+        while self.counter < num_solutions:
+            problem = Problem(self.width, self.height, quantity_constraints=self.constraints, full_prohibition_constraints=solutions_raw,
+                              allow_gap_intersections=self.config.layout.allow_gap_intersections)
+            start = time.time()
+            solution, feasible = problem.solve(_print=self._print)
+            end = time.time()
+            self.total_time += end - start
+            if self._print:
+                print(colored("Iteration Step complete, Time elapsed: {:.2f}s".format(end - start), "green" if feasible > 1 else "red"))
+            if feasible:
+                solutions_raw.append(self.flatten(solution))
+                self.solutions.append(solution)
+                self.counter += 1
+            else:
+                print(colored("All {} feasible Solutions found. Time elapsed: {:.2f}s".format(len(self.solutions), self.total_time), 'cyan'))
+                return self.solutions
+
+        return self.solutions
+
+    def flatten(self, solution):
+        flat_cells = []
+        flat_intersections = []
+        for x in range(self.width):
+            for y in range(self.height):
+                if solution[x][y] in [SolutionEntries.positive, SolutionEntries.positive_and_intersection]:
+                    flat_cells.append((x, y))
+                if solution[x][y] in [SolutionEntries.negative_and_intersection, SolutionEntries.positive_and_intersection]:
+                    flat_intersections.append((x, y))
+
+        return flat_cells, flat_intersections
 
 
 class IntersectionIterator:
@@ -564,7 +610,7 @@ def generate_intersection_variants(solution, indices, gap_indices, duplicate_loo
                         skip = True
                         break
             else:
-                print(colored("OH NOES", "red"))
+                print(colored("xxx", "red"))
                 # This is a hack, to be able to use max(adjacent) == 1 to detect normal intersections exclusively and abs(adjacent) > 0 for all
                 variant[x][y] = -joint_decision
         if skip:
@@ -791,7 +837,7 @@ def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _prin
             no_passing_zones.append(no_passing_zone)
     else:
         print(colored("Selected Zones infeasible for Solution", 'red'))
-        sys.exit(0)
+        return {ZoneTypes.parking: [], ZoneTypes.express_way: [], ZoneTypes.urban_area: [], ZoneTypes.no_passing: []}, 0
 
     print("Zone Assignment: Parking: {}, Expressways: {}, Urban Areas: {}, No Passing: {}".format(colored(parking, 'cyan'), colored(express_way, 'blue'), colored(urban_zones, 'yellow'), colored(no_passing_zones, 'red')))
     zone_selection = {
