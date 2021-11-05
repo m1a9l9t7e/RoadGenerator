@@ -236,6 +236,7 @@ class Problem:
 
         # Outgoing edges can only exist, if there is one ingoing edge
         # Since there sum(in) is either 1 or 0, sum(in) * 4 >= sum(out) holds
+        # Note: technically not needed?
         for x in range(self.width):
             for y in range(self.height):
                 if not (x == 0 and y == 0):
@@ -570,6 +571,9 @@ class Problem:
             self.problem += intersections_identical >= less_or_equal_intersections + all_previous_intersections_positive - 1
 
             # meta_var3: 1 if new solution is completely identical, 0 else (if meta_var1 AND meta_var2)
+            # This is not technically needed and may be replaced with constraint:
+            # self.problem += cells_identical + intersections_identical <= 1
+
             solution_identical = LpVariable("meta_var3_{}".format(index), cat=const.LpBinary)
             # --> Forward
             self.problem += solution_identical <= (cells_identical + intersections_identical) / 2

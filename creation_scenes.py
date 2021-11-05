@@ -8,7 +8,7 @@ from anim_sequence import AnimationSequenceScene, AnimationObject
 from config_parser import Config
 from graph import Graph, custom_joins
 from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight, parse_ip_config
-from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph, get_solution_from_config, ZoneDescription, get_zone_solution
+from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph, get_solution_from_config, ZoneDescription, get_zone_solution, IteratorType
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from ip.problem import Problem
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line, \
@@ -18,9 +18,9 @@ from fm.model import FeatureModel
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        show_ip = False
+        show_ip = True
         show_graph = False
-        show_track = True
+        show_track = False
 
         width, height = (4, 4)
         square_size = 1
@@ -232,18 +232,71 @@ class FMTrackSuperConfig(AnimationSequenceScene):
         square_size, track_width = (1, 0.2)
         anim_fm = True
         show_graph = False
+        num = 1
 
         path_to_config = os.path.join(os.getcwd(), 'super_configs/config.json')
         config = Config(path_to_config)
-        fm = config.get_fm()
+        fms = config.iterate_layouts(num)
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-        # grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=2)
         grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
         self.play_animations(grid.get_animation_sequence(z_index=20))
 
         anim_sequence = []
+
+        for fm in fms:
+            if anim_fm:
+                for index, feature in enumerate(fm.features):
+                    animation = feature.draw(track_width=track_width, color_by='track_property')
+                    if animation is not None:
+                        anim_sequence.append(animation)
+                self.play_animations(anim_sequence)
+            else:
+                if show_graph:
+                    self.play_animations(add_graph(fm.graph, z_index=25))
+                    # self.play_animations(add_graph(Graph(width=width, height=height), z_index=25))
+                else:
+                    graph_tours = extract_graph_tours(fm.graph)
+                    colored_by_properties = False
+                    colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
+                    for index, graph_tour in enumerate(graph_tours):
+                        gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+                        if colored_by_properties:
+                            track_colors = track_properties_to_colors(track_properties)
+                        else:
+                            track_colors = [colors[index] for _ in track_properties]
+
+                        # interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+                        interpolation_animation = get_interpolation_animation_continuous(points)
+
+                        anim_sequence += [
+                            interpolation_animation,
+                        ]
+                        print(colored("Rendering...", 'cyan'))
+                        for animations in tqdm(anim_sequence, desc="rendering"):
+                            self.play_animations(animations)
+
+        self.wait(4)
+
+
+class DrawSuperConfig(AnimationSequenceScene):
+    def construct(self):
+        square_size, track_width = (1, 0.2)
+        anim_fm = True
+        show_graph = False
+
+        tmp_path = '/tmp/config.json'
+        config = Config(tmp_path)
+        width, height = config.dimensions
+
+        self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        self.play_animations(grid.get_animation_sequence(z_index=20))
+
+        anim_sequence = []
+
+        fm = config.get_fm()
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
@@ -275,8 +328,6 @@ class FMTrackSuperConfig(AnimationSequenceScene):
                     print(colored("Rendering...", 'cyan'))
                     for animations in tqdm(anim_sequence, desc="rendering"):
                         self.play_animations(animations)
-
-        self.wait(4)
 
 
 class FMTrackZones(AnimationSequenceScene):
