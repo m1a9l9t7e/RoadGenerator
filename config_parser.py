@@ -12,7 +12,7 @@ from tqdm import tqdm
 from fm.model import FeatureModel
 from ip.ip_util import ConditionTypes, QuantityConstraintStraight
 from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment, FullProhibitionIterator
-from util import TrackProperties, ZoneTypes
+from util import TrackProperties, ZoneTypes, Capturing
 
 # path_to_configs = os.path.join(os.getcwd(), 'super_configs')
 
@@ -65,28 +65,31 @@ class Config:
         solutions = iterator.iterate(num_solutions=num)
 
         for index, solution in enumerate(solutions):
-            print(self.zones.descriptions)
             zone_assignment, start_index = get_zone_assignment(solution, self.zones.descriptions)
             fm = self.get_features(solution, zone_assignment, start_index=start_index)
             fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index))
             fm.save(fm_path)
 
+            # set new feature vars
+            self.features.fm_path = fm_path
+            self.features.start_pos = list(fm.start.coords[:2])
+            self.features.start_orientation = np.arctan2(*fm.start.direction)
+
             # write config to new file
             self.layout.solution = solution
             self.zones.solution = zone_assignment
-            self.features.fm_path = fm_path
             config_path = os.path.join(out_path, 'config{}.json'.format(index))
             self.write(config_path)
 
-        if generate_images:
+        if generate_images and len(solutions) > 0:
             visualize(out_path)
 
         return len(solutions)
 
-    def get_fm(self):
+    def get_fm(self, scale=True):
         ip_solution, problem_dict = self.get_layout()
         zone_assignment, start_index = self.get_zones(ip_solution, problem_dict)
-        fm = self.get_features(ip_solution, zone_assignment, problem_dict, start_index)
+        fm = self.get_features(ip_solution, zone_assignment, problem_dict, start_index, scale=scale)
         # TODO generate sdf track with system call?
         return fm
 
@@ -111,8 +114,8 @@ class Config:
             self.zones.solution = zone_assignment
         return zone_assignment, start_index
 
-    def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None):
-        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale, problem_dict=problem_dict, start_index=start_index)
+    def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None, scale=True):
+        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale if scale else 1, problem_dict=problem_dict, start_index=start_index)
         featureide_source = 'fm-{}.xml'.format(Path(self.path).stem)
         fm.export(featureide_source)
 
@@ -123,26 +126,33 @@ class Config:
         try:
             fm.load_config(path_to_config)
         except KeyError:
-            print(colored("Could not load featureIDE config! Config does not match model", 'red'))
-            print(colored("Init fm with no selected features", 'yellow'))
+            print(colored("Could not load featureIDE config! Config does not match model", 'yellow'))
+            print(colored("--> init fm with no selected features", 'yellow'))
         except FileNotFoundError:
-            print(colored("Could not load featureIDE config! Given config does not exist: {}".format(path_to_config), 'red'))
-            print(colored("Init fm with no selected features", 'yellow'))
+            print(colored("Could not load featureIDE config! Given config does not exist: {}".format(path_to_config), 'yellow'))
+            print(colored("--> init fm with no selected features", 'yellow'))
 
         return fm
 
     def write(self, path):
+        # prepare layout dict
         layout_dict = vars(deepcopy(self.layout))
         layout_dict['constraints'] = layout_dict['constraints_raw']
         del layout_dict['constraints_raw']
+
+        # prepare zones dict
         zone_dict = vars(deepcopy(self.zones))
         zone_dict['descriptions'] = zone_dict['descriptions_raw']
         zone_dict['solution'] = zone_solution_to_dict(self.zones.solution)
         del zone_dict['descriptions_raw']
+
+        # prepare features dict
+        feature_dict = vars(deepcopy(self.features))
+
         data = {
             'layout': layout_dict,
             'zones': zone_dict,
-            'features': vars(deepcopy(self.features)),
+            'features': feature_dict,
             'evaluation': vars(deepcopy(self.evaluation))
         }
         if Path(path).suffix != '.json':
@@ -259,7 +269,7 @@ def generate_configs(blueprint_config, output_path, num=10):
     pass
 
 
-def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json'):
+def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _print=False):
     if path_to_viz is None:
         path_to_viz = os.path.join(path_to_configs, 'viz')
 
@@ -271,24 +281,27 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json'):
     for index, fname in tqdm(enumerate(filenames), desc='rendering images'):
         if Path(fname).suffix == '.json':
             full_path = os.path.join(path_to_configs, fname)
-            print("loading config from {}".format(full_path))
+            if _print:
+                print("\nloading config from {}".format(full_path))
             configs.append(Config(full_path))
 
             # move config to tmp path
             shutil.copyfile(full_path, tmp_path)
 
             # render image with system call
-            subprocess.call(['python', '-m', 'manim', '-s', 'creation_scenes.py', 'DrawSuperConfig'])
+            devnull = open(os.devnull, 'w')
+            subprocess.call(['python', '-m', 'manim', '-s', 'creation_scenes.py', 'DrawSuperConfig'], stdout=devnull, stderr=devnull)
 
             # move image to correct folder
             manim_location = os.path.join(os.getcwd(), 'media/images/creation_scenes', 'DrawSuperConfig_ManimCE_v0.8.0.png')
             new_location = os.path.join(path_to_viz, 'image{}.png'.format(index))
-            print("Copying image from {} to  {}".format(colored(manim_location, 'yellow'), colored(new_location, 'cyan')))
+            if _print:
+                print("\nCopying image from {} to {}".format(colored(manim_location, 'yellow'), colored(new_location, 'cyan')))
             shutil.copyfile(manim_location, new_location)
 
 
 if __name__ == '__main__':
-    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/config.json'
-    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/test'
+    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight.json'
+    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight'
     config = Config(path_to_blueprint)
-    config.iterate_layouts(output_path)
+    config.iterate_layouts(output_path, num=10, generate_images=False)

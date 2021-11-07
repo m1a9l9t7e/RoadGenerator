@@ -1,3 +1,4 @@
+import enum
 import random
 import math
 import numpy as np
@@ -853,7 +854,7 @@ class Capturing(list):
 ## ENUMS AND MAPPINGS ##
 ########################
 
-class TrackProperties(Enum):
+class TrackProperties:
     turn_90 = 1
     turn_180 = 2
     straight = 3
@@ -861,7 +862,7 @@ class TrackProperties(Enum):
     intersection_connector = 5
 
 
-class ZoneTypes(Enum):
+class ZoneTypes:
     rural_area = 1  # This is the default
     urban_area = 2
     no_passing = 3
@@ -869,7 +870,7 @@ class ZoneTypes(Enum):
     parking = 5  # max 20 meters
 
 
-class ZoneMisc(Enum):
+class ZoneMisc:
     start = 1
     end = 2
 

@@ -296,7 +296,7 @@ class DrawSuperConfig(AnimationSequenceScene):
 
         anim_sequence = []
 
-        fm = config.get_fm()
+        fm = config.get_fm(scale=False)
 
         if anim_fm:
             for index, feature in enumerate(fm.features):

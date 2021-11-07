@@ -230,7 +230,12 @@ class FullProhibitionIterator:
         self.counter = 0
         self.total_time = 0
 
-    def iterate(self, num_solutions=math.inf):
+    def iterate(self, num_solutions=None):
+        pbar = tqdm(total=num_solutions, desc='layout iteration')
+        if num_solutions is None:
+            num_solutions = math.inf
+
+        skipped = 0
         solutions_raw = []
         while self.counter < num_solutions:
             problem = Problem(self.width, self.height, quantity_constraints=self.constraints, full_prohibition_constraints=solutions_raw,
@@ -243,12 +248,27 @@ class FullProhibitionIterator:
                 print(colored("Iteration Step complete, Time elapsed: {:.2f}s".format(end - start), "green" if feasible > 1 else "red"))
             if feasible:
                 solutions_raw.append(self.flatten(solution))
+
+                # if drive straight is required, skip disconnected tracks!
+                if self.config.layout.drive_straight:
+                    graph = convert_solution_to_graph(solution)
+                    if len(extract_graph_tours(graph)) > 1:
+                        skipped += 1
+                        continue
+
                 self.solutions.append(solution)
                 self.counter += 1
+                pbar.update(1)
             else:
-                print(colored("All {} feasible Solutions found. Time elapsed: {:.2f}s".format(len(self.solutions), self.total_time), 'cyan'))
+                pbar.close()
+                skipped_str = ""
+                if skipped > 0:
+                    skipped_str = " Skipped: {}, ".format(skipped)
+                else:
+                    print(colored("All {} feasible Solutions found.{} Time elapsed: {:.2f}s".format(len(self.solutions), skipped_str, self.total_time), 'cyan'))
                 return self.solutions
 
+        pbar.close()
         return self.solutions
 
     def flatten(self, solution):
@@ -910,10 +930,11 @@ def get_zones_at_index(graph_tour_index, zone_selection):
 
 if __name__ == '__main__':
     # GraphModel(6, 6, generate_intersections=True, allow_gap_intersections=True, allow_adjacent_intersections=False, intersections_ip=False)
-    _solution, _zone_selection, _start_index = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
-                                                                 zone_descriptions=[
-                                                                     ZoneDescription(ZoneTypes.express_way, min_length=3, max_length=4),
-                                                                     ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
-                                                                     ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
-                                                                     ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
-                                                                 ])
+    GraphModel(6, 6, generate_intersections=False, allow_gap_intersections=False, allow_adjacent_intersections=False, intersections_ip=False, iterator_type=IteratorType.prohibition_ip)
+    # _solution, _zone_selection, _start_index = get_zone_solution('/home/malte/PycharmProjects/circuit-creator/ip/configs/demo.txt',
+    #                                                              zone_descriptions=[
+    #                                                                  ZoneDescription(ZoneTypes.express_way, min_length=3, max_length=4),
+    #                                                                  ZoneDescription(ZoneTypes.urban_area, min_length=3, max_length=5),
+    #                                                                  ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
+    #                                                                  ZoneDescription(ZoneTypes.no_passing, min_length=6, max_length=6),
+    #                                                              ])
