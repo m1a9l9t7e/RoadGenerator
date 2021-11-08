@@ -99,7 +99,8 @@ class FeatureModel:
 
         # write to specified path
         tree = ET.ElementTree(source_root)
-        tree.write(path)
+        # ET.indent(tree, space="\t", level=0) only works with python 3.9
+        tree.write(path, encoding='utf-8')
 
     def load_config(self, path):
         with open(path) as f:
@@ -112,9 +113,9 @@ class FeatureModel:
                 # print("{}\n\n".format(name))
                 self.name_to_feature_map[name].value = True
 
-        for feature in self.features:
-            selection = feature.get_selected_sub_features()
-            print(f"{feature.type}: {selection}")
+        # for feature in self.features:
+        #     selection = feature.get_selected_sub_features()
+            # print(f"{feature.type}: {selection}")
 
     def save(self, path):
         export = {
@@ -391,7 +392,7 @@ if __name__ == '__main__':
     path_to_config = os.path.join('/home/malte/PycharmProjects/circuit-creator/ip/configs/mini.txt')
 
     zone_descriptions = [
-        ZoneDescription(ZoneTypes.express_way, min_length=2, max_length=2),
+        ZoneDescription(ZoneTypes.parking, min_length=2, max_length=2),
         ZoneDescription(ZoneTypes.urban_area, min_length=6, max_length=10),
         ZoneDescription(ZoneTypes.no_passing, min_length=3, max_length=6),
     ]
@@ -405,6 +406,8 @@ if __name__ == '__main__':
         print("Given config does not match model")
 
     for feature in fm.features:
+        if not feature.in_zone(ZoneTypes.parking):
+            continue
         print(colored("=====================", 'cyan'))
         print("{}, {}".format(feature.track_property, feature.zones))
         print(feature)

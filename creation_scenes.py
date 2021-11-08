@@ -234,9 +234,9 @@ class FMTrackSuperConfig(AnimationSequenceScene):
         show_graph = False
         num = 1
 
-        path_to_config = os.path.join(os.getcwd(), 'super_configs/config.json')
+        path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/debug.json'
         config = Config(path_to_config)
-        fms = config.iterate_layouts(num)
+        fm = config.get_fm(scale=False)
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
@@ -245,39 +245,37 @@ class FMTrackSuperConfig(AnimationSequenceScene):
 
         anim_sequence = []
 
-        for fm in fms:
-            if anim_fm:
-                for index, feature in enumerate(fm.features):
-                    animation = feature.draw(track_width=track_width, color_by='track_property')
-                    if animation is not None:
-                        anim_sequence.append(animation)
-                self.play_animations(anim_sequence)
+        if anim_fm:
+            for index, feature in enumerate(fm.features):
+                animation = feature.draw(track_width=track_width, color_by='track_property')
+                if animation is not None:
+                    anim_sequence.append(animation)
+            self.play_animations(anim_sequence)
+        else:
+            if show_graph:
+                self.play_animations(add_graph(fm.graph, z_index=25))
+                # self.play_animations(add_graph(Graph(width=width, height=height), z_index=25))
             else:
-                if show_graph:
-                    self.play_animations(add_graph(fm.graph, z_index=25))
-                    # self.play_animations(add_graph(Graph(width=width, height=height), z_index=25))
-                else:
-                    graph_tours = extract_graph_tours(fm.graph)
-                    colored_by_properties = False
-                    colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
-                    for index, graph_tour in enumerate(graph_tours):
-                        gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
-                        if colored_by_properties:
-                            track_colors = track_properties_to_colors(track_properties)
-                        else:
-                            track_colors = [colors[index] for _ in track_properties]
+                graph_tours = extract_graph_tours(fm.graph)
+                colored_by_properties = False
+                colors = [YELLOW, BLUE_C, GREEN, ORANGE, PINK, PURPLE]
+                for index, graph_tour in enumerate(graph_tours):
+                    gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
+                    if colored_by_properties:
+                        track_colors = track_properties_to_colors(track_properties)
+                    else:
+                        track_colors = [colors[index] for _ in track_properties]
 
-                        # interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
-                        interpolation_animation = get_interpolation_animation_continuous(points)
+                    # interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+                    interpolation_animation = get_interpolation_animation_continuous(points)
 
-                        anim_sequence += [
-                            interpolation_animation,
-                        ]
-                        print(colored("Rendering...", 'cyan'))
-                        for animations in tqdm(anim_sequence, desc="rendering"):
-                            self.play_animations(animations)
+                    anim_sequence += [
+                        interpolation_animation,
+                    ]
+                    print(colored("Rendering...", 'cyan'))
+                    for animations in tqdm(anim_sequence, desc="rendering"):
+                        self.play_animations(animations)
 
-        self.wait(4)
 
 
 class DrawSuperConfig(AnimationSequenceScene):
@@ -300,7 +298,8 @@ class DrawSuperConfig(AnimationSequenceScene):
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
-                animation = feature.draw(track_width=track_width, color_by='track_property')
+                # animation = feature.draw(track_width=track_width, color_by='track_property')
+                animation = feature.draw(track_width=track_width, color_by='zone')
                 if animation is not None:
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)
@@ -549,5 +548,6 @@ class MultiGraphFM(AnimationSequenceScene):
 
 if __name__ == '__main__':
     # scene = MultiGraphFM()
-    scene = FMTrackZones()
+    # scene = FMTrackZones()
+    scene = FMTrackSuperConfig()
     scene.construct()

@@ -241,7 +241,13 @@ class StraightStreet(BasicFeature):
             # No obstacles on motorway!
             return [Feature(Features.level3.value, sub_features=[Feature(entry) for entry in [Level3.missing_left.value, Level3.missing_right.value]], mandatory=False, alternative=False)]
         elif self.in_zone(ZoneTypes.parking):
-            return [Feature('parking')]
+            is_start, _ = self.is_zone_start()
+            if is_start:
+                parking_feature = Feature('parking')
+                parking_feature.value = True
+                return [parking_feature]
+            else:
+                return []
         else:
             return super().get_features()
 

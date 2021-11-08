@@ -61,16 +61,22 @@ class Config:
 
     def iterate_layouts(self, out_path, num=math.inf, _print=False, generate_images=True):
         os.makedirs(os.path.join(out_path, 'fm'), exist_ok=True)
+        os.makedirs(os.path.join(out_path, 'featureIDE'), exist_ok=True)
         iterator = FullProhibitionIterator(self, _print=_print)
         solutions = iterator.iterate(num_solutions=num)
 
         for index, solution in enumerate(solutions):
             zone_assignment, start_index = get_zone_assignment(solution, self.zones.descriptions)
             fm = self.get_features(solution, zone_assignment, start_index=start_index)
+            # write featureIDE source
+            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index))
+            fm.export(featureide_source_path)
+            # write feature model
             fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index))
             fm.save(fm_path)
 
             # set new feature vars
+            self.features.featureIDE_path = featureide_source_path
             self.features.fm_path = fm_path
             self.features.start_pos = list(fm.start.coords[:2])
             self.features.start_orientation = np.arctan2(*fm.start.direction)
@@ -120,7 +126,7 @@ class Config:
         fm.export(featureide_source)
 
         # TODO: generate featureIDE configs with java call -->
-        path_to_config = '/fm/00002.config'
+        path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00001.config'
         # TODO: generate featureIDE configs with java call <--
 
         try:
