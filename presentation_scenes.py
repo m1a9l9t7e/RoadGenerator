@@ -138,15 +138,16 @@ class IPVisualization:
                  show_cells=True):
         if show_text not in ['names', 'values']:
             raise ValueError('Unknown value for show_text: {}'.format(show_text))
-        self.solution = get_solution_from_config(path_to_config, _print=False, allow_gap_intersections=False)
-        # original = [[1, 1, 1], [1, 0, 2], [1, 3, 1]]
-        # p = Problem(3, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
-        #             quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
-        # self.solution, _ = p.solve()
 
-        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
+        # self.solution = get_solution_from_config(path_to_config, _print=False, allow_gap_intersections=False)
+        # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
         # # TODO: REMOVE! -->
+        original = [[1, 2, 1], [0, 0, 2], [1, 1, 1]]
+        p = Problem(3, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
+                    quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
+        self.solution, _ = p.solve()
+        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
         # self.solution = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
         # # TODO: REMOVE! <--
 

@@ -229,22 +229,25 @@ class FMTrack(AnimationSequenceScene):
 
 class FMTrackSuperConfig(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.2)
+        track_width = 0.42
         anim_fm = True
         show_graph = False
-        num = 1
 
-        path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/debug.json'
+        # path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/debug.json'
+        path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight/config0.json'
         config = Config(path_to_config)
-        fm = config.get_fm(scale=False)
+        square_size = config.layout.scale
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
         grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
         self.play_animations(grid.get_animation_sequence(z_index=20))
 
-        anim_sequence = []
+        # fm = config.get_fm()
+        fm = FeatureModel()
+        fm.load(config.features.fm_path)
 
+        anim_sequence = []
         if anim_fm:
             for index, feature in enumerate(fm.features):
                 animation = feature.draw(track_width=track_width, color_by='track_property')
@@ -277,15 +280,15 @@ class FMTrackSuperConfig(AnimationSequenceScene):
                         self.play_animations(animations)
 
 
-
 class DrawSuperConfig(AnimationSequenceScene):
     def construct(self):
-        square_size, track_width = (1, 0.2)
+        track_width = 0.42
         anim_fm = True
         show_graph = False
 
         tmp_path = '/tmp/config.json'
         config = Config(tmp_path)
+        square_size = config.layout.scale
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
@@ -294,7 +297,7 @@ class DrawSuperConfig(AnimationSequenceScene):
 
         anim_sequence = []
 
-        fm = config.get_fm(scale=False)
+        fm = config.get_fm(scale=True)
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
@@ -464,6 +467,7 @@ class FMTrackZonesDebug(AnimationSequenceScene):
 class CC20(AnimationSequenceScene):
     def construct(self):
         square_size, track_width = (1, 0.15)
+        # square_size, track_width = (2, 0.42)
 
         original = [[1, 1, 1], [2, 0, 1], [1, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
         p = Problem(7, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,

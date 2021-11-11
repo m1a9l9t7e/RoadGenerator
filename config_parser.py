@@ -86,6 +86,7 @@ class Config:
             self.zones.solution = zone_assignment
             config_path = os.path.join(out_path, 'config{}.json'.format(index))
             self.write(config_path)
+            print()
 
         if generate_images and len(solutions) > 0:
             visualize(out_path)
@@ -126,7 +127,8 @@ class Config:
         fm.export(featureide_source)
 
         # TODO: generate featureIDE configs with java call -->
-        path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00001.config'
+        # path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00001.config'
+        path_to_config = 'does/not/exist'
         # TODO: generate featureIDE configs with java call <--
 
         try:
@@ -307,7 +309,9 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _p
 
 
 if __name__ == '__main__':
+    # path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc20.json'
+    # output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc20'
     path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight.json'
     output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight'
     config = Config(path_to_blueprint)
-    config.iterate_layouts(output_path, num=10, generate_images=False)
+    config.iterate_layouts(output_path, num=10, generate_images=True)

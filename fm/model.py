@@ -12,7 +12,10 @@ from termcolor import colored
 
 
 class FeatureModel:
-    def __init__(self, ip_solution, zone_selection=None, problem_dict=None, intersection_size=0.5, scale=1, shift=[0, 0], start_index=None):
+    def __init__(self, ip_solution=None, zone_selection=None, problem_dict=None, intersection_size=0.5, scale=1, shift=[0, 0], start_index=None):
+        if ip_solution is None:
+            return
+
         self.ip_solution = ip_solution
         self.zone_selection = zone_selection
         self.scale = scale
@@ -32,7 +35,7 @@ class FeatureModel:
         self.start_index = start_index
 
         # convert solution to graph
-        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift, scale=scale)
+        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift, scale=1)
 
         # Extract features from ip solution
         self.features = self.get_features(self.zone_selection)
@@ -125,6 +128,14 @@ class FeatureModel:
         }
         with open(path, 'wb') as handle:
             pickle.dump(export, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def load(self, path):
+        with open(path, 'rb') as handle:
+            feature_model_dict = pickle.load(handle)
+
+        self.features = feature_model_dict['features']
+        self.intersection_size = feature_model_dict['intersection_size']
+        self.start = feature_model_dict['start']
 
     def calculate_possible_configurations(self):
         return self.feature_root.get_num_possibilities()

@@ -32,9 +32,5 @@
       "num_missing_left": 2,
       "num_missing_right": 4
   },
-  "evaluation": {
-      "num_laps": 2,
-      "num_mistakes": 2,
-      "num_resets": 0
-  }
+  "evaluation": {}
 }

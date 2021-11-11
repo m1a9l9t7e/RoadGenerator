@@ -2,6 +2,8 @@ import math
 import random
 import sys
 import time
+from pprint import pprint
+
 from tqdm import tqdm
 
 from graph import Graph, GraphSearcher
@@ -779,7 +781,7 @@ def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _prin
     4. Shift indices so that description starts at (0, 0)! (This needs to be done so that zone descriptions match with indicees of graph tour)
     """
     if problem_dict is None:
-        problem_dict = calculate_problem_dict(ip_solution)
+        problem_dict = calculate_problem_dict(ip_solution, print_stats=True)
 
     graph = convert_solution_to_graph(ip_solution, problem_dict)
     graph_tour = extract_graph_tours(graph)[0]
@@ -895,6 +897,14 @@ def find_straight_zones(graph_tour):
                 else:
                     straight_zones[length] = [(counter_start-1, counter_end-1)]
             counter = 0
+
+    if counter > 0:
+        counter_end = len(graph_tour.get_nodes()) - 1
+        length = counter_end - counter_start + 1
+        if length in straight_zones.keys():
+            straight_zones[length].append((counter_start - 1, counter_end - 1))
+        else:
+            straight_zones[length] = [(counter_start - 1, counter_end - 1)]
 
     return straight_zones
 
