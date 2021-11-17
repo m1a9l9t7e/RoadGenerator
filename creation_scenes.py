@@ -301,8 +301,8 @@ class DrawSuperConfig(AnimationSequenceScene):
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
-                # animation = feature.draw(track_width=track_width, color_by='track_property')
-                animation = feature.draw(track_width=track_width, color_by='zone')
+                animation = feature.draw(track_width=track_width, color_by='track_property')
+                # animation = feature.draw(track_width=track_width, color_by='zone')
                 if animation is not None:
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)

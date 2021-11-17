@@ -1,7 +1,7 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, \
-    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries
+    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries, minimize_objective
 from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties
 from termcolor import colored
 
@@ -90,7 +90,10 @@ class Problem:
                     add_to_list_in_dict(self.e_in_values, (x + 1, y), edge_to_right_value)
 
         # Init Problem
-        self.problem = LpProblem("Problem", LpMinimize)
+        if minimize_objective(quantity_constraints):
+            self.problem = LpProblem("Problem", LpMinimize)
+        else:
+            self.problem = LpProblem("Problem", LpMaximize)
 
         # Add constraints to the Problem
         self.add_all_constraints()
@@ -133,7 +136,10 @@ class Problem:
             else:
                 raise ValueError("Track Property Type '{}' is not defined.".format(_type))
 
-            self.problem += quantity_constraint.get_condition(variables)
+            if quantity_constraint.objective is not None:
+                self.problem += sum(variables)
+            else:
+                self.problem += quantity_constraint.get_condition(variables)
 
     def solve(self, _print=False, print_zeros=False):
         solution = [[0 for y in range(len(self.node_grid[x]))] for x in range(len(self.node_grid))]
@@ -383,7 +389,7 @@ class Problem:
             self.nodes_180s += _180s
             inner_180s += _180s
 
-        # Two Outer 90s from the same node also from a 180
+        # Two Outer 90s from the same node also form a 180
         # Corners anti-clockwise starting at bottom right
         # 0 and 1, 1 and 2, 2 and 3, 3 and 0
         outer_180s = []

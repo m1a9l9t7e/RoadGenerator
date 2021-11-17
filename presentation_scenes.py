@@ -1,5 +1,7 @@
 import os
+from pprint import pprint
 
+import numpy as np
 from manim import *
 
 from creation_scenes import track_properties_to_colors
@@ -61,7 +63,6 @@ class IP(AnimationSequenceScene):
         helper = GridShowCase(num_elements, [square_size, square_size], spacing=[0, 0], space_ratio=[1, 1])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1, shift=[-square_size/2, -square_size/2])
-
         # ggmst_problem = GGMSTProblem(width - 1, height - 1, raster=False)
         # solution, status = ggmst_problem.solve(_print=False)
 
@@ -143,12 +144,24 @@ class IPVisualization:
         # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
         # # TODO: REMOVE! -->
-        original = [[1, 2, 1], [0, 0, 2], [1, 1, 1]]
-        p = Problem(3, 3, imitate=original, allow_gap_intersections=True, allow_adjacent_intersections=True,
-                    quantity_constraints=[QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0)])
-        self.solution, _ = p.solve()
-        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
-        # self.solution = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        # self.solution = [
+        #     [1, 0],
+        #     [1, 0],
+        #     [1, 1],
+        #     [1, 0]
+        # ]
+        self.solution = [
+            [1, 1],
+            [1, 0],
+        ]
+        # self.solution = [
+        #     [1],
+        #     [1],
+        #     [1],
+        #     [1],
+        # ]
+        self.problem_dict = dict()
+        # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
         # # TODO: REMOVE! <--
 
         self.width, self.height = [value+1 for value in np.shape(self.solution)]
@@ -187,8 +200,8 @@ class IPVisualization:
         # self.add_legend()
         self.add_pause(3)
         if self.show_graph:
-            self.remove_edges()
-            self.add_graph(animate_intersections=True)
+            # self.remove_edges()
+            self.add_graph(animate_intersections=self.show_track)
             self.add_pause(3)
         if self.show_track:
             self.remove_squares()
@@ -263,7 +276,7 @@ class IPVisualization:
             AnimationObject('remove', content=self.captions),
         ]
 
-    def add_edges(self):
+    def add_edges(self, show_unselected=True):
         edges_out = self.problem_dict['edges_out']
 
         self.arrows = []
@@ -271,17 +284,47 @@ class IPVisualization:
             x, y = (index % self.ip_width, int(np.floor(index / self.ip_width)))
             coords = self.helper.get_element_coords(index)
             edge_list = edges_out[(x, y)]
+
             for edge in edge_list:
                 value, name = edge
                 coords1, coords2 = name[1:].split('to')
-                coords1 = np.array([int(elem) for elem in coords1.split('_') + [0]])
-                coords2 = np.array([int(elem) for elem in coords2.split('_') + [0]])
+                coords1 = np.array([int(elem) for elem in coords1.split('_')])
+                coords2 = np.array([int(elem) for elem in coords2.split('_')])
+                if show_unselected:
+                    coords1, coords2 = shift_edge((coords1, coords2))
+                coords1, coords2 = (np.array(list(coords1) + [0]), np.array(list(coords2) + [0]))
+
                 if value > 0:
                     arrow = get_arrow(coords1 * self.square_size, coords2 * self.square_size, scale=0.5, color=RED)
                     self.arrows.append(arrow)
-                # else:
-                #     arrow = get_arrow(coords1 * self.scale, coords2 * self.scale, scale=0.5, color=GREY)
-                #     arrows.append(arrow)
+                elif show_unselected:
+                    arrow = get_arrow(coords1 * self.square_size, coords2 * self.square_size, scale=0.5, color=GREY)
+                    self.arrows.append(arrow)
+
+        self.animation_sequence += [
+            AnimationObject('add', content=self.arrows, z_index=10),
+        ]
+
+    def add_edges_special(self):
+        self.arrows = []
+
+        edge_list = [
+            ([0, 0], [0, 1]),
+            ([2, 0], [2, 1]),
+            ([2, 1], [2, 0]),
+        ]
+        overwrite = []
+        for index, edge in enumerate(edge_list):
+            coords1, coords2 = shift_edge(edge)
+            edge = (list(coords1) + [0], list(coords2) + [0])
+            overwrite.append(edge)
+
+        edge_list = overwrite
+
+        for edge in edge_list:
+            coords1, coords2 = edge
+            arrow = get_arrow(coords1 * self.square_size, coords2 * self.square_size, scale=0.5, color=RED)
+            self.arrows.append(arrow)
 
         self.animation_sequence += [
             AnimationObject('add', content=self.arrows, z_index=10),
@@ -299,7 +342,7 @@ class IPVisualization:
         # return
         # # TODO: REMOVE! <--
 
-        if animate_intersections:
+        if animate_intersections and not self.show_edges:
             self.graph, intersections = convert_solution_to_graph(self.solution, scale=self.square_size,
                                                                   shift=[-self.square_size / 2, -self.square_size / 2],
                                                                   get_intersections=True, problem_dict=self.problem_dict)
@@ -346,6 +389,7 @@ class IPVisualization:
 
         # Draw grid
         grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size)
+        # grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=2)
         self.animation_sequence += grid.get_animation_sequence()
 
         # get track point animations
@@ -358,7 +402,7 @@ class IPVisualization:
             tp_remove_anims.append(remove_track_points)
 
         # get track animations
-        fm = FeatureModel(self.solution, scale=self.square_size, shift=np.array([-0.5, -0.5]) * self.square_size)
+        fm = FeatureModel(self.solution, scale=self.square_size, shift=np.array([-0.5, -0.5]) * self.square_size, problem_dict=self.problem_dict)
         anim_sequence = []
         for index, feature in enumerate(fm.features):
             animation = feature.draw(track_width=track_width, color_by=colored_by)
@@ -426,12 +470,44 @@ def get_legend(legend_list, shift, scale=1.0):
     return drawables
 
 
+def shift_edge(edge, shift_from_center=0.12):
+    coords1, coords2 = [np.array(coords) for coords in edge]
+    difference = coords1 - coords2
+    if difference[0] > 0:
+        print("Left")
+        x, y = coords1
+        coords1 = (x, y + shift_from_center)
+        x, y = coords2
+        coords2 = (x, y + shift_from_center)
+    elif difference[0] < 0:
+        print("Right")
+        x, y = coords1
+        coords1 = (x, y - shift_from_center)
+        x, y = coords2
+        coords2 = (x, y - shift_from_center)
+    elif difference[1] > 0:
+        print("Below")
+        x, y = coords1
+        coords1 = (x + shift_from_center, y)
+        x, y = coords2
+        coords2 = (x + shift_from_center, y)
+    elif difference[1] < 0:
+        print("Above")
+        x, y = coords1
+        coords1 = (x - shift_from_center, y)
+        x, y = coords2
+        coords2 = (x - shift_from_center, y)
+
+    return coords1, coords2
+
+
 class IPExtra(AnimationSequenceScene):
     def construct(self):
-        path_to_config = os.path.join(os.getcwd(), 'ip/configs/running_example.txt')
+        path_to_config = os.path.join(os.getcwd(), 'ip/configs/innter_outer.txt')
         viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True, show_cells=True)
         camera_position, camera_size, shift = viz.get_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)
+        # self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=2, shift=shift)
         self.play_animations(viz.get_animation_sequence())
         self.wait(5)
 

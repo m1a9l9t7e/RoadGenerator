@@ -171,6 +171,11 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
     prev_track_property = None
     intersection_counter = 0
 
+    # TODO: remove -->
+    # mark = [0, 0, 2, 2, 1, 2, 2, 0, 1, 0] + [0] * 100
+    # mark = [0, 0, 0, 0, 1, 0, 0, 0, 1, 0] + [0] * 100
+    # TODO: remove <--
+
     features = []
     for idx in range(len(nodes)-1):
         node1 = nodes[idx]
@@ -186,6 +191,13 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             continue
 
         if track_property is None:
+            # if mark[idx] == 1:
+            #     track_property = TrackProperties.turn_90
+            #     features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
+            # elif mark[idx] == 2:
+            #     track_property = TrackProperties.turn_180
+            #     features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
+
             features.append(StraightStreet(TLFeatures.default.value, track_property, node1.get_coords(), start=prev_track_point, end=track_point))
             intersection_counter = 0
         elif track_property in [TrackProperties.turn_90, TrackProperties.turn_180]:

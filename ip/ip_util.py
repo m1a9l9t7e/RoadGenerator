@@ -144,12 +144,27 @@ class ConditionTypes(Enum):
     equals = auto()
 
 
+class ObjectiveTypes(IntEnum):
+    maximize = 1
+    minimize = 2
+
+
 class QuantityConstraint:
-    def __init__(self, property_type, condition_type, quantity):
+    def __init__(self, property_type, condition_type, quantity, objective=None):
         self.property_type = property_type
         self.condition_type = condition_type
         self.quantity = quantity
         self.id = id
+        self.objective = objective
+        if objective is not None:
+            if objective in ['max', 'maximize']:
+                self.objective = ObjectiveTypes.maximize
+            elif objective in ['min', 'minimize']:
+                self.objective = ObjectiveTypes.minimize
+            else:
+                self.objective = None
+        else:
+            self.objective = None
 
     def get_condition(self, variables):
         if self.condition_type == ConditionTypes.less_or_equals:
@@ -172,8 +187,8 @@ class QuantityConstraint:
 
 
 class QuantityConstraintStraight(QuantityConstraint):
-    def __init__(self, property_type, condition_type, length, quantity):
-        super().__init__(property_type, condition_type, quantity)
+    def __init__(self, property_type, condition_type, length, quantity, objective=None):
+        super().__init__(property_type, condition_type, quantity, objective)
         self.length = length
 
     def __str__(self):
@@ -190,6 +205,19 @@ class QuantityConstraintStraight(QuantityConstraint):
             name += str(self.length)
 
         return "Quantity Constraint: {} {} {}".format(name, operator, self.quantity)
+
+
+def minimize_objective(quantity_constraints):
+    objective_type = None
+    for quantity_constraint in quantity_constraints:
+        objective = quantity_constraint.objective
+        if objective is not None:
+            if objective == ObjectiveTypes.minimize:
+                return True
+            else:
+                return False
+
+    return True
 
 
 def parse_ip_config(path):

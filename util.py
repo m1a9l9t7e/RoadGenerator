@@ -66,7 +66,7 @@ class GraphTour:
         return self.edges
 
 
-def extract_graph_tours(graph):
+def extract_graph_tours(graph, parse_broken=False):
     """
     Extracts all sub-tours from given graph and returns them as list
     """
@@ -74,11 +74,15 @@ def extract_graph_tours(graph):
     check_off = np.zeros_like(graph.grid)
     while np.count_nonzero(check_off == 0) > 0:
         unvisited = np.argwhere(check_off == 0)
-        tour = GraphTour(graph, start=unvisited[0])
-        for node in tour.nodes:
-            x, y = node.get_coords()
+        try:
+            tour = GraphTour(graph, start=unvisited[0])
+            for node in tour.nodes:
+                x, y = node.get_coords()
+                check_off[x][y] = 1
+            tours.append(tour)
+        except ValueError:
+            x, y = unvisited[0]
             check_off[x][y] = 1
-        tours.append(tour)
 
     return tours
 

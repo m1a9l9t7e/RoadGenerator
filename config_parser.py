@@ -12,7 +12,7 @@ from tqdm import tqdm
 from fm.model import FeatureModel
 from ip.ip_util import ConditionTypes, QuantityConstraintStraight
 from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment, FullProhibitionIterator
-from util import TrackProperties, ZoneTypes, Capturing
+from util import TrackProperties, ZoneTypes
 
 # path_to_configs = os.path.join(os.getcwd(), 'super_configs')
 
@@ -69,10 +69,10 @@ class Config:
             zone_assignment, start_index = get_zone_assignment(solution, self.zones.descriptions)
             fm = self.get_features(solution, zone_assignment, start_index=start_index)
             # write featureIDE source
-            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index))
+            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index+100))
             fm.export(featureide_source_path)
             # write feature model
-            fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index))
+            fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index+100))
             fm.save(fm_path)
 
             # set new feature vars
@@ -128,7 +128,7 @@ class Config:
 
         # TODO: generate featureIDE configs with java call -->
         # path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00001.config'
-        path_to_config = 'does/not/exist'
+        path_to_config = 'path/does/not/exist.config'
         # TODO: generate featureIDE configs with java call <--
 
         try:
@@ -185,7 +185,7 @@ def parse_layout(layout_dict):
                         property_type=property_name_to_type[constraint.get('type')],
                         condition_type=ConditionTypes.equals,
                         quantity=constraint.get('max'),
-                        length=constraint.get('length')
+                        length=constraint.get('length'),
                     )
                     constraints.append(q_constraint_equals)
                     continue
@@ -194,7 +194,7 @@ def parse_layout(layout_dict):
                     property_type=property_name_to_type[constraint.get('type')],
                     condition_type=ConditionTypes.more_or_equals,
                     quantity=constraint.get('min'),
-                    length = constraint.get('length')
+                    length=constraint.get('length'),
                 )
                 constraints.append(q_constraint_lower)
             if constraint.get('max') is not None:
@@ -205,6 +205,15 @@ def parse_layout(layout_dict):
                     length=constraint.get('length')
                 )
                 constraints.append(q_constraint_upper)
+            if constraint.get('objective') is not None:
+                q_constraint_objective = QuantityConstraintStraight(
+                    property_type=property_name_to_type[constraint.get('type')],
+                    condition_type=ConditionTypes.less_or_equals,
+                    quantity=None,
+                    length=constraint.get('length'),
+                    objective=constraint.get('objective')
+                )
+                constraints.append(q_constraint_objective)
     layout_dict['constraints_raw'] = layout_dict.get('constraints')
     layout_dict['constraints'] = constraints
 
@@ -309,9 +318,8 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _p
 
 
 if __name__ == '__main__':
-    # path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc20.json'
-    # output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc20'
-    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight.json'
-    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/straight'
+    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/many180.json'
+    # output_path = os.path.join(Path(path_to_blueprint).parent, Path(path_to_blueprint).stem)
+    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/few3-merge'
     config = Config(path_to_blueprint)
-    config.iterate_layouts(output_path, num=10, generate_images=True)
+    config.iterate_layouts(output_path, num=100, generate_images=False)
