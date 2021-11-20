@@ -98,7 +98,8 @@ def get_next_node(node, previous_node=None):
     if node.get_degree() != 2:
         raise ValueError("Graph not 2 factorized!")
 
-    node1, node2 = node.adjacent_nodes
+    # node1, node2 = node.adjacent_nodes
+    node2, node1 = node.adjacent_nodes
 
     if previous_node is None or previous_node == node2:
         return node1
@@ -361,7 +362,7 @@ def get_continued_interpolation_animation(track_point, coords, dashed=False, tra
     line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
     if dashed:
         # choose num dashes in relation to line length
-        line = DashedVMobject(line, num_dashes=2, positive_space_ratio=0.6)
+        line = DashedVMobject(line, num_dashes=2, dashed_ratio=0.6)
     return AnimationObject(type='play', content=[Create(line)], duration=0.25, z_index=z_index)
 
 
@@ -911,7 +912,10 @@ def zones_to_color(zones):
     elif ZoneTypes.express_way in zones:
         return BLUE_C
     elif ZoneTypes.parking in zones:
-        return TEAL_B
+        # return TEAL_B
+        return GREEN
+    elif ZoneTypes.no_passing in zones:
+        return RED
     else:
         return WHITE
     # if len(zones) > 0:

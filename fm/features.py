@@ -206,8 +206,8 @@ class BasicFeature(TLFeature):
 
         if not self.in_zone(ZoneTypes.no_passing):
             # distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
-            # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
-            center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+            # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), dashed_ratio=0.6)
+            center_line = DashedVMobject(center_line, num_dashes=5, dashed_ratio=0.6)
 
         return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
 
@@ -502,8 +502,8 @@ class Intersection(CompositeFeature):
 #         px, py = interpolate_single(center1, center2)
 #         center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
 #         distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
-#         # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), positive_space_ratio=0.6)
-#         center_line = DashedVMobject(center_line, num_dashes=5 * self.length, positive_space_ratio=0.6)
+#         # center_line = DashedVMobject(center_line, num_dashes=int(6 * distance), dashed_ratio=0.6)
+#         center_line = DashedVMobject(center_line, num_dashes=5 * self.length, dashed_ratio=0.6)
 #         return AnimationObject(type='play', content=[Create(right_line), Create(left_line), Create(center_line)], duration=0.25, bring_to_front=True, z_index=z_index)
 #
 #     def get_collision_lines(self, track_width):

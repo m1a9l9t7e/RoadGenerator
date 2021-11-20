@@ -137,7 +137,7 @@ class Spline2d:
         # parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), t_min=0, t_max=len(self), color=WHITE, stroke_width=2)
         parametric_function = ParametricFunction(function=lambda t: (self.spline_x(t), self.spline_y(t), 0), color=WHITE, stroke_width=2)
         if dashed:
-            parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes * len(self), positive_space_ratio=0.6)
+            parametric_function = DashedVMobject(parametric_function, num_dashes=num_dashes * len(self), dashed_ratio=0.6)
         animation = Create(parametric_function)
         return animation
 
@@ -178,7 +178,7 @@ def get_interpolation_animation_piece_wise(track_points, colors=None, z_index=No
         left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=2)
         px, py = c_polynomials[idx]
         center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=2)
-        center_line = DashedVMobject(center_line, num_dashes=5, positive_space_ratio=0.6)
+        center_line = DashedVMobject(center_line, num_dashes=5, dashed_ratio=0.6)
         animation_sequence.append(AnimationObject(type='play',
                                                   content=[Create(right_line), Create(left_line), Create(center_line)],
                                                   duration=0.25, bring_to_front=True, z_index=z_index))

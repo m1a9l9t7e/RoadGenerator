@@ -6,7 +6,7 @@ from manim import *
 
 from creation_scenes import track_properties_to_colors
 from fm.model import calculate_problem_dict, FeatureModel
-from interpolation import get_interpolation_animation_piece_wise
+from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from ip.ip_util import QuantityConstraint, ConditionTypes, SolutionEntries
 from ip.problem import Problem
 from ip.iteration import get_intersect_matrix, convert_solution_to_graph, get_custom_solution, get_solution_from_config
@@ -144,16 +144,15 @@ class IPVisualization:
         # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
         # # TODO: REMOVE! -->
-        # self.solution = [
-        #     [1, 0],
-        #     [1, 0],
-        #     [1, 1],
-        #     [1, 0]
-        # ]
         self.solution = [
-            [1, 1],
-            [1, 0],
+            [1, 1, 1],
+            [3, 0, 1],
+            [1, 2, 1],
         ]
+        # self.solution = [
+        #     [1, 1],
+        #     [1, 0],
+        # ]
         # self.solution = [
         #     [1],
         #     [1],
@@ -201,13 +200,14 @@ class IPVisualization:
         self.add_pause(3)
         if self.show_graph:
             # self.remove_edges()
-            self.add_graph(animate_intersections=self.show_track)
+            self.add_graph(animate_intersections=True)
             self.add_pause(3)
         if self.show_track:
             self.remove_squares()
             self.remove_legend()
             # self.add_track()
             self.add_track_fm(colored=True)
+            # self.add_track(colored=True)
         return self.animation_sequence
 
     def add_pause(self, duration):
@@ -346,6 +346,16 @@ class IPVisualization:
             self.graph, intersections = convert_solution_to_graph(self.solution, scale=self.square_size,
                                                                   shift=[-self.square_size / 2, -self.square_size / 2],
                                                                   get_intersections=True, problem_dict=self.problem_dict)
+
+            # self.animation_sequence += draw_graph(self.graph, z_index=15)
+            # colors = [PURPLE_D, RED]
+            #
+            # for index, tour in enumerate(extract_graph_tours(self.graph, parse_broken=True)):
+            #     edge_drawables = [edge.drawable for edge in tour.get_edges()]
+            #     for drawable in edge_drawables:
+            #         drawable.set_color(colors[index])
+            #     self.animation_sequence.append(AnimationObject(type='add', content=edge_drawables, duration=0, z_index=15))
+
             self.animation_sequence += draw_graph(self.graph, z_index=15)
             self.animation_sequence += [AnimationObject('wait', content=[], wait_after=3)]
             self.animation_sequence += [AnimationObject('remove', content=self.captions)]
@@ -355,18 +365,32 @@ class IPVisualization:
             self.graph = convert_solution_to_graph(self.solution, shift=[-self.square_size / 2, -self.square_size / 2],
                                                    problem_dict=self.problem_dict)
             self.animation_sequence += draw_graph(self.graph, z_index=15)
+            # colors = [PURPLE_D, RED]
+            #
+            # self.animation_sequence += [AnimationObject('remove', content=self.captions)]
+            # for index, tour in enumerate(extract_graph_tours(self.graph, parse_broken=True)):
+            #     edge_drawables = [edge.drawable for edge in tour.get_edges()]
+            #     for drawable in edge_drawables:
+            #         drawable.set_color(colors[index])
+            #     self.animation_sequence.append(AnimationObject(type='add', content=edge_drawables, duration=0, z_index=15))
 
     def add_track(self, track_width=0.2, colored=True):
-        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size)
+        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=2)
         animations_list = [grid.get_animation_sequence()]
+        colors = [PURPLE_D, RED]
 
         graph_tours = extract_graph_tours(self.graph)
-        for graph_tour in graph_tours:
+        for idx, graph_tour in enumerate(graph_tours):
             gen_track_points, remove_track_points, points, track_properties = generate_track_points(graph_tour, track_width=track_width, z_index=20)
             if colored:
                 track_colors = track_properties_to_colors(track_properties)
             else:
                 track_colors = None
+
+            # TODO REMOVE -->
+            # track_colors = [colors[idx]] * 100
+            # TODO REMOVE <--
+
             interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
 
             animations_list += [

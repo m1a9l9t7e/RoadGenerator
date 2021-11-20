@@ -771,7 +771,7 @@ def get_zone_solution(path_to_config, zone_descriptions, allow_gap_intersections
     return ip_solution, zone_selection, start_index
 
 
-def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _print=False):
+def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _print=True, get_raw=False):
     """
     Calcualte Zone Assignment in 3 Steps:
     1. Determine Start: The Start is set at the first parking zone. Parking zones are placed at matching straights.
@@ -868,7 +868,24 @@ def get_zone_assignment(ip_solution, zone_descriptions, problem_dict=None, _prin
         ZoneTypes.urban_area: urban_zones,
         ZoneTypes.no_passing: no_passing_zones
     }
+    if get_raw:
+        raw = {
+            ZoneTypes.parking: shift_zones(parking, start_index, description_length),
+            ZoneTypes.express_way: shift_zones(express_way, start_index, description_length),
+            ZoneTypes.urban_area: shift_zones(urban_zones, start_index, description_length),
+            ZoneTypes.no_passing: shift_zones(no_passing_zones, start_index, description_length)
+        }
+        return zone_selection, start_index, raw, description_length
+
     return zone_selection, start_index
+
+
+def shift_zones(zones, start_index, description_length):
+    shifted = []
+    for (start, end) in zones:
+        shifted.append(((start - start_index) % description_length, (end - start_index) % description_length))
+
+    return shifted
 
 
 def filter_zones(zone_desriptions, zone_type):

@@ -69,10 +69,10 @@ class Config:
             zone_assignment, start_index = get_zone_assignment(solution, self.zones.descriptions)
             fm = self.get_features(solution, zone_assignment, start_index=start_index)
             # write featureIDE source
-            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index+100))
+            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index))
             fm.export(featureide_source_path)
             # write feature model
-            fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index+100))
+            fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index))
             fm.save(fm_path)
 
             # set new feature vars
@@ -115,7 +115,10 @@ class Config:
     def get_zones(self, ip_solution, problem_dict=None):
         if self.zones.solution is not None:
             zone_assignment = self.zones.solution
-            start_index = None  # TODO
+            if len(zone_assignment[ZoneTypes.parking]) > 0:
+                start_index = zone_assignment[ZoneTypes.parking][0][0]
+            else:
+                start_index = 0
         else:
             zone_assignment, start_index = get_zone_assignment(ip_solution, self.zones.descriptions, problem_dict)
             self.zones.solution = zone_assignment
@@ -320,6 +323,6 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _p
 if __name__ == '__main__':
     path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/many180.json'
     # output_path = os.path.join(Path(path_to_blueprint).parent, Path(path_to_blueprint).stem)
-    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/few3-merge'
+    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/test4'
     config = Config(path_to_blueprint)
-    config.iterate_layouts(output_path, num=100, generate_images=False)
+    config.iterate_layouts(output_path, num=3, generate_images=False)

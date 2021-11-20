@@ -1,0 +1,58 @@
+{
+  "layout": {
+      "width": 8,
+      "height": 4,
+      "constraints": [
+        {"type":  "intersection", "min": 4, "max": 4},
+        {"type":  "turn_180", "min": 2, "max": 2},
+        {"type":  "turn_90", "min": 3, "max": 3},
+        {"type":  "straight", "length": 2, "min": 2, "max": 2},
+        {"type":  "straight", "length": 3, "min": 0, "max": 0},
+        {"type":  "straight", "length": 4, "min": 0, "max": 0},
+        {"type":  "straight", "length": 5, "min": 0, "max": 0},
+        {"type":  "straight", "length": 6, "min": 1, "max": 1}
+      ],
+      "allow_gap_intersections": true,
+      "allow_adjacent_intersections": false,
+      "drive_straight": true,
+      "scale": 2,
+      "solution": [
+            [1, 1, 1],
+            [1, 0, 1],
+            [1, 0, 2],
+            [1, 0, 1],
+            [1, 0, 1],
+            [0, 0, 1],
+            [1, 1, 1]]
+  },
+  "zones": {
+      "descriptions": [
+          {"type":  "parking", "min_length": 3, "max_length": 3},
+          {"type":  "express_way", "min_length": 4, "max_length": 4},
+          {"type":  "urban_area", "min_length": 8, "max_length": 10},
+          {"type":  "no_passing", "min_length": 6, "max_length": 6}
+      ],
+        "solution": {
+            "parking": [
+                [13, 15]
+            ],
+            "express_way": [
+                [0, 3]
+            ],
+            "urban_area": [
+                [17, 25]
+            ],
+            "no_passing": [
+                [5, 9],
+                [27, 30]
+            ]
+          }
+  },
+  "features": {
+      "sampling_algorithm": "random",
+      "num_obstacles": 3,
+      "num_missing_left": 2,
+      "num_missing_right": 4
+  },
+  "evaluation": {}
+}
