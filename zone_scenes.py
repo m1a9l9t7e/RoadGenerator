@@ -13,7 +13,7 @@ from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_gr
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous
 from ip.problem import Problem
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line, \
-    extract_graph_tours, ZoneTypes
+    extract_graph_tours, ZoneTypes, get_arrow, get_text
 from fm.model import FeatureModel
 
 
@@ -88,6 +88,7 @@ class FMTrackZones(AnimationSequenceScene):
                     zone_number_line.set_y(scale)
                     anim_sequence.append(AnimationObject(type='add', content=zone_number_line, z_index=10))
 
+            description_length -= 1
             base_number_line = NumberLine(
                 x_range=[0, description_length, 1],
                 unit_size=scale,
@@ -112,7 +113,7 @@ class FMTrackZones(AnimationSequenceScene):
             width, height = [value + 1 for value in np.shape(ip_solution)]
 
             self.move_camera((scale * width * 1.1, scale * height * 1.1), (scale * width / 2.5, scale * height / 2.5, 0))
-            grid = Grid(Graph(width=width, height=height), square_size=scale, shift=np.array([-0.5, -0.5]) * scale)
+            grid = Grid(Graph(width=width, height=height), square_size=scale, shift=np.array([-0.5, -0.5]) * scale, stroke_width=0.4)
             self.play_animations(grid.get_animation_sequence())
 
             anim_sequence = []
@@ -129,6 +130,15 @@ class FMTrackZones(AnimationSequenceScene):
                     # animation = feature.draw(track_width=track_width, color_by='track_property')
                 if animation is not None:
                     anim_sequence.append(animation)
+
+                if index == start_index:
+                    coords = feature.start.logical_coords()
+                    x, y = coords
+                    # y -= 0.21
+                    arrow = get_arrow((x, y + 0.8, 0), (x, y, 0))
+                    text = get_text("0", (x, y + 0.7), scale=0.5)
+                    anim_sequence.append(AnimationObject(type='add', content=arrow))
+                    anim_sequence.append(AnimationObject(type='add', content=text))
 
         self.play_animations(anim_sequence)
 

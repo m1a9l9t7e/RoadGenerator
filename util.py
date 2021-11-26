@@ -779,6 +779,23 @@ class TreeShowCase:
         print("Tree dimensions: {} x {}".format(*tree_dims))
         return tree_dims
 
+    def get_label_positions(self, shift=[13, -0.5]):
+        element_width, element_height = self.element_dimensions
+        spacing_width, spacing_height = self.spacing
+        max_depth = get_max_depth(self.root)
+        depth_to_elements = get_elements_per_depth(self.root, max_depth)
+        tree_width = self.get_tree_width(depth_to_elements, max_depth)
+
+        label_positions = []
+        for index in range(max_depth):
+            element = depth_to_elements[index][0]
+            x, y = self.get_element_coords(element)
+            shift_x, shift_y = shift
+            element_coords = (shift_x, y + element_height / 2 + shift_y)
+            label_positions.append(element_coords)
+
+        return label_positions
+
 
 def get_elements_per_depth(root, max_depth):
     elements = tree_to_list(root)
@@ -900,13 +917,6 @@ def track_properties_to_colors(track_properties):
 
 
 def zones_to_color(zones):
-    color_map = {
-        ZoneTypes.express_way: BLUE_C,
-        ZoneTypes.urban_area: PURPLE,
-        ZoneTypes.rural_area: WHITE,
-        ZoneTypes.no_passing: GREY,
-    }
-
     if ZoneTypes.urban_area in zones:
         return ORANGE
     elif ZoneTypes.express_way in zones:
