@@ -313,7 +313,7 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _p
             subprocess.call(['python', '-m', 'manim', '-s', 'creation_scenes.py', 'DrawSuperConfig'], stdout=devnull, stderr=devnull)
 
             # move image to correct folder
-            manim_location = os.path.join(os.getcwd(), 'media/images/creation_scenes', 'DrawSuperConfig_ManimCE_v0.8.0.png')
+            manim_location = os.path.join(os.getcwd(), 'media/images/creation_scenes', 'DrawSuperConfig_ManimCE_v0.12.0.png')
             new_location = os.path.join(path_to_viz, 'image{}.png'.format(index))
             if _print:
                 print("\nCopying image from {} to {}".format(colored(manim_location, 'yellow'), colored(new_location, 'cyan')))

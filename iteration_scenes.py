@@ -52,7 +52,7 @@ class DynamicIPVisualization:
                 squares.append(square)
                 square_grid[x][y] = square
                 if self.show_text:
-                    captions.append(get_text(r'$c_{' + str(x) + ',' + str(y) + '}$', self.transform_coords((x, y)), scale=self.square_size))
+                    captions.append(get_text(r'$c_{' + str(x+1) + ',' + str(y+1) + '}$', self.transform_coords((x, y)), scale=self.square_size))
 
         self.animation_sequence += [
             AnimationObject('add', content=squares, z_index=0),

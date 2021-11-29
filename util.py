@@ -269,11 +269,12 @@ def get_square(coords, size, color=WHITE, secondary_color=GREY, border_width=2):
     return square
 
 
-def get_text(text, coords, scale=1):
+def get_text(text, coords, scale=1, color=WHITE):
     x, y = coords
     text = Tex(text).scale(scale)
     text.set_x(coords[0])
     text.set_y(coords[1])
+    text.set_color(color)
     return text
 
 
