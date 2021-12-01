@@ -197,8 +197,8 @@ class Iterator:
             queue += add_to_queue
             self.iteration_counter += 1
 
-            # if self.iteration_counter > 5:
-            #     return
+           # if self.iteration_counter > 5:
+           #     return root
 
         if self._print:
             print("Number of checked leafs: {}".format(self.leaf_counter))
@@ -346,6 +346,91 @@ class IterationTree(AnimationSequenceScene):
 
         camera_position, camera_size = tree_showcase.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=4, border_scale=1)
+        self.wait(6)
+
+
+class CustomIterationTree(AnimationSequenceScene):
+    def construct(self):
+        zoomed_out = 6
+        zoomed_in = 1.25
+        time_at_node = 1
+        width, height = (4, 4)
+        iterator = Iterator(width-1, height-1)
+        root = iterator.iterate(depth_first=False)
+
+        reference_node = DynamicIPVisualization(width - 1, height - 1)
+        _, element_size, _ = reference_node.get_camera_settings()
+        element_width, element_height = element_size
+        tree_showcase = TreeShowCase(root, element_dimensions=element_size, spacing=(element_width * 0.66, element_height * 0.33))
+        elements = tree_to_list(root, dfs=False)
+        print("Number of Nodes in Tree: {}".format(len(elements)))
+        camera_position, camera_size = tree_showcase.get_zoomed_camera_settings(elements[0])
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.25, shift=-np.array(element_size) / 5)
+        previous_element = None
+
+        for index, element in tqdm(enumerate(elements)):
+            viz = DynamicIPVisualization(width - 1, height - 1, shift=tree_showcase.get_element_coords(element), show_text=True)
+            viz.update(element.grid, animate=False)
+            camera_position, camera_size = tree_showcase.get_zoomed_camera_settings(element)
+            if previous_element is None:
+                self.play_animations(viz.get_animation_sequence())
+                self.move_camera(camera_size, camera_position, duration=0.1, border_scale=zoomed_in, shift=-np.array(element_size) / 5)
+            else:
+                if element.parent == previous_element:
+                    previous_position, _ = tree_showcase.get_zoomed_camera_settings(previous_element)
+                    line = get_line(previous_position, camera_position, stroke_width=10)
+                    # transition camera smoothly
+                    self.move_camera(camera_size, previous_position, duration=1, border_scale=zoomed_out, shift=-np.array(element_size)/5)
+                    self.play_animation(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
+                    if element.variant:
+                        glow = 0.1
+                        back_drop = get_square(np.array(tree_showcase.get_element_coords(element)) + (0.225 + glow) * np.array(element_size), element_size[0] * (1 + glow), YELLOW_D, YELLOW_B, border_width=5)
+                        element.export_grid()
+                        viz.update(element.grid, animate=True, duration=1)
+                        self.play_animations(viz.get_animation_sequence())
+                        self.play_animation(AnimationObject('play', content=Create(back_drop), duration=1, z_index=-4))
+                        break
+                    else:
+                        self.play_animations(viz.get_animation_sequence())
+                    self.move_camera(camera_size, camera_position, duration=1, border_scale=zoomed_out, shift=-np.array(element_size)/5)
+                    # self.move_camera(camera_size, camera_position, duration=1, border_scale=zoomed_in, shift=-np.array(element_size)/5)
+                else:
+                    previous_position, _ = tree_showcase.get_zoomed_camera_settings(previous_element)
+                    parent_position, _ = tree_showcase.get_zoomed_camera_settings(element.parent)
+                    line = get_line(parent_position, camera_position, stroke_width=10)
+                    # transition camera smoothly
+                    self.move_camera(camera_size, previous_position, duration=1, border_scale=zoomed_out, shift=-np.array(element_size)/5)
+                    self.move_camera(camera_size, parent_position, duration=1, border_scale=zoomed_out, shift=-np.array(element_size)/5)
+                    self.play_animation(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
+                    if element.variant:
+                        glow = 0.1
+                        back_drop = get_square(np.array(tree_showcase.get_element_coords(element)) + (0.225 + glow) * np.array(element_size), element_size[0] * (1 + glow), YELLOW_D, YELLOW_B, border_width=5)
+                        element.export_grid()
+                        viz.update(element.grid, animate=True, duration=1)
+                        self.play_animations(viz.get_animation_sequence())
+                        self.play_animation(AnimationObject('play', content=Create(back_drop), duration=1, z_index=-4))
+                    else:
+                        self.play_animations(viz.get_animation_sequence())
+                    self.move_camera(camera_size, camera_position, duration=1, border_scale=zoomed_out, shift=-np.array(element_size)/5)
+                    # self.move_camera(camera_size, camera_position, duration=1, border_scale=zoomed_in, shift=-np.array(element_size)/5)
+            if index > 3:
+                break
+
+            previous_element = element
+            # self.wait(1)
+
+        anim_sequence = []
+
+        for index, label_position in enumerate(tree_showcase.get_label_positions(shift=[8, -0.4])):
+            label = get_text('$\\bar{C}_' + str(index + 1) + '$', coords=label_position, scale=5)
+            # label = get_text('Hello World!', coords=label_position, scale=5)
+            anim_sequence.append(AnimationObject(type='add', content=label))
+
+        self.play_animations(anim_sequence)
+
+        camera_position, camera_size = tree_showcase.get_global_camera_settings()
+        camera_width, camera_height = camera_size
+        self.move_camera((camera_width * 0.9, camera_height * 0.5), camera_position, duration=4, border_scale=1)
         self.wait(6)
 
 

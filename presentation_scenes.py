@@ -145,10 +145,15 @@ class IPVisualization:
 
         # # TODO: REMOVE! -->
         self.solution = [
+            [0, 1, 0],
             [1, 1, 1],
-            [3, 0, 1],
-            [1, 2, 1],
+            [0, 1, 0],
         ]
+        # self.solution = [
+        #     [1, 1, 1],
+        #     [3, 0, 1],
+        #     [1, 2, 1],
+        # ]
         # self.solution = [
         #     [1, 1],
         #     [1, 0],
@@ -229,6 +234,9 @@ class IPVisualization:
         # solution_flat = np.ravel(self.solution, order='F')
         # intersect_matrix_flat = np.ravel(intersect_matrix, order='F')
 
+        # intersection_constraints_names = [None, None, 'bottom', None, 'left', '', 'right', None, 'top', None] + [''] * 20
+        # counter2 = 0
+
         print_2d(self.solution)
         self.squares = []
         self.captions = []
@@ -259,6 +267,9 @@ class IPVisualization:
                     self.captions.append(get_text('{}'.format(node_grid_values[x][y]), coords))
                 elif self.show_text == 'names':
                     self.captions.append(get_text(r'$c_{' + str(x+1) + ',' + str(y+1) + '}$', coords))
+                    # if intersection_constraints_names[counter] is not None:
+                    #    self.captions.append(get_text(r'$c_\mathrm{' + intersection_constraints_names[counter] + '}$', coords, scale=1 if intersection_constraints_names[counter] == '' else 0.65))
+                    # counter2 += 1
 
         self.animation_sequence += [
             AnimationObject('add', content=self.squares, z_index=0),

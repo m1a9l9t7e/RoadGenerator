@@ -200,7 +200,7 @@ def get_interpolation_animation_continuous(points, duration=5):
 
     right_line = right_spline.get_animation()
     left_line = left_spline.get_animation()
-    center_line = center_spline.get_animation(dashed=True, num_dashes=4)
+    center_line = center_spline.get_animation(dashed=True, num_dashes=5)
     animation_sequence = [AnimationObject(type='play', content=[right_line, left_line, center_line], duration=duration, bring_to_front=True)]
     return animation_sequence
 
