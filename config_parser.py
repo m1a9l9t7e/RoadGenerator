@@ -125,7 +125,8 @@ class Config:
         return zone_assignment, start_index
 
     def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None, scale=True):
-        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale if scale else 1, problem_dict=problem_dict, start_index=start_index)
+        fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale if scale else 1, problem_dict=problem_dict, start_index=start_index,
+                          intersection_size=0.5 * (2 / self.layout.scale))
         featureide_source = 'fm-{}.xml'.format(Path(self.path).stem)
         fm.export(featureide_source)
 

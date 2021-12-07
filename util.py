@@ -1,3 +1,4 @@
+import colorsys
 import enum
 import random
 import math
@@ -10,7 +11,7 @@ from io import StringIO
 import sys
 from enum import Enum, auto
 from interpolation import interpolate_single, InterpolatedLine
-
+from colour import Color
 
 #######################
 ##### GRAPH STUFF #####
@@ -351,7 +352,7 @@ def make_unitary(graph):
     return animation_sequence
 
 
-def get_continued_interpolation_animation(track_point, coords, dashed=False, track_color=WHITE, z_index=0):
+def get_continued_interpolation_animation(track_point, coords, dashed=False, track_color=WHITE, z_index=0, stroke_width=2):
     """
     Create Animation Object for interpolating a line from a trackpoint to given coordinates, keeping the direction from the trackpoint.
     Used for interpolating the individual lines of an intersection.
@@ -360,7 +361,7 @@ def get_continued_interpolation_animation(track_point, coords, dashed=False, tra
     direction = np.array(coords[:2]) - track_point.coords[:2]
     track_point.direction = direction / np.linalg.norm(direction)
     px, py = interpolate_single(track_point, TrackPoint(coords, track_point.direction))
-    line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+    line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=stroke_width)
     if dashed:
         # choose num dashes in relation to line length
         line = DashedVMobject(line, num_dashes=2, dashed_ratio=0.6)
@@ -935,6 +936,13 @@ def zones_to_color(zones):
     #     zone = ZoneTypes.rural_area
     #
     # return color_map[zone]
+
+
+def random_color():
+    h, s, l = random.random(), 0.5 + random.random() / 2.0, 0.4 + random.random() / 5.0
+    r, g, b = [int(256 * i) for i in colorsys.hls_to_rgb(h, l, s)]
+    # return Color(rgb=(random.random() for _ in range(3)))
+    return Color(rgb=((r, g, b)))
 
 
 if __name__ == '__main__':

@@ -1,3 +1,5 @@
+import math
+
 from manim import *
 from anim_sequence import AnimationObject
 import numpy as np
@@ -12,11 +14,25 @@ class Constraint:
 
 def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
     distance = np.linalg.norm([x1 - x2, y1 - y2])
+
+    # angle = get_angle((dx1, dy1), (dx2, dy2))
+    # if angle < 0.01:
+    #     angle = 1
+    # else:
+    #     angle /= (math.pi / 2)
+    #     if angle == 0.5:
+    #         angle = 0.95
+    #
+    # print(angle)
+    # if np.isnan(angle):
+    #     angle = 1
+    angle = 1
+
     constraints = [
         Constraint(0, x1, 0),
-        Constraint(0, dx1 * distance, 1),
+        Constraint(0, dx1 * distance * angle, 1),
         Constraint(1, x2, 0),
-        Constraint(1, dx2 * distance, 1),
+        Constraint(1, dx2 * distance * angle, 1),
         Constraint(0, 0, 2),
         Constraint(1, 0, 2),
     ]
@@ -27,9 +43,9 @@ def find_polynomials(x1, y1, dx1, dy1, x2, y2, dx2, dy2):
 
     constraints = [
         Constraint(0, y1, 0),
-        Constraint(0, dy1 * distance, 1),
+        Constraint(0, dy1 * distance * angle, 1),
         Constraint(1, y2, 0),
-        Constraint(1, dy2 * distance, 1),
+        Constraint(1, dy2 * distance * angle, 1),
         Constraint(0, 0, 2),
         Constraint(1, 0, 2),
     ]
@@ -205,6 +221,14 @@ def get_interpolation_animation_continuous(points, duration=5):
     return animation_sequence
 
 
+def get_angle(vector1, vector2):
+    unit_vector_1 = vector1 / np.linalg.norm(vector1)
+    unit_vector_2 = vector2 / np.linalg.norm(vector2)
+    dot_product = np.dot(unit_vector_1, unit_vector_2)
+    angle = np.arccos(dot_product)
+    return angle
+
+
 if __name__ == '__main__':
-    # px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
+    px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
     pass

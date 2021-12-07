@@ -59,13 +59,15 @@ class FeatureModel:
         for tour_index, graph_tour in enumerate(extract_graph_tours(self.graph)):
 
             if tour_index == 0:
-                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection)
+                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection,
+                                                         intersection_size=self.intersection_size)
                 # get position and orientation of start
                 for feature_index, feature in enumerate(graph_tour_features):
                     if feature_index == self.start_index:
                         self.start = feature.start
             else:
-                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None)
+                graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None,
+                                                         intersection_size=self.intersection_size)
 
             basic_features += graph_tour_features
 

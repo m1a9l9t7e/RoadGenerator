@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<extendedFeatureModel>
+	<properties>
+		<graphics key="legendautolayout" value="true"/>
+		<graphics key="showshortnames" value="false"/>
+		<graphics key="layout" value="horizontal"/>
+		<graphics key="showcollapsedconstraints" value="true"/>
+		<graphics key="legendhidden" value="false"/>
+		<graphics key="layoutalgorithm" value="1"/>
+	</properties>
+	<struct>
+		<alt abstract="true" mandatory="true" name="suburban straight">
+			<graphics key="collapsed" value="false"/>
+			<and abstract="true" name="miscellaneous">
+				<feature name="obstacle left"/>
+				<feature name="obstacle right"/>
+				<feature name="missing left"/>
+				<feature name="missing right"/>
+			</and>
+			<feature name="zebra"/>
+			<feature name="traffic island"/>
+			<and name="barred area">
+				<alt abstract="true" mandatory="true" name="length">
+					<feature name="length1"/>
+					<feature name="length2"/>
+					<feature name="length3"/>
+				</alt>
+				<feature name="obstacle"/>
+			</and>
+		</alt>
+	</struct>
+</extendedFeatureModel>

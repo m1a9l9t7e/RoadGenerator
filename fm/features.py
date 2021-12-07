@@ -192,17 +192,17 @@ class BasicFeature(TLFeature):
         level3 = Feature(Features.level3.value, sub_features=[Feature(entry.value) for entry in Level3], mandatory=False, alternative=False)
         return [level3]
 
-    def draw(self, track_width, z_index=0, color_by=None):
+    def draw(self, track_width, z_index=0, color_by=None, stroke_width=2):
         track_color = self.get_color(color_by)
 
         right1, left1, center1 = get_track_points_from_center(self.start, track_width)
         right2, left2, center2 = get_track_points_from_center(self.end, track_width)
         px, py = interpolate_single(left1, left2)
-        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        left_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=stroke_width)
         px, py = interpolate_single(right1, right2)
-        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        right_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=stroke_width)
         px, py = interpolate_single(center1, center2)
-        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=2)
+        center_line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=track_color, stroke_width=stroke_width)
 
         if not self.in_zone(ZoneTypes.no_passing):
             # distance = np.linalg.norm(np.array(center1.coords) - np.array(center2.coords))
@@ -331,7 +331,7 @@ class Intersection(CompositeFeature):
         turn_direction = Feature(Features.turn_direction.value, sub_features=[Feature(entry.value) for entry in TurnDirection], mandatory=True, alternative=True)
         return [right_of_way, turn_direction]
 
-    def draw(self, track_width, z_index=0, color_by=None):
+    def draw(self, track_width, z_index=0, color_by=None, stroke_width=2):
         track_color = self.get_color(color_by)
 
         if self.bottom_left is None or self.bottom_right is None or self.top_left is None or self.top_right is None:
@@ -373,21 +373,21 @@ class Intersection(CompositeFeature):
         anim_sequence = [
             # bottom left track
             # get_continued_interpolation(right1, top_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(right1, bottom_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(left1, left_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(center1, left_bottom_center, dashed=True, track_color=track_color, z_index=z_index),
+            get_continued_interpolation_animation(right1, bottom_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(left1, left_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(center1, left_bottom_center, dashed=True, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
             # top right track
-            get_continued_interpolation_animation(right2, right_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(left2, top_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(center2, right_top_center, dashed=True, track_color=track_color, z_index=z_index),
+            get_continued_interpolation_animation(right2, right_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(left2, top_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(center2, right_top_center, dashed=True, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
             # top left track
-            get_continued_interpolation_animation(right3, left_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(left3, top_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(center3, top_left_center, dashed=True, track_color=track_color, z_index=z_index),
+            get_continued_interpolation_animation(right3, left_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(left3, top_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(center3, top_left_center, dashed=True, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
             # bottom right track
-            get_continued_interpolation_animation(right4, bottom_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(left4, right_corner, dashed=False, track_color=track_color, z_index=z_index),
-            get_continued_interpolation_animation(center4, bottom_right_center, dashed=True, track_color=track_color, z_index=z_index)
+            get_continued_interpolation_animation(right4, bottom_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(left4, right_corner, dashed=False, track_color=track_color, z_index=z_index, stroke_width=stroke_width),
+            get_continued_interpolation_animation(center4, bottom_right_center, dashed=True, track_color=track_color, z_index=z_index, stroke_width=stroke_width)
         ]
 
         # make concurrent
@@ -430,7 +430,7 @@ class Intersection(CompositeFeature):
         right_top_center = np.array([right_corner, top_corner]).mean(axis=0)
         top_left_center = np.array([top_corner, left_corner]).mean(axis=0)
 
-        #### Draw all the lines ####
+        #### Get all the lines ####
         lines = [
             # bottom left track
             get_continued_interpolation_line(right1, bottom_corner),
