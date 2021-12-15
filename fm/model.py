@@ -57,7 +57,6 @@ class FeatureModel:
 
         basic_features = []
         for tour_index, graph_tour in enumerate(extract_graph_tours(self.graph)):
-
             if tour_index == 0:
                 graph_tour_features = get_basic_features(graph_tour, intersection_callback, coordinates_to_straights=None, zone_selection=zone_selection,
                                                          intersection_size=self.intersection_size)
@@ -219,6 +218,8 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             If the current node belongs to two intersection (two callbacks):
             3. We must be in case C
             Note that in case C we must increment the counter by 2, because we are exiting and entering at the same time.
+            
+            There is one exception. If we start at a track piece that is leaving an intersection, we are in case B.
             """
             callbacks = intersection_callback[node1.get_coords()]
             if len(callbacks) == 2:
@@ -241,6 +242,10 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
             elif len(callbacks) == 1:
                 entering = intersection_counter % 2 == 0
                 exiting = intersection_counter % 2 == 1
+                if idx == 1:
+                    if prev_track_property is TrackProperties.intersection:
+                        entering = False
+                        exiting = True
                 track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=entering, exiting=exiting)
                 feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
                                                 start=track_point1, end=track_point2, entering=entering, exiting=exiting)
