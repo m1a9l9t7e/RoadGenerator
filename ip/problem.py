@@ -1,8 +1,8 @@
 from pulp import *
 import numpy as np
 from ip.ip_util import grid_as_str, dict_as_str, list_as_str, export_grid, export_dict, export_list, QuantityConstraint, ConditionTypes, sort_quantity_constraints, \
-    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries, minimize_objective
-from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties
+    list_grid_as_str, export_list_grid, export_list_dict_grid, QuantityConstraintStraight, SolutionEntries, minimize_objective, export_variable
+from util import is_adjacent, add_to_list_in_dict, time, Capturing, TrackProperties, print_2d
 from termcolor import colored
 
 
@@ -215,10 +215,10 @@ class Problem:
 
         # Nodes can only have values > 0, if they are selected
         # In other words: if a nodes selection is zero, the nodes value is also zero
-        # This constraint is technically not needed
-        for x in range(self.width):
-            for y in range(self.height):
-                self.problem += self.node_grid_values[x][y] <= self.node_grid[x][y] * self.get_n()
+        # Note: technically not needed?
+        # for x in range(self.width):
+        #     for y in range(self.height):
+        #         self.problem += self.node_grid_values[x][y] <= self.node_grid[x][y] * self.get_n()
 
         # Edges can only be selected if their value is >= 1
         # In other words: if a nodes value is zero, the selection must also be zero
@@ -435,12 +435,12 @@ class Problem:
                 horizontal = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
-                parallel_top += [self.get_safe(x + _x, y + 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top_intersections = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
                 parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
-                parallel_bottom += [self.get_safe(x + _x, y - 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
-                bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, 'horizontal', 'bottom')
+                parallel_bottom_intersections = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                bottom_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, parallel_bottom_intersections, 'horizontal', 'bottom')
                 straights.append(bottom_straight)
-                top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, 'horizontal', 'top')
+                top_straight = self.single_straight_constraint(x, y, horizontal, intersections, parallel_top, parallel_top_intersections, 'horizontal', 'top')
                 straights.append(top_straight)
                 self.node_grid_straights_horizontal[x][y][length] = [bottom_straight, top_straight]
             else:
@@ -452,12 +452,12 @@ class Problem:
                 vertical = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
-                parallel_right += [self.get_safe(x + 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right_intersections = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
                 parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
-                parallel_left += [self.get_safe(x - 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
-                left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left')
+                parallel_left_intersections = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                left_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_left, parallel_left_intersections, 'vertical', 'left')
                 straights.append(left_straight)
-                right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right')
+                right_straight = self.single_straight_constraint(x, y, vertical, intersections, parallel_right, parallel_right_intersections, 'vertical', 'right')
                 straights.append(right_straight)
                 self.node_grid_straights_vertical[x][y][length] = [left_straight, right_straight]
             else:
@@ -466,10 +466,9 @@ class Problem:
         self.nodes_straights[length] = straights
         return straights
 
-    def single_straight_constraint(self, x, y, cells, intersections, parallel, direction, side=""):
+    def single_straight_constraint(self, x, y, cells, intersections, parallel, parallel_intersections, direction, side=""):
         """
         Set up a single straight variable independent of direction and side.
-        Note that parallel includes vars for parallel cells and parallel intersections as both can be true independent of each other.
         """
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
         straight_var = LpVariable("{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y), cat=const.LpBinary)
@@ -482,16 +481,19 @@ class Problem:
         # --> If any core cell is an intersection, the straight var must also be zero
         core_intersections = intersections[1:-1]
         self.problem += straight_var <= 1 - sum(core_intersections) / len(core_intersections)
+        # --> If any parallel cell is an intersection, the straight var must also be zero
+        core_parallel_intersections = parallel_intersections[1:-1]
+        self.problem += straight_var <= 1 - sum(core_parallel_intersections) / len(core_parallel_intersections)
         # --> If the start continues the straight, the straight var must be zero
         # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
-        self.problem += straight_var <= (1 - cells[0]) + intersections[0] + parallel[0]
+        self.problem += straight_var <= (1 - cells[0]) + intersections[0] + parallel[0] + parallel_intersections[0]
         # --> If the end continues the straight, the straight var must be zero
         # Same constraint as for start
-        self.problem += straight_var <= (1 - cells[-1]) + intersections[-1] + parallel[-1]
+        self.problem += straight_var <= (1 - cells[-1]) + intersections[-1] + parallel[-1] + parallel_intersections[-1]
 
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
         self.problem += 1 - straight_var <= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) \
-                        + (cells[0] - intersections[0] - parallel[0]) + (cells[-1] - intersections[-1] - parallel[-1])
+                        + (cells[0] - intersections[0] - parallel[0] - parallel_intersections[0]) + (cells[-1] - intersections[-1] - parallel[-1] - parallel_intersections[-1])
         return straight_var
 
     ################################
@@ -775,53 +777,154 @@ class Problem:
                     print("{} {}".format(colored("({}|{})".format(x, y), 'blue'), colored('vertical_right', 'yellow')))
                 counter += 1
 
-    def debug_straights_constraints(self, length):
-        """
-        The Idea is to represent a straight sequence of "length" cells as a new variable.
-        This variable is either 2, 1 or 0.
-        0: One of the cells is not selected OR there are adjacent cells on BOTH sides of the sequence
-        1: All cells are selected and there are adjacent cells one ONE side of the sequence
-        2: All cells are selected and there are no adjacent cells on either side of the sequence
-        The value of the variable represents the number of resulting straights.
-        :param length:
-        :param n_straights:
-        :return:
-        """
-        hb, ht, vl, vr = ([], [], [], [])
+    ################################
+    ## DEBUG QUANTITY CONSTRAINTS ##
+    ################################
+
+    def debug_straights_constraints(self, length, _horizontal=None, _vertical=None):
+        straights = []
+        node_grid_straights_horizontal = [[dict() for y in range(self.height)] for x in range(self.width)]  # [bottom, top]
+        node_grid_straights_vertical = [[dict() for y in range(self.height)] for x in range(self.width)]  # [left, right]
         indices = self.get_grid_indices()
         for (x, y) in indices:
-            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i-1, 0) for i in range(length+1)]]
+            horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i - 1, 0) for i in range(length + 1)]]
+            if _horizontal is not None:
+                _top, _bottom = _horizontal[x][y]
+            else:
+                _top, _bottom = (None, None)
+
             if not any(elem is None for elem in horizontal):
-                bottom_straight, top_straight = self.node_grid_straights_horizontal[x][y]
-                hb.append((bottom_straight, horizontal))
-                ht.append((top_straight, horizontal))
+                horizontal = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_top_intersections = [self.get_safe(x + _x, y + 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_bottom = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                parallel_bottom_intersections = [self.get_safe(x + _x, y - 1 + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(i - 2, 0) for i in range(length + 3)]]
+                bottom_straight = self.debug_single_straight_constraint(x, y, horizontal, intersections, parallel_bottom, parallel_bottom_intersections, 'horizontal', 'bottom', _eval=_bottom)
+                straights.append(bottom_straight)
+                top_straight = self.debug_single_straight_constraint(x, y, horizontal, intersections, parallel_top, parallel_top_intersections, 'horizontal', 'top', _eval=_top)
+                straights.append(top_straight)
+                node_grid_straights_horizontal[x][y][length] = [bottom_straight, top_straight]
             else:
-                self.node_grid_straights_horizontal[x][y] = [0, 0]
+                self.node_grid_straights_horizontal[x][y][length] = [0, 0]
 
-            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i-1) for i in range(length+1)]]
+            vertical = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(0, i - 1) for i in range(length + 1)]]
+            if _vertical is not None:
+                _left, _right = _vertical[x][y]
+            else:
+                _left, _right = (None, None)
+
+
             if not any(elem is None for elem in vertical):
-                left_straight, right_straight = self.node_grid_straights_vertical[x][y]
-                vl.append((left_straight, vertical))
-                vr.append((right_straight, vertical))
+                vertical = [self.get_safe(x + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                intersections = [self.get_safe(x + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right = [self.get_safe(x + 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_right += [self.get_safe(x + 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in
+                                   [(0, i - 2) for i in range(length + 3)]]
+                parallel_left = [self.get_safe(x - 1 + _x, y + _y, nonexistent=0) for _x, _y in [(0, i - 2) for i in range(length + 3)]]
+                parallel_left += [self.get_safe(x - 1 + _x, y + _y, nonexistent=0, grid=self.node_grid_intersections) for _x, _y in
+                                  [(0, i - 2) for i in range(length + 3)]]
+                left_straight = self.debug_single_straight_constraint(x, y, vertical, intersections, parallel_left, 'vertical', 'left', _eval=_left)
+                straights.append(left_straight)
+                right_straight = self.debug_single_straight_constraint(x, y, vertical, intersections, parallel_right, 'vertical', 'right', _eval=_right)
+                straights.append(right_straight)
+                node_grid_straights_vertical[x][y][length] = [left_straight, right_straight]
             else:
-                self.node_grid_straights_vertical[x][y] = [0, 0]
+                node_grid_straights_vertical[x][y][length] = [0, 0]
 
-        # add constraints to preven overlapping straights
-        for set_index, straight_set in enumerate([hb, ht, vl, vr]):
-            print("{} straights: ".format(['horizontal bottom', 'horizontal top', 'vertical left', 'vertical right'][set_index]))
-            for index1 in range(len(straight_set)):
-                straight1, cells1 = straight_set[index1]
-                for index2 in range(index1 + 1, len(straight_set), 1):
-                    straight2, cells2 = straight_set[index2]
-                    if self.overlap(cells1, cells2):
-                        print("{} + {} <= 1".format(colored(straight1, 'yellow'), colored(straight2, 'cyan')))
-                        if value(straight1) + value(straight2) > 1:
-                            print(colored('not satisfied', 'red'))
-                        # self.problem += straight1 + straight2 <= 1
-                    # else:
-                    #     print("SKIP {} and {}".format(straight1, straight2))
+        # print_2d(node_grid_straights_vertical)
+        print_2d(node_grid_straights_horizontal)
+        # self.nodes_straights[length] = straights
+        return straights
 
-        return self.nodes_straights
+    def debug_single_straight_constraint(self, x, y, cells, intersections, parallel, parallel_intersections, direction, side="", _print=False, _eval=None, _show_positive=False):
+        """
+        Set up a single straight variable independent of direction and side.
+        Note that parallel includes vars for parallel cells and parallel intersections as both can be true independent of each other.
+        """
+        # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
+        straight_var = "{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y)
+        if side == 'bottom' and (x == 4 and y == 2):
+            pass
+        else:
+            return ""
+        # --> If any core cell is 0, the straight var must also be zero
+        core_cells = cells[1:-1]
+        if _print:
+            print("{} {}".format(straight_var, '<= sum(core_cells) / len(core_cells)'))
+        if _eval is not None:
+            if _eval <= sum(export_list(core_cells)) / len(core_cells):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'red'))
+        # --> If any of the parallel cells are positive, the straight var must be zero
+        core_parallel = parallel[1:-1]
+        if _print:
+            print("{} {}".format(straight_var, '<= 1 - sum(core_parallel) / len(core_parallel)'))
+        if _eval is not None:
+            if _eval <= 1 - sum(export_list(core_parallel)) / len(core_parallel):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'red'))
+        # --> If any core cell is an intersection, the straight var must also be zero
+        core_intersections = intersections[1:-1]
+        if _print:
+            print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
+        if _eval is not None:
+            if _eval <= 1 - sum(export_list(core_intersections)) / len(core_intersections):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'red'))
+
+        # --> If any parallel cell is an intersection, the straight var must also be zero
+        core_intersections = intersections[1:-1]
+        if _print:
+            print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
+        if _eval is not None:
+            if _eval <= 1 - sum(export_list(core_intersections)) / len(core_intersections):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'red'))
+
+        # --> If the start continues the straight, the straight var must be zero
+        # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
+        if _print:
+            print("{} {}".format(straight_var, '<= (1 - cells[0]) + intersections[0] + parallel[0]'))
+        if _eval is not None:
+            if _eval <= (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0]):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'red'))
+        # --> If the end continues the straight, the straight var must be zero
+        # Same constraint as for start
+        if _print:
+            print("{} {}".format(straight_var, '<= (1 - cells[-1]) + intersections[-1] + parallel[-1]'))
+        if _eval is not None:
+            if _eval <= (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1]):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'red'))
+        # Reverse direction must also hold: var is 0 => at least one condition not satisfied
+        if _print:
+            print("1 - {} {}".format(straight_var, '<= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) + (cells[0] - intersections[0] - parallel[0]) + (cells[-1] - intersections[-1] - parallel[-1])'))
+        if _eval is not None:
+            if 1 - _eval <= len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1])):
+                if _show_positive:
+                    print(colored("{} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]))), 'green'))
+            else:
+                print(colored("{} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]))), 'red'))
+
+        print("core: {} / {}".format(export_list(core_cells, save_name=True), len(core_cells)))
+        print("core intersections: {} / {}".format(export_list(core_intersections, save_name=True), len(core_intersections)))
+        print("parallel: {} / {}".format(export_list(core_parallel, save_name=True), len(core_parallel)))
+
+        return straight_var
 
     def get_grid_indices(self):
         indices = []
@@ -869,6 +972,43 @@ class Problem:
         _180_str = colored('{} 180 degree turns'.format(num_180s), 'magenta')
         straights_str = colored('straights {}'.format(num_straights), 'cyan')
         print("Solution has {}, {}, {} and {}".format(intersection_str, _90_str, _180_str, straights_str))
+
+    def get_straight_vars(self):
+        positive = []
+        indices = self.get_grid_indices()
+
+        for x, y in indices:
+            horizontal_straights_dict = self.node_grid_straights_horizontal[x][y]
+            for length in horizontal_straights_dict.keys():
+                bottom, top = horizontal_straights_dict[length]
+                bottom_name = bottom
+                bottom_value = value(bottom)
+
+                if bottom_value > 0:
+                    positive.append(bottom_name)
+
+                top_name = top
+                top_value = value(top)
+
+                if top_value > 0:
+                    positive.append(top_name)
+
+            vertical_straights_dict = self.node_grid_straights_vertical[x][y]
+            for length in vertical_straights_dict.keys():
+                left, right = vertical_straights_dict[length]
+                left_name = left
+                left_value = value(left)
+
+                if left_value > 0:
+                    positive.append(left_name)
+
+                right_name = right
+                right_value = value(right)
+
+                if right_value > 0:
+                    positive.append(right_name)
+
+        return positive
 
 
 class IntersectionProblem:
@@ -950,10 +1090,54 @@ if __name__ == '__main__':
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=5, quantity=0),
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ]
-    p = Problem(6, 3, quantity_constraints=_quantity_constraints)
+
+    # pre_solved = [[1, 2, 1], [1, 0, 1], [1, 0, 1], [2, 0, 1], [1, 0, 1], [3, 0, 1], [1, 1, 1]]
+    pre_solved = [[1, 1, 1], [1, 0, 1], [1, 0, 2], [1, 0, 1], [1, 0, 1], [0, 0, 1], [1, 1, 1]]
+    p = Problem(7, 3, imitate=pre_solved, quantity_constraints=_quantity_constraints, allow_adjacent_intersections=True, allow_gap_intersections=True)
+
+    # p = Problem(6, 3, quantity_constraints=_quantity_constraints)
     start = time.time()
-    _solution, status = p.solve(_print=True)
+    _solution, status = p.solve(_print=False)
     end = time.time()
     print(colored("Solution {}, Time elapsed: {:.2f}s".format(LpStatus[status - 1], end - start), "green" if status > 1 else "red"))
     if status > 1:
+        print_2d(_solution)
         p.get_stats()
+
+    # horizontal = [
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    #     [[0, 0], [0, 0], [0, 0]],
+    # ]
+
+    horizontal = [
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+        [[1, 1], [1, 1], [1, 1]],
+    ]
+
+    vertical = [
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+        [[0, 0], [0, 0], [0, 0]],
+    ]
+
+    straight_vars = p.get_straight_vars()
+    # print(straight_vars)
+
+    p.debug_straights_constraints(2, _horizontal=horizontal)
+
+    # for i in range(2, 7, 1):
+    #     p.debug_straights_constraints(i, _horizontal=horizontal)
