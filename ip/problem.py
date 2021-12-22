@@ -491,9 +491,19 @@ class Problem:
         # Same constraint as for start
         self.problem += straight_var <= (1 - cells[-1]) + intersections[-1] + parallel[-1] + parallel_intersections[-1]
 
+        parallel_cell_or_intersection_start = LpVariable("helper1", cat=const.LpBinary)
+        self.problem += parallel_cell_or_intersection_start <= parallel[0] + parallel_intersections[0]
+        self.problem += parallel_cell_or_intersection_start >= (parallel[0] + parallel_intersections[0]) / 2
+
+        parallel_cell_or_intersection_end = LpVariable("helper2", cat=const.LpBinary)
+        self.problem += parallel_cell_or_intersection_end <= parallel[-1] + parallel_intersections[-1]
+        self.problem += parallel_cell_or_intersection_end >= (parallel[-1] + parallel_intersections[-1]) / 2
+
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
-        self.problem += 1 - straight_var <= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) \
-                        + (cells[0] - intersections[0] - parallel[0] - parallel_intersections[0]) + (cells[-1] - intersections[-1] - parallel[-1] - parallel_intersections[-1])
+        self.problem += 1 - straight_var <= len(core_cells) - sum(core_cells) \
+                                            + sum(core_parallel) + sum(core_intersections) + sum(core_parallel_intersections) \
+                                            + (cells[0] - intersections[0] - parallel_cell_or_intersection_start) \
+                                            + (cells[-1] - intersections[-1] - parallel_cell_or_intersection_end)
         return straight_var
 
     ################################
@@ -789,7 +799,8 @@ class Problem:
         for (x, y) in indices:
             horizontal = [self.get_safe(x + _x, y + _y, nonexistent=None) for _x, _y in [(i - 1, 0) for i in range(length + 1)]]
             if _horizontal is not None:
-                _top, _bottom = _horizontal[x][y]
+                # _top, _bottom = _horizontal[x][y]
+                _top, _bottom = (0, 0)
             else:
                 _top, _bottom = (None, None)
 
@@ -833,96 +844,122 @@ class Problem:
                 node_grid_straights_vertical[x][y][length] = [0, 0]
 
         # print_2d(node_grid_straights_vertical)
-        print_2d(node_grid_straights_horizontal)
+        # print_2d(node_grid_straights_horizontal)
         # self.nodes_straights[length] = straights
         return straights
 
-    def debug_single_straight_constraint(self, x, y, cells, intersections, parallel, parallel_intersections, direction, side="", _print=False, _eval=None, _show_positive=False):
+    def debug_single_straight_constraint(self, x, y, cells, intersections, parallel, parallel_intersections, direction, side="", _print=False, _eval=None, _show_positive=False, print_forward=True):
         """
         Set up a single straight variable independent of direction and side.
         Note that parallel includes vars for parallel cells and parallel intersections as both can be true independent of each other.
         """
         # This variable can be 1 or 0 if a straight is possible. If a straight is not possible, this variable must be zero.
         straight_var = "{}_straight_{}_n{}_x{}_y{}".format(direction, side, len(cells) - 2, x, y)
-        if side == 'bottom' and (x == 4 and y == 2):
-            pass
-        else:
+        if side == 'bottom' and (x == 6 and y == 0):
             return ""
-        # --> If any core cell is 0, the straight var must also be zero
+        elif side == 'top' and (x == 6 and y == 2):
+            return ""
+        elif side == 'right' and (x == 7 and y == 1):
+            return ""
+
         core_cells = cells[1:-1]
-        if _print:
-            print("{} {}".format(straight_var, '<= sum(core_cells) / len(core_cells)'))
-        if _eval is not None:
-            if _eval <= sum(export_list(core_cells)) / len(core_cells):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'red'))
-        # --> If any of the parallel cells are positive, the straight var must be zero
         core_parallel = parallel[1:-1]
-        if _print:
-            print("{} {}".format(straight_var, '<= 1 - sum(core_parallel) / len(core_parallel)'))
-        if _eval is not None:
-            if _eval <= 1 - sum(export_list(core_parallel)) / len(core_parallel):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'red'))
-        # --> If any core cell is an intersection, the straight var must also be zero
         core_intersections = intersections[1:-1]
-        if _print:
-            print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
-        if _eval is not None:
-            if _eval <= 1 - sum(export_list(core_intersections)) / len(core_intersections):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'red'))
+        core_parallel_intersections = parallel_intersections[1:-1]
 
-        # --> If any parallel cell is an intersection, the straight var must also be zero
-        core_intersections = intersections[1:-1]
-        if _print:
-            print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
-        if _eval is not None:
-            if _eval <= 1 - sum(export_list(core_intersections)) / len(core_intersections):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'red'))
-
-        # --> If the start continues the straight, the straight var must be zero
-        # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
-        if _print:
-            print("{} {}".format(straight_var, '<= (1 - cells[0]) + intersections[0] + parallel[0]'))
-        if _eval is not None:
-            if _eval <= (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0]):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'red'))
-        # --> If the end continues the straight, the straight var must be zero
-        # Same constraint as for start
-        if _print:
-            print("{} {}".format(straight_var, '<= (1 - cells[-1]) + intersections[-1] + parallel[-1]'))
-        if _eval is not None:
-            if _eval <= (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1]):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'red'))
+        # # --> If any core cell is 0, the straight var must also be zero
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= sum(core_cells) / len(core_cells)'))
+        # if _eval is not None:
+        #     if _eval <= sum(export_list(core_cells)) / len(core_cells):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, sum(export_list(core_cells)) / len(core_cells)), 'red'))
+        # # --> If any of the parallel cells are positive, the straight var must be zero
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= 1 - sum(core_parallel) / len(core_parallel)'))
+        # if _eval is not None:
+        #     if _eval <= 1 - sum(export_list(core_parallel)) / len(core_parallel):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel)) / len(core_parallel)), 'red'))
+        # # --> If any core cell is an intersection, the straight var must also be zero
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
+        # if _eval is not None:
+        #     if _eval <= 1 - sum(export_list(core_intersections)) / len(core_intersections):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_intersections)) / len(core_intersections)), 'red'))
+        #
+        # # --> If any parallel cell is an intersection, the straight var must also be zero
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= 1 - sum(core_intersections) / len(core_intersections)'))
+        # if _eval is not None:
+        #     if _eval <= 1 - sum(export_list(core_parallel_intersections)) / len(core_parallel_intersections):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel_intersections)) / len(core_parallel_intersections)), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, 1 - sum(export_list(core_parallel_intersections)) / len(core_parallel_intersections)), 'red'))
+        #
+        # # --> If the start continues the straight, the straight var must be zero
+        # # This means the straight var may only be 1, if either the beginning cell is 0, the beginning cell is an intersection or the cell parallel to the beginning is 1
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= (1 - cells[0]) + intersections[0] + parallel[0]'))
+        # if _eval is not None:
+        #     if _eval <= (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0]):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[0])) + export_variable(intersections[0]) + export_variable(parallel[0])), 'red'))
+        # # --> If the end continues the straight, the straight var must be zero
+        # # Same constraint as for start
+        # if _print:
+        #     print("{} {}".format(straight_var, '<= (1 - cells[-1]) + intersections[-1] + parallel[-1]'))
+        # if _eval is not None:
+        #     if _eval <= (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1]):
+        #         if _show_positive:
+        #             print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'green'))
+        #     else:
+        #         print(colored("{} <= {}".format(_eval, (1 - export_variable(cells[-1])) + export_variable(intersections[-1]) + export_variable(parallel[-1])), 'red'))
+        #
         # Reverse direction must also hold: var is 0 => at least one condition not satisfied
         if _print:
-            print("1 - {} {}".format(straight_var, '<= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) + (cells[0] - intersections[0] - parallel[0]) + (cells[-1] - intersections[-1] - parallel[-1])'))
-        if _eval is not None:
-            if 1 - _eval <= len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1])):
-                if _show_positive:
-                    print(colored("{} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]))), 'green'))
-            else:
-                print(colored("{} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + (value(cells[0]) - value(intersections[0]) - value(parallel[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]))), 'red'))
+            print("1 - {} {}".format(straight_var, '<= len(core_cells) - sum(core_cells) + sum(core_parallel) + sum(core_intersections) + (cells[0] - intersections[0] - parallel[0] - parallel_intersections[0]) + (cells[-1] - intersections[-1] - parallel[-1] - parallel_intersections[-1])'))
 
-        print("core: {} / {}".format(export_list(core_cells, save_name=True), len(core_cells)))
-        print("core intersections: {} / {}".format(export_list(core_intersections, save_name=True), len(core_intersections)))
-        print("parallel: {} / {}".format(export_list(core_parallel, save_name=True), len(core_parallel)))
+        if _eval is not None:
+            if 1 - _eval <= len(core_cells) - sum(export_list(core_cells)) \
+                    + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + sum(export_list(core_parallel_intersections)) \
+                    + (value(cells[0]) - value(intersections[0]) - value(parallel[0]) - value(parallel_intersections[0])) \
+                    + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]) - value(parallel_intersections[-1])):
+                if _show_positive:
+                    print(colored("1 - {} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells)) + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + sum(export_list(core_parallel_intersections))+ (value(cells[0]) - value(intersections[0]) - value(parallel[0]) - value(parallel_intersections[0])) + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]) - value(parallel_intersections[-1]))), 'green'))
+            else:
+                print(colored("1 - {} <= {}".format(_eval, len(core_cells) - sum(export_list(core_cells))
+                                                + sum(export_list(core_parallel)) + sum(export_list(core_intersections)) + sum(export_list(core_parallel_intersections))
+                                                + (value(cells[0]) - value(intersections[0]) - value(parallel[0]) - value(parallel_intersections[0]))
+                                                + (value(cells[-1]) - value(intersections[-1]) - value(parallel[-1]) - value(parallel_intersections[-1]))), 'red'))
+                print("{} - {}".format(len(core_cells), sum(export_list(core_cells))))
+                print("{} + {} + {}".format(sum(export_list(core_parallel)), sum(export_list(core_intersections)), sum(export_list(core_parallel_intersections))))
+                print("({} - {} - {} - {})".format(value(cells[0]), value(intersections[0]), value(parallel[0]), value(parallel_intersections[0])))
+
+                print(straight_var)
+                # print("core: {} / {}".format(export_list(core_cells, save_name=True), len(core_cells)))
+                # print("core intersections: {} / {}".format(export_list(core_intersections, save_name=True), len(core_intersections)))
+                # print("parallel: {} / {}".format(export_list(core_parallel, save_name=True), len(core_parallel)))
+                # print("parallel intersections: {} / {}".format(export_list(core_parallel_intersections, save_name=True), len(core_parallel_intersections)))
+                print("cells: {} / {}".format(export_list(cells, save_name=True), len(cells)))
+                print("intersections: {} / {}".format(export_list(intersections, save_name=True), len(intersections)))
+                print("parallel: {} / {}".format(export_list(parallel, save_name=True), len(parallel)))
+                print("parallel intersections: {} / {}".format(export_list(parallel_intersections, save_name=True), len(parallel_intersections)))
+
+
+        # print("core: {} / {}".format(export_list(core_cells, save_name=True), len(core_cells)))
+        # print("core intersections: {} / {}".format(export_list(core_intersections, save_name=True), len(core_intersections)))
+        # print("parallel: {} / {}".format(export_list(core_parallel, save_name=True), len(core_parallel)))
 
         return straight_var
 
@@ -1091,9 +1128,15 @@ if __name__ == '__main__':
         QuantityConstraintStraight(TrackProperties.straight, ConditionTypes.more_or_equals, length=6, quantity=0),
     ]
 
-    # pre_solved = [[1, 2, 1], [1, 0, 1], [1, 0, 1], [2, 0, 1], [1, 0, 1], [3, 0, 1], [1, 1, 1]]
-    pre_solved = [[1, 1, 1], [1, 0, 1], [1, 0, 2], [1, 0, 1], [1, 0, 1], [0, 0, 1], [1, 1, 1]]
-    p = Problem(7, 3, imitate=pre_solved, quantity_constraints=_quantity_constraints, allow_adjacent_intersections=True, allow_gap_intersections=True)
+    # CC17
+    pre_solved = [[1, 2, 1], [0, 0, 1], [1, 1, 1], [1, 0, 1], [0, 0, 2], [1, 3, 1], [1, 0, 1], [1, 1, 1]]
+    # CC20
+    # pre_solved = [[1, 1, 1], [2, 0, 1], [1, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
+    # Zone Example
+    # pre_solved = [[1, 1, 1], [1, 0, 1], [1, 0, 2], [1, 0, 1], [1, 0, 1], [0, 0, 1], [1, 1, 1]]
+
+    p = Problem(len(pre_solved), len(pre_solved[0]), imitate=pre_solved, quantity_constraints=_quantity_constraints, allow_adjacent_intersections=True, allow_gap_intersections=True)
+    # p = Problem(7, 3, imitate=pre_solved, quantity_constraints=_quantity_constraints, allow_adjacent_intersections=True, allow_gap_intersections=True)
 
     # p = Problem(6, 3, quantity_constraints=_quantity_constraints)
     start = time.time()
@@ -1104,40 +1147,6 @@ if __name__ == '__main__':
         print_2d(_solution)
         p.get_stats()
 
-    # horizontal = [
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    #     [[0, 0], [0, 0], [0, 0]],
-    # ]
-
-    horizontal = [
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-        [[1, 1], [1, 1], [1, 1]],
-    ]
-
-    vertical = [
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-        [[0, 0], [0, 0], [0, 0]],
-    ]
-
-    straight_vars = p.get_straight_vars()
+    # straight_vars = p.get_straight_vars()
     # print(straight_vars)
-
-    p.debug_straights_constraints(2, _horizontal=horizontal)
-
-    # for i in range(2, 7, 1):
-    #     p.debug_straights_constraints(i, _horizontal=horizontal)
+    # p.debug_straights_constraints(2, _horizontal=horizontal)
