@@ -3,7 +3,7 @@
       "width": 8,
       "height": 4,
       "constraints": [
-        {"type":  "intersection", "min": 4, "max": 4},
+        {"type":  "intersection", "min": 3, "max": 3},
         {"type":  "turn_180", "min": 2, "max": 2},
         {"type":  "turn_90", "min": 3, "max": 3},
         {"type":  "straight", "length": 2, "min": 2, "max": 2},
@@ -17,38 +17,21 @@
       "drive_straight": true,
       "scale": 2,
       "solution": [
-            [1, 1, 1],
-            [1, 0, 1],
-            [1, 0, 2],
-            [1, 0, 1],
+            [1, 2, 1],
             [1, 0, 1],
             [0, 0, 1],
-            [1, 1, 1]]
+            [1, 1, 1],
+            [1, 0, 1],
+            [0, 0, 2],
+            [1, 3, 1],
+            [1, 0, 1],
+            [1, 1, 1]
+        ]
   },
   "zones": {
-      "descriptions": [
-          {"type":  "parking", "min_length": 3, "max_length": 3},
-          {"type":  "express_way", "min_length": 3, "max_length": 3},
-          {"type":  "urban_area", "min_length": 5, "max_length": 10},
-          {"type":  "no_passing", "min_length": 3, "max_length": 6},
-          {"type":  "no_passing", "min_length": 3, "max_length": 6}
-      ],
-        "solution": {
-            "parking": [
-                [13, 15]
-            ],
-            "express_way": [
-                [0, 3]
-            ],
-            "urban_area": [
-                [17, 25]
-            ],
-            "no_passing": [
-                [5, 9],
-                [27, 30]
-            ]
-          }
-  },
+      "descriptions": [],
+        "solution": null
+        },
   "features": {
       "sampling_algorithm": "random",
       "num_obstacles": 3,

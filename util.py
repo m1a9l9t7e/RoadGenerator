@@ -193,7 +193,7 @@ class Grid:
     Creates a drawable grid, consisting of manim lines
     """
 
-    def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=0.4):
+    def __init__(self, graph, square_size, shift, color=GREEN_C, stroke_width=1.5):
         self.graph = graph
         self.width = len(graph.grid)
         self.height = len(graph.grid[0])
@@ -275,6 +275,12 @@ def get_text(text, coords, scale=1, color=WHITE):
     text = Tex(text).scale(scale)
     text.set_x(coords[0])
     text.set_y(coords[1])
+    text.set_color(color)
+    return text
+
+
+def get_colored_text(text, color=WHITE):
+    text = Tex(text)
     text.set_color(color)
     return text
 
