@@ -15,7 +15,7 @@
       "allow_gap_intersections": true,
       "allow_adjacent_intersections": false,
       "drive_straight": true,
-      "scale": 2.8,
+      "scale": 3,
       "solution": [
             [1, 2, 1],
             [0, 0, 1],
