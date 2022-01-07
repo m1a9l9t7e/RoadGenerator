@@ -3,7 +3,7 @@
       "width": 8,
       "height": 4,
       "constraints": [
-        {"type":  "intersection", "min": 1, "max": 1},
+        {"type":  "intersection", "min": 3, "max": 3},
         {"type":  "turn_180", "objective": "maximize"},
         {"type":  "turn_90", "min": 0, "max": null},
         {"type":  "straight", "length": 2, "min": 0, "max": null},
@@ -15,7 +15,7 @@
       "allow_gap_intersections": true,
       "allow_adjacent_intersections": false,
       "drive_straight": true,
-      "scale": 2,
+      "scale": 3,
       "solution": null
   },
   "zones": {

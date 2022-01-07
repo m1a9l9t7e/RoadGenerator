@@ -114,7 +114,7 @@ class FeatureModel:
                 # print(name)
                 name = name.replace('"', '')
                 name = name.replace('\n', '')
-                # print("{}\n\n".format(name))
+                # print("{}\n".format(name))
                 self.name_to_feature_map[name].value = True
 
         # for feature in self.features:
@@ -326,7 +326,8 @@ def get_intersection_features(ip_solution):
             coords_list = []
             for (_x, _y) in [(0, 0), (1, 0), (0, 1), (1, 1)]:
                 coords_list.append((x + _x, y + _y))
-            intersection = Intersection(TLFeatures.intersection.value, coords_list, suffix="i{}".format(len(features)))
+            # intersection = Intersection(TLFeatures.intersection.value, coords_list, suffix="i{}".format(len(features)))
+            intersection = Intersection(TLFeatures.intersection.value, coords_list)
             for (_x, _y, callback) in [(0, 0, intersection.set_bottom_left), (1, 0, intersection.set_bottom_right), (0, 1, intersection.set_top_left), (1, 1, intersection.set_top_right)]:
                 intersection_callback.setdefault((x + _x, y + _y), []).append(callback)
             features.append(intersection)
@@ -443,6 +444,6 @@ if __name__ == '__main__':
         print(feature)
         print(feature.get_selected_sub_features())
 
-    # print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
+    print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
     fm.export('fm.xml')
     fm.save('fm.pkl')

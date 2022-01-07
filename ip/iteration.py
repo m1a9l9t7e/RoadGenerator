@@ -22,6 +22,7 @@ from enum import Enum, auto
 class IteratorType(Enum):
     base_ip = auto()
     prohibition_ip = auto()
+    full_prohibition_ip = auto()
     iterative_construction = auto()
 
 
@@ -38,6 +39,9 @@ class GraphModel:
             self.variants = iterator.iterate()
         elif iterator_type == IteratorType.prohibition_ip:
             iterator = ProhibitionIterator(self.width, self.height, _print=True)
+            self.variants = iterator.iterate()
+        elif iterator_type == IteratorType.full_prohibition_ip:
+            iterator = FullProhibitionIterator(width=self.width, height=self.height)
             self.variants = iterator.iterate()
         elif iterator_type == IteratorType.iterative_construction:
             iterator = IterativeConstructionIterator(self.width, self.height, _print=False)
@@ -222,13 +226,26 @@ class ProhibitionIterator:
 
 
 class FullProhibitionIterator:
-    def __init__(self, config, _print=False):
+    def __init__(self, config=None, width=4, height=4, _print=False, filter_for_duplicates=True):
         self.config = config
-        self.width, self.height = config.dimensions
-        self.width, self.height = (self.width - 1, self.height - 1)
-        self.constraints = config.layout.constraints
+        if self.config is None:
+            self.width = width - 1
+            self.height = height - 1
+            self.constraints = [
+                QuantityConstraint(TrackProperties.intersection, ConditionTypes.more_or_equals, quantity=0),
+            ]
+            self.allow_gap_intersections = True
+            self.drive_straight = False
+        else:
+            self.width, self.height = config.dimensions
+            self.width, self.height = (self.width - 1, self.height - 1)
+            self.constraints = config.layout.constraints
+            self.allow_gap_intersections = self.config.layout.allow_gap_intersections
+            self.drive_straight = self.config.layout.drive_straight
         self._print = _print
         self.solutions = []
+        self.hashes = []
+        self.filter_for_duplicates = filter_for_duplicates
         self.counter = 0
         self.total_time = 0
 
@@ -241,7 +258,7 @@ class FullProhibitionIterator:
         solutions_raw = []
         while self.counter < num_solutions:
             problem = Problem(self.width, self.height, quantity_constraints=self.constraints, full_prohibition_constraints=solutions_raw,
-                              allow_gap_intersections=self.config.layout.allow_gap_intersections)
+                              allow_gap_intersections=self.allow_gap_intersections)
             start = time.time()
             solution, feasible = problem.solve(_print=self._print)
             end = time.time()
@@ -249,10 +266,25 @@ class FullProhibitionIterator:
             if self._print:
                 print(colored("Iteration Step complete, Time elapsed: {:.2f}s".format(end - start), "green" if feasible > 1 else "red"))
             if feasible:
-                solutions_raw.append(self.flatten(solution))
+                flat = self.flatten(solution)
+                solutions_raw.append(flat)
+
+                # if self.filter_for_duplicates and np.any(solution == 3):
+
+                # print(np.any(np.nonzero(solution == 3)))
+                # print(np.any(flat == 3))
+                if np.any(np.array(solution) == 3):
+                    # print_2d(solution)
+                    simplified = np.where(solution == 3, 2, solution)
+                    # print_2d(simplified)
+                    hashed = hash_np(simplified)
+                    if hashed in self.hashes:
+                        continue
+                    else:
+                        self.hashes.append(hashed)
 
                 # if drive straight is required, skip disconnected tracks!
-                if self.config.layout.drive_straight:
+                if self.drive_straight:
                     graph = convert_solution_to_graph(solution)
                     if len(extract_graph_tours(graph)) > 1:
                         skipped += 1

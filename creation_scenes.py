@@ -18,14 +18,14 @@ from fm.model import FeatureModel
 
 class MultiGraphIP(AnimationSequenceScene):
     def construct(self):
-        show_ip = True
+        show_ip = False
         show_graph = False
-        show_track = False
+        show_track = True
 
         width, height = (4, 4)
-        square_size = 1
-        graph_model = GraphModel(width, height, generate_intersections=False, sample_random=None)
-        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[1, 1], ratio=[6, 1])
+        square_size = 2
+        graph_model = GraphModel(width, height, generate_intersections=False, sample_random=None, allow_gap_intersections=True, iterator_type=IteratorType.full_prohibition_ip)
+        graph_list, helper = graph_model.get_graphs(scale=square_size, spacing=[2, 2], ratio=[9, 6])
         camera_position, camera_size = helper.get_global_camera_settings()
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.1)
 
@@ -47,11 +47,12 @@ class MultiGraphIP(AnimationSequenceScene):
             track_width = 0.4
             for graph in graph_list:
                 graph_tours = extract_graph_tours(graph)
-                gen_track_points, remove_track_points, points, _ = generate_track_points(graph_tours[0], track_width=track_width)
-                interpolation_animation = get_interpolation_animation_continuous(points)
-                # animations = gen_track_points + interpolation_animation + remove_graph(graph, animate=True) + remove_track_points
-                animations = gen_track_points + interpolation_animation + remove_track_points
-                track_animations_list.append(animations)
+                for graph_tour in graph_tours:
+                    gen_track_points, remove_track_points, points, _ = generate_track_points(graph_tour, track_width=track_width)
+                    interpolation_animation = get_interpolation_animation_continuous(points, stroke_width=4)
+                    # animations = gen_track_points + interpolation_animation + remove_graph(graph, animate=True) + remove_track_points
+                    animations = gen_track_points + interpolation_animation + remove_track_points
+                    track_animations_list.append(animations)
             self.play_concurrent(track_animations_list)
             self.wait(3)
 
@@ -240,17 +241,19 @@ class FMTrackSuperConfig(AnimationSequenceScene):
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=3)
         self.play_animations(grid.get_animation_sequence(z_index=20))
 
-        # fm = config.get_fm()
-        fm = FeatureModel()
-        fm.load(config.features.fm_path)
+        fm = config.get_fm()
+        print(colored("Possible configs for this FM: {}".format(fm.calculate_possible_configurations()), 'green'))
+
+        # fm = FeatureModel()
+        # fm.load(config.features.fm_path)
 
         anim_sequence = []
         if anim_fm:
             for index, feature in enumerate(fm.features):
-                animation = feature.draw(track_width=track_width, color_by='track_property')
+                animation = feature.draw(track_width=track_width, color_by='track_property', stroke_width=4)
                 if animation is not None:
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)
@@ -292,7 +295,7 @@ class DrawSuperConfig(AnimationSequenceScene):
         width, height = config.dimensions
 
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
-        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size)
+        grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=3)
         self.play_animations(grid.get_animation_sequence(z_index=20))
 
         anim_sequence = []
@@ -301,8 +304,8 @@ class DrawSuperConfig(AnimationSequenceScene):
 
         if anim_fm:
             for index, feature in enumerate(fm.features):
-                animation = feature.draw(track_width=track_width, color_by='track_property')
-                # animation = feature.draw(track_width=track_width, color_by='zone')
+                animation = feature.draw(track_width=track_width, color_by='track_property', stroke_width=6)
+                # animation = feature.draw(track_width=track_width, color_by='zone', stroke_width=6)
                 if animation is not None:
                     anim_sequence.append(animation)
             self.play_animations(anim_sequence)

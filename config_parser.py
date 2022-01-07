@@ -86,12 +86,49 @@ class Config:
             self.zones.solution = zone_assignment
             config_path = os.path.join(out_path, 'config{}.json'.format(index))
             self.write(config_path)
-            print()
 
         if generate_images and len(solutions) > 0:
             visualize(out_path)
 
         return len(solutions)
+
+    def iterate_fm_configs(self, out_path, path_to_fm_configs, num=math.inf, _print=False, generate_images=True):
+        os.makedirs(os.path.join(out_path, 'fm'), exist_ok=True)
+        os.makedirs(os.path.join(out_path, 'featureIDE'), exist_ok=True)
+
+        layout, problem_dict = self.get_layout()
+        zone_assignment, start_index = self.get_zones(layout, problem_dict)
+        filenames = [f for f in os.listdir(path_to_fm_configs) if os.path.isfile(os.path.join(path_to_fm_configs, f))]
+        filenames.sort(key=lambda f: int(Path(f).stem))
+        for index, fname in enumerate(filenames):
+            path_to_fm_config = os.path.join(path_to_fm_configs, fname)
+            print("{}: {}".format(index, path_to_fm_config))
+            fm = self.get_features(deepcopy(layout), deepcopy(zone_assignment), start_index=start_index, path_to_fm_config=path_to_fm_config)
+
+            # write fm pkl
+            fm_path = os.path.join(out_path, 'fm', 'fm{}.pkl'.format(index))
+            fm.save(fm_path)
+
+            # write featureIDE source
+            featureide_source_path = os.path.join(out_path, 'featureIDE', 'model{}.xml'.format(index))
+            fm.export(featureide_source_path)
+
+            # set new feature vars
+            self.features.featureIDE_path = featureide_source_path
+            self.features.fm_path = fm_path
+            self.features.start_pos = list(fm.start.coords[:2])
+            self.features.start_orientation = np.arctan2(*fm.start.direction)
+
+            # write config to new file
+            self.layout.solution = layout
+            self.zones.solution = zone_assignment
+            config_path = os.path.join(out_path, 'config{}.json'.format(index))
+            self.write(config_path)
+
+        if generate_images and len(filenames) > 0:
+            visualize(out_path)
+
+        return len(filenames)
 
     def get_fm(self, scale=True):
         ip_solution, problem_dict = self.get_layout()
@@ -124,24 +161,24 @@ class Config:
             self.zones.solution = zone_assignment
         return zone_assignment, start_index
 
-    def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None, scale=True):
+    def get_features(self, ip_solution, zone_assignment, problem_dict=None, start_index=None, scale=True, path_to_fm_config='path/does/not/exist.config'):
         fm = FeatureModel(ip_solution, zone_assignment, scale=self.layout.scale if scale else 1, problem_dict=problem_dict, start_index=start_index,
                           intersection_size=0.5 * (2 / self.layout.scale))
         featureide_source = 'fm-{}.xml'.format(Path(self.path).stem)
-        fm.export(featureide_source)
+        # fm.export(featureide_source)
 
         # TODO: generate featureIDE configs with java call -->
-        # path_to_config = '/home/malte/PycharmProjects/circuit-creator/fm/00001.config'
-        path_to_config = 'path/does/not/exist.config'
+        # path_to_fm_config = 'path/does/not/exist.config'
         # TODO: generate featureIDE configs with java call <--
 
         try:
-            fm.load_config(path_to_config)
-        except KeyError:
+            fm.load_config(path_to_fm_config)
+        except KeyError as e:
+            print(e)
             print(colored("Could not load featureIDE config! Config does not match model", 'yellow'))
             print(colored("--> init fm with no selected features", 'yellow'))
         except FileNotFoundError:
-            print(colored("Could not load featureIDE config! Given config does not exist: {}".format(path_to_config), 'yellow'))
+            print(colored("Could not load featureIDE config! Given config does not exist: {}".format(path_to_fm_config), 'yellow'))
             print(colored("--> init fm with no selected features", 'yellow'))
 
         return fm

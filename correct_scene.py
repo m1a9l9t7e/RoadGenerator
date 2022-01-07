@@ -72,7 +72,7 @@ class TrackCorrect(AnimationSequenceScene):
         print("tile size: {:.3f}".format(distance))
 
         text_pos = shift_pos(text_pos, x=square_size/2.3, y=-square_size/4)
-        text = get_text('{}mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
+        text = get_text('{} mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
         anim_sequence.append(AnimationObject('add', text))
         color_counter += 1
 
@@ -86,7 +86,7 @@ class TrackCorrect(AnimationSequenceScene):
         print("border distance: {:.3f}".format(distance))
 
         text_pos = shift_pos(text_pos, x=square_size/2.3)
-        text = get_text('{}mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
+        text = get_text('{} mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
         anim_sequence.append(AnimationObject('add', text))
         color_counter += 1
 
@@ -100,7 +100,7 @@ class TrackCorrect(AnimationSequenceScene):
         print("minimum curve radius: {:.3f}".format(distance))
 
         text_pos = shift_pos(text_pos, x=-square_size/2, y=square_size/11)
-        text = get_text('{}mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
+        text = get_text('{} mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
         anim_sequence.append(AnimationObject('add', text))
         color_counter += 1
 
@@ -113,7 +113,7 @@ class TrackCorrect(AnimationSequenceScene):
         print("distance between: {:.3f}".format(distance))
 
         text_pos = shift_pos(text_pos, x=square_size/2.3, y=square_size/8)
-        text = get_text('{}mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
+        text = get_text('{} mm'.format(to_mm(distance)), text_pos, scale=text_scale, color=text_colors[color_counter])
         anim_sequence.append(AnimationObject('add', text))
         color_counter += 1
 

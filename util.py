@@ -306,6 +306,8 @@ def draw_ip_solution(ip_solution, square_size, shift):
     # unpack primary and secondary colors
     pc1, sc1, _ = (GREEN_E, DARK_GREY, 'Positive Cell')
     pc2, sc2, _ = (BLACK, DARK_GREY, 'Negative Cell')
+    pc3, sc3, _ = (YELLOW_E, DARK_GREY, 'Intersection Cell')
+    pc4, sc4, _ = (GREY_BROWN, DARK_GREY, 'Intersection Negative Cell')
 
     solution_flat = np.ravel(ip_solution, order='F')
     helper = GridShowCase(len(solution_flat), [square_size, square_size], spacing=[0, 0], space_ratio=[len(ip_solution), len(ip_solution[0])])
@@ -314,7 +316,15 @@ def draw_ip_solution(ip_solution, square_size, shift):
     for index in range(len(solution_flat)):
         x, y = (index % len(ip_solution), int(np.floor(index / len(ip_solution))))
         coords = helper.get_element_coords(index)
-        if solution_flat[index] > 0:
+        if solution_flat[index] == 2:
+            square = get_square(np.array(coords) + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc3, sc3,
+                                border_width=2 * square_size)
+            squares.append(square)
+        elif solution_flat[index] == 3:
+            square = get_square(np.array(coords) + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc4, sc4,
+                                border_width=2 * square_size)
+            squares.append(square)
+        elif solution_flat[index] > 0:
             square = get_square(np.array(coords) + np.array(shift) + np.array([0.5 * square_size, 0.5 * square_size]), square_size, pc1, sc1,
                                 border_width=2 * square_size)
             squares.append(square)
@@ -683,7 +693,7 @@ def calculate_grid_dimensions(num_elements, ratio):
     # print("scaling is {scale:.2f}! Because {x_scaled:.2f} x {y_scaled:.2f} = {approx:.2f} ~ {num}".format(scale=scale, x_scaled=scale * ratio[0],
     #                                                                                                       y_scaled=scale * ratio[1], num=num_elements,
     #                                                                                                       approx=approx))
-    print("Approximate grid dimensions: {} x {}".format(*grid_dims))
+    # print("Approximate grid dimensions: {} x {}".format(*grid_dims))
     return grid_dims
 
 

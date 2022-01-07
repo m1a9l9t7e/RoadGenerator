@@ -15,7 +15,7 @@
       "allow_gap_intersections": true,
       "allow_adjacent_intersections": false,
       "drive_straight": true,
-      "scale": 2,
+      "scale": 3,
       "solution": null
   },
   "zones": {

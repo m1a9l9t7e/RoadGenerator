@@ -140,33 +140,10 @@ class IPVisualization:
         if show_text not in ['names', 'values']:
             raise ValueError('Unknown value for show_text: {}'.format(show_text))
 
-        # self.solution = get_solution_from_config(path_to_config, _print=False, allow_gap_intersections=False)
-        # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
+        self.solution = get_solution_from_config(path_to_config, _print=False, allow_gap_intersections=False)
+        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
-        # # TODO: REMOVE! -->
-        self.solution = [
-            [0, 1, 0],
-            [1, 1, 1],
-            [0, 1, 0],
-        ]
-        # self.solution = [
-        #     [1, 1, 1],
-        #     [3, 0, 1],
-        #     [1, 2, 1],
-        # ]
-        # self.solution = [
-        #     [1, 1],
-        #     [1, 0],
-        # ]
-        # self.solution = [
-        #     [1],
-        #     [1],
-        #     [1],
-        #     [1],
-        # ]
-        self.problem_dict = dict()
-        # self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
-        # # TODO: REMOVE! <--
+        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
         self.width, self.height = [value+1 for value in np.shape(self.solution)]
         self.ip_width, self.ip_height = (self.width - 1, self.height - 1)
@@ -195,6 +172,7 @@ class IPVisualization:
         self.captions = []
         self.legend = []
         self.graph = None
+        self.squares = []
 
     def get_animation_sequence(self):
         if self.show_cells:
@@ -273,7 +251,7 @@ class IPVisualization:
 
         self.animation_sequence += [
             AnimationObject('add', content=self.squares, z_index=0),
-            # AnimationObject('play', content=[Create(text) for text in self.captions], duration=1, z_index=5)
+            AnimationObject('play', content=[Create(text) for text in self.captions], duration=1, z_index=5),
             AnimationObject('add', content=self.captions, z_index=5)
         ]
 
@@ -347,11 +325,8 @@ class IPVisualization:
         ]
 
     def add_graph(self, animate_intersections=True):
-        # # TODO: REMOVE! -->
-        # self.graph = Graph(self.width, self.height, shift=[-self.square_size / 2, -self.square_size / 2])
-        # self.animation_sequence += draw_graph(self.graph, z_index=15)
-        # return
-        # # TODO: REMOVE! <--
+        # grid = Grid(Graph(self.width, self.height, shift=[-self.square_size / 2, -self.square_size / 2]), square_size=self.square_size, shift=np.array([-self.square_size, -self.square_size]) * self.square_size, stroke_width=2)
+        # self.animation_sequence += grid.get_animation_sequence()
 
         if animate_intersections and not self.show_edges:
             self.graph, intersections = convert_solution_to_graph(self.solution, scale=self.square_size,
@@ -386,9 +361,8 @@ class IPVisualization:
             #     self.animation_sequence.append(AnimationObject(type='add', content=edge_drawables, duration=0, z_index=15))
 
     def add_track(self, track_width=0.2, colored=True):
-        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=2)
+        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=1.5)
         animations_list = [grid.get_animation_sequence()]
-        colors = [PURPLE_D, RED]
 
         graph_tours = extract_graph_tours(self.graph)
         for idx, graph_tour in enumerate(graph_tours):
@@ -398,11 +372,8 @@ class IPVisualization:
             else:
                 track_colors = None
 
-            # TODO REMOVE -->
-            # track_colors = [colors[idx]] * 100
-            # TODO REMOVE <--
-
             interpolation_animation = get_interpolation_animation_piece_wise(points, colors=track_colors, z_index=15)
+            # interpolation_animation = get_interpolation_animation_continuous(points, _color=colors[idx], stroke_width=2.5)
 
             animations_list += [
                 grid.get_animation_sequence(),
