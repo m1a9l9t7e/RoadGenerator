@@ -267,11 +267,13 @@ class Problem:
     ################################
 
     def add_intersection_constraints(self):
-        for x in range(self.width):
-            for y in range(self.height):
-                v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
-                self.node_grid_intersections[x][y] = v_intersection
-                self.nodes_intersections.append(v_intersection)
+        # check if init is necessary
+        if len(self.nodes_intersections) == 0:
+            for x in range(self.width):
+                for y in range(self.height):
+                    v_intersection = LpVariable("v{}_{}(intersection)".format(x, y), cat=const.LpBinary)
+                    self.node_grid_intersections[x][y] = v_intersection
+                    self.nodes_intersections.append(v_intersection)
 
         if not self.allow_gap_intersections:
             # intersection can only exist at selected cells.
