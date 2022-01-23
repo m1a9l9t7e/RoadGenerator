@@ -229,6 +229,43 @@ def get_angle(vector1, vector2):
     return angle
 
 
+def interpolate_line(track_points):
+    line_polynomials = []
+    track_point1 = track_points[0]
+    track_points = track_points[1:]
+    for track_point2 in track_points:
+        px, py = find_polynomials(*(track_point1.as_list() + track_point2.as_list()))
+        line_polynomials.append((px, py))
+        track_point1 = track_point2
+
+    return line_polynomials
+
+
+def get_interpolation_animation_line(track_points, colors=None, z_index=None, stroke_width=2):
+    polynomials = interpolate_line(track_points)
+    if colors is None:
+        colors = [WHITE] * len(polynomials)
+    animation_sequence = []
+    for idx in range(len(polynomials)):
+        px, py = polynomials[idx]
+        line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=stroke_width)
+        animation_sequence.append(AnimationObject(type='play',
+                                                  content=Create(line),
+                                                  duration=0.25, bring_to_front=True, z_index=z_index))
+    return animation_sequence
+
+
+def get_interpolation_animation_line_continuous(points, duration=5, _color=WHITE, stroke_width=2):
+    spline = Spline2d()
+    polynomials = interpolate_line(points)
+    for (px, py) in range(len(polynomials)):
+        spline.add_polynomials(px, py)
+
+    line = spline.get_animation(_color=_color, stroke_width=stroke_width)
+    animation_sequence = [AnimationObject(type='play', content=[line], duration=duration, bring_to_front=True)]
+    return animation_sequence
+
+
 if __name__ == '__main__':
     px, py = find_polynomials(0, 0, 1, 0, 1, 1, 0, 1)
     pass

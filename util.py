@@ -234,11 +234,19 @@ class Grid:
         return animation_sequence
 
 
-def get_circle(coords, radius, color, secondary_color, border_width=2):
+def get_circle(coords, radius, color, secondary_color, border_width=4):
+    if len(coords) == 2:
+        coords += [0]
     circle = Dot(point=coords, radius=radius)
     circle.set_fill(color, opacity=1)
     circle.set_stroke(secondary_color, width=border_width)
     return circle
+
+
+def get_node_viz(position, description, scale, light_mode=False):
+    circle = get_circle(position, 1 * scale, BLUE_C, BLUE_E)
+    text = get_text(description, position, scale=11 * scale, color=BLACK if light_mode else WHITE)
+    return [circle, text]
 
 
 def get_line(coord1, coord2, stroke_width=1.0, color=WHITE):
@@ -270,12 +278,14 @@ def get_square(coords, size, color=WHITE, secondary_color=GREY, border_width=2):
     return square
 
 
-def get_text(text, coords, scale=1, color=WHITE):
-    x, y = coords
-    text = Tex(text).scale(scale)
+def get_text(text, coords, scale=1, color=WHITE, stroke_width=1, rotate=None):
+    x, y = coords[:2]
+    text = Tex(text, stroke_width=stroke_width).scale(scale)
     text.set_x(coords[0])
     text.set_y(coords[1])
     text.set_color(color)
+    if rotate is not None:
+        text = Rotate(text, rotate)
     return text
 
 
@@ -615,6 +625,17 @@ def transform_coords(coords, shift, scale):
     return x_shift + x * scale, y_shift + y * scale, 0
 
 
+def calculate_orthogonal_point(track_point, distance):
+    """
+    :returns right and left point orthogonal to coords with direction
+    """
+    center, direction = (track_point.coords, track_point.direction)
+    if len(direction) > 2:
+        direction = np.array(direction[:2])
+    orthogonal_vec = np.array(get_orthogonal_vec(direction))[:2]
+    orthogonal_point = np.subtract(center, distance * orthogonal_vec)
+    return TrackPoint(orthogonal_point, direction)
+
 #######################
 #### GRID SHOWCASE ####
 #######################
@@ -707,12 +728,13 @@ class TreeShowCase:
     Size and spacing of nodes are configurable.
     """
 
-    def __init__(self, root, element_dimensions, spacing=[1, 1], shift=[0, 0]):
+    def __init__(self, root, element_dimensions, spacing=[1, 1], shift=[0, 0], flip=False):
         self.root = root
         self.element_dimensions = element_dimensions
         self.spacing = spacing
         self.shift = shift
         self.tree_dimensions = self.calculate_tree_dimensions()
+        self.flip = flip
         self.assign_positions()
 
     def assign_positions(self):
@@ -728,7 +750,7 @@ class TreeShowCase:
         for depth in range(max_depth, -1, -1):
             elements = depth_to_elements[depth]
             for index, element in enumerate(elements):
-                y = (max_depth - depth) * (element_width + spacing_width)
+                y = (max_depth - depth) * (element_height + spacing_height)
                 x = (tree_width / (len(elements) + 1)) * (index + 1)
                 element.position = (x, y)
                 # if len(element.children) == 0:
@@ -769,7 +791,10 @@ class TreeShowCase:
     def transform_coords(self, coords):
         x, y = coords
         x_shift, y_shift = self.shift
-        return [x + x_shift, y + y_shift]
+        if self.flip:
+            return [-(y + y_shift), x + x_shift]
+        else:
+            return [x + x_shift, y + y_shift]
 
     def get_tree_width(self, depth_to_elements, max_depth):
         element_width, element_height = self.element_dimensions
@@ -792,7 +817,9 @@ class TreeShowCase:
         tree_width = self.get_tree_width(depth_to_elements, max_depth)
         # TODO: this might be one of the two
         # tree_height = max_depth * element_width + (max_depth - 1) * spacing_width
-        tree_height = (max_depth + 1) * element_width + max_depth * spacing_width
+        # tree_height = max_depth * element_height + (max_depth - 1) * spacing_height
+        # tree_height = (max_depth + 1) * element_height + max_depth * spacing_height
+        tree_height = (max_depth + 1) * (element_height + spacing_height)
         tree_dims = (tree_width, tree_height)
         print("Tree dimensions: {} x {}".format(*tree_dims))
         return tree_dims
@@ -836,6 +863,7 @@ def tree_to_list(root, dfs=False):
     elements = []
     queue = [root]
     while len(queue) > 0:
+        # print([str(item) for item in queue])
         if dfs:
             current = queue.pop(len(queue) - 1)
         else:
