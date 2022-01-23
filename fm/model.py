@@ -246,6 +246,8 @@ def get_basic_features(graph_tour, intersection_callback, coordinates_to_straigh
                     if prev_track_property is TrackProperties.intersection:
                         entering = False
                         exiting = True
+                        # intersection_counter += 1, seemingly has no impact?
+
                 track_point1, track_point2 = get_intersection_track_points(prev_track_point, track_point, intersection_size, entering=entering, exiting=exiting)
                 feature = IntersectionConnector(TLFeatures.turn.value, TrackProperties.intersection_connector, node1.get_coords(),
                                                 start=track_point1, end=track_point2, entering=entering, exiting=exiting)

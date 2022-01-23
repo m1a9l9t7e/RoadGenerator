@@ -1,0 +1,33 @@
+{
+  "layout": {
+      "width": 8,
+      "height": 4,
+      "constraints": [
+        {"type":  "intersection", "min": 0, "max": null},
+        {"type":  "turn_180", "min": 0, "max": null},
+        {"type":  "turn_90", "min": 0, "max": null},
+        {"type":  "straight", "length": 2, "min": 1, "max": null},
+        {"type":  "straight", "length": 3, "min": 0, "max": null},
+        {"type":  "straight", "length": 4, "min": 0, "max": null},
+        {"type":  "straight", "length": 5, "min": 0, "max": null},
+        {"type":  "straight", "length": 6, "min": 0, "max": null}
+      ],
+      "allow_gap_intersections": true,
+      "allow_adjacent_intersections": false,
+      "drive_straight": true,
+      "scale": 3,
+      "solution": null
+  },
+  "zones": {
+      "descriptions": [
+          {"type":  "parking", "min_length": 2, "max_length": 2},
+          {"type":  "no_passing", "min_length": 2, "max_length": 4},
+          {"type":  "urban_area", "min_length": 10, "max_length": 15}
+      ],
+      "solution": null
+  },
+  "features": {
+      "right_lane_missing": true
+  },
+  "evaluation": {}
+}

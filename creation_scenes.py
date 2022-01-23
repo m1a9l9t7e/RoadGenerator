@@ -240,6 +240,10 @@ class FMTrackSuperConfig(AnimationSequenceScene):
         square_size = config.layout.scale
         width, height = config.dimensions
 
+        if show_graph:
+            anim_fm = False
+            square_size = 1
+
         self.move_camera((square_size * width * 1.1, square_size * height * 1.1), (square_size * width / 2.5, square_size * height / 2.5, 0))
         grid = Grid(Graph(width=width, height=height), square_size=square_size, shift=np.array([-0.5, -0.5]) * square_size, stroke_width=3)
         self.play_animations(grid.get_animation_sequence(z_index=20))

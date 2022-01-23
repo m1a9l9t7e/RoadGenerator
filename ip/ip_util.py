@@ -204,7 +204,14 @@ class QuantityConstraintStraight(QuantityConstraint):
         if self.length is not None:
             name += str(self.length)
 
-        return "Quantity Constraint: {} {} {}".format(name, operator, self.quantity)
+        property_type_to_name = {
+            TrackProperties.intersection: 'intersection',
+            TrackProperties.turn_90: 'turn_90',
+            TrackProperties.turn_180: 'turn_180',
+            TrackProperties.straight: 'straight'
+        }
+
+        return "Quantity Constraint: {} {} {}".format(property_type_to_name[self.property_type], operator, self.quantity)
 
 
 def minimize_objective(quantity_constraints):

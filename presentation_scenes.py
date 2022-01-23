@@ -510,7 +510,7 @@ def shift_edge(edge, shift_from_center=0.12):
 class IPExtra(AnimationSequenceScene):
     def construct(self):
         path_to_config = os.path.join(os.getcwd(), 'ip/configs/innter_outer.txt')
-        viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True, show_cells=True)
+        viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True, show_cells=False)
         camera_position, camera_size, shift = viz.get_camera_settings()
         # self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)
         self.move_camera(camera_size, camera_position, duration=0.1, border_scale=2, shift=shift)

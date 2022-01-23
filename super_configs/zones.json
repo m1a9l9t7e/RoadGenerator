@@ -51,9 +51,6 @@
   },
   "features": {
       "sampling_algorithm": "random",
-      "num_obstacles": 3,
-      "num_missing_left": 2,
-      "num_missing_right": 4
   },
   "evaluation": {}
 }

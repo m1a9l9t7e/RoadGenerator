@@ -3,16 +3,19 @@ import math
 import os.path
 import shutil
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from argparse import Namespace
+from pprint import pprint
+
 import numpy as np
 from termcolor import colored
 from tqdm import tqdm
 from fm.model import FeatureModel
 from ip.ip_util import ConditionTypes, QuantityConstraintStraight
 from ip.iteration import ZoneDescription, get_custom_solution, get_imitation_solution, get_zone_assignment, FullProhibitionIterator
-from util import TrackProperties, ZoneTypes
+from util import TrackProperties, ZoneTypes, print_2d
 
 # path_to_configs = os.path.join(os.getcwd(), 'super_configs')
 
@@ -359,8 +362,7 @@ def visualize(path_to_configs, path_to_viz=None, tmp_path='/tmp/config.json', _p
 
 
 if __name__ == '__main__':
-    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/many180.json'
-    # output_path = os.path.join(Path(path_to_blueprint).parent, Path(path_to_blueprint).stem)
-    output_path = '/home/malte/PycharmProjects/circuit-creator/super_configs/test4'
+    path_to_blueprint = '/home/malte/PycharmProjects/circuit-creator/super_configs/demo.json'
+    output_path = os.path.join(Path(path_to_blueprint).parent, Path(path_to_blueprint).stem)
     config = Config(path_to_blueprint)
-    config.iterate_layouts(output_path, num=3, generate_images=False)
+    config.iterate_layouts(output_path, num=1, generate_images=True)

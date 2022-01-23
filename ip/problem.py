@@ -1007,8 +1007,8 @@ class Problem:
                     num_straights += '(l={}, n={}) '.format(length, num_straights_l)
 
         intersection_str = colored('{} intersections'.format(num_intersections), 'yellow')
-        _90_str = colored('{} 90 degree turns'.format(num_90s), 'blue')
-        _180_str = colored('{} 180 degree turns'.format(num_180s), 'magenta')
+        _90_str = colored('{} 90 degree turns'.format(num_90s), 'magenta')
+        _180_str = colored('{} 180 degree turns'.format(num_180s), 'blue')
         straights_str = colored('straights {}'.format(num_straights), 'cyan')
         print("Solution has {}, {}, {} and {}".format(intersection_str, _90_str, _180_str, straights_str))
 
@@ -1131,7 +1131,7 @@ if __name__ == '__main__':
     ]
 
     # CC17
-    pre_solved = [[1, 2, 1], [0, 0, 1], [1, 1, 1], [1, 0, 1], [0, 0, 2], [1, 3, 1], [1, 0, 1], [1, 1, 1]]
+    # pre_solved = [[1, 2, 1], [0, 0, 1], [1, 1, 1], [1, 0, 1], [0, 0, 2], [1, 3, 1], [1, 0, 1], [1, 1, 1]]
     # CC20
     # pre_solved = [[1, 1, 1], [2, 0, 1], [1, 0, 1], [2, 0, 1], [1, 3, 1], [2, 0, 1], [1, 0, 1]]
     # Zone Example
