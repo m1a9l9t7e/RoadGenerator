@@ -5,6 +5,7 @@ import math
 import numpy as np
 from manim import *
 from numba import jit
+from termcolor import colored
 
 from anim_sequence import AnimationObject
 from io import StringIO
@@ -243,8 +244,10 @@ def get_circle(coords, radius, color, secondary_color, border_width=4):
     return circle
 
 
-def get_node_viz(position, description, scale, light_mode=False):
+def get_node_viz(position, description, scale, light_mode=False, text=True):
     circle = get_circle(position, 1 * scale, BLUE_C, BLUE_E)
+    if not text:
+        return [circle]
     text = get_text(description, position, scale=11 * scale, color=BLACK if light_mode else WHITE)
     return [circle, text]
 
@@ -749,9 +752,13 @@ class TreeShowCase:
         tree_width = self.tree_dimensions[0]
         for depth in range(max_depth, -1, -1):
             elements = depth_to_elements[depth]
+            print(colored('DEPTH LEVEL {}: {}'.format(depth, elements), 'cyan'))
             for index, element in enumerate(elements):
                 y = (max_depth - depth) * (element_height + spacing_height)
-                x = (tree_width / (len(elements) + 1)) * (index + 1)
+                # x = (tree_width / (len(elements) + 1)) * (index + 1)
+                # x = index * (element_width + spacing_width)
+                print(colored(index, 'red'))
+                x = index * (element_width + spacing_width)
                 element.position = (x, y)
                 # if len(element.children) == 0:
                 #     default_x = (tree_width / (len(elements) + 1)) * (index + 1)
@@ -814,11 +821,8 @@ class TreeShowCase:
         spacing_width, spacing_height = self.spacing
         max_depth = get_max_depth(self.root)
         depth_to_elements = get_elements_per_depth(self.root, max_depth)
+        # tree_width = self.get_tree_width(depth_to_elements, max_depth)
         tree_width = self.get_tree_width(depth_to_elements, max_depth)
-        # TODO: this might be one of the two
-        # tree_height = max_depth * element_width + (max_depth - 1) * spacing_width
-        # tree_height = max_depth * element_height + (max_depth - 1) * spacing_height
-        # tree_height = (max_depth + 1) * element_height + max_depth * spacing_height
         tree_height = (max_depth + 1) * (element_height + spacing_height)
         tree_dims = (tree_width, tree_height)
         print("Tree dimensions: {} x {}".format(*tree_dims))
@@ -859,7 +863,7 @@ def get_max_depth(root):
     return max_depth
 
 
-def tree_to_list(root, dfs=False):
+def tree_to_list(root, dfs=True):
     elements = []
     queue = [root]
     while len(queue) > 0:
@@ -868,6 +872,7 @@ def tree_to_list(root, dfs=False):
             current = queue.pop(len(queue) - 1)
         else:
             current = queue.pop(0)
+        print(current)
         elements.append(current)
         queue += current.children
 

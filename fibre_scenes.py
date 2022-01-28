@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 
 import numpy as np
 from manim import *
@@ -26,21 +27,19 @@ class SimpleTree(AnimationSequenceScene):
     def construct(self):
         if LIGHT_MODE:
             self.camera.background_color = WHITE
-
         # render settings
-        zoomed_out = 6
-        zoomed_in = 1.25
-        time_at_node = 1
-        element_size = [4, 1]
+        element_size = [1, 1]
+        spacing = [1, 2]
         scale = 0.1
-        node_radius = 1 * scale
 
         # build tree
-        forest = Forest(path_to_csv='/home/malte/svenja/gfibre/Export_CableV5.csv')
-        # forest = Forest(path_to_csv='/home/malte/svenja/gfibre/debug3.csv')
+        # path_to_forest = os.path.join(os.getcwd(), 'Export_CableV5.csv')
+        path_to_forest = os.path.join(os.getcwd(), 'debug.csv')
+        forest = Forest(path_to_csv=path_to_forest)
         root = forest.roots[0]
-        calculate_depth(root)
-        tree_showcase = TreeShowCase(root, element_dimensions=element_size, spacing=[2, 0.5], flip=False)
+        height = calculate_depth(root)
+        width = calculate_breadth(root)
+        set_position(root)
 
         elements = tree_to_list(root)
         print("Number of Nodes in Tree: {}".format(len(elements)))
@@ -48,25 +47,28 @@ class SimpleTree(AnimationSequenceScene):
         anim_sequence = []
 
         # move cam
+        camera_size = transform_position([width, height], spacing=spacing)
+        camera_position = np.array(camera_size) / 2
+
+        print("size: {}, camera_pos: {}".format(camera_size, camera_position))
+        self.move_camera(camera_size, camera_position, duration=0.5, border_scale=1.1, shift=[0, 0])
+
         previous_element = None
         for index, element in tqdm(enumerate(elements)):
-            camera_position, camera_size = tree_showcase.get_zoomed_camera_settings(element)
-            # print(colored(element, 'green'))
-            # print(colored(camera_position, 'green'))
+            camera_position = transform_position([element.position, element.depth], spacing=spacing)
 
             if previous_element is None:
                 # draw node
                 anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
             else:
                 if element.parent == previous_element:
-                    previous_position, _ = tree_showcase.get_zoomed_camera_settings(previous_element)
+                    previous_position = transform_position((previous_element.position, previous_element.depth), spacing=spacing)
                     line = get_line(previous_position, camera_position, stroke_width=4, color=BLACK if LIGHT_MODE else WHITE)
                     anim_sequence.append(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
-                    # anim_sequence.append(AnimationObject(type='add', content=get_circle(camera_position, node_radius, BLUE, BLUE_E)))
                     anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
                 else:
-                    previous_position, _ = tree_showcase.get_zoomed_camera_settings(previous_element)
-                    parent_position, _ = tree_showcase.get_zoomed_camera_settings(element.parent)
+                    previous_position = transform_position((previous_element.position, previous_element.depth), spacing=spacing)
+                    parent_position = transform_position((element.parent.position, element.parent.depth), spacing=spacing)
                     line = get_line(parent_position, camera_position, stroke_width=4, color=BLACK if LIGHT_MODE else WHITE)
                     anim_sequence.append(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
                     anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
@@ -76,11 +78,16 @@ class SimpleTree(AnimationSequenceScene):
 
             previous_element = element
 
-        camera_position, camera_size = tree_showcase.get_global_camera_settings()
-        self.move_camera(camera_size, camera_position, duration=0.5, border_scale=1, shift=[2, -1])
         for anim in anim_sequence:
             self.play_animation(anim)
         self.wait(6)
+
+
+def transform_position(arr, spacing):
+    """
+    Apply spacing
+    """
+    return list(np.multiply(arr, spacing))
 
 
 class MultiLines(AnimationSequenceScene):
@@ -309,6 +316,8 @@ class Node:
         self.parent = parent
         self.children = []
         self.position = None
+        self.size = None
+        self.position = None
 
     def add_child(self, child_node):
         self.children.append(child_node)
@@ -348,6 +357,7 @@ def hash_node_tuple(node1, node2):
 
 def calculate_depth(root, start_depth=0, dfs=False):
     # calculate and set depth for all nodes in tree
+    max_depth = 0
     root.depth = start_depth
     elements = []
     queue = [root]
@@ -360,9 +370,31 @@ def calculate_depth(root, start_depth=0, dfs=False):
         elements.append(current)
         for child in current.children:
             child.depth = current.depth + 1
+            if child.depth > max_depth:
+                max_depth = child.depth
             queue.append(child)
 
-    return elements
+    return max_depth
+
+
+def set_position(node, shift=0):
+    node.position = shift + node.size / 2
+    child_shift = 0
+    for child_node in node.children:
+        set_position(child_node, shift=shift + child_shift)
+        child_shift += child_node.size
+
+    print("node: {}, {}, {}".format(node, colored("width: {}".format(node.size), 'cyan'), colored("pos: {}".format(node.position), 'yellow')))
+
+
+def calculate_breadth(node, element_width=2):
+    if len(node.children) == 0:
+        node.size = element_width
+    else:
+        node.size = sum([calculate_breadth(child_node) for child_node in node.children])
+
+    # print("node: {}, {}".format(node, colored("width: {}".format(node.size), 'cyan')))
+    return node.size
 
 
 class EntryTypes:

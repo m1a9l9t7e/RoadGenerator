@@ -18,6 +18,6 @@ PyOpenGL
 opencv-python
 manimpango
 PuLP~=2.4
-manim~=0.12.0
 termcolor~=1.1.0
 numba~=0.53.1
+manim~=0.12.0
