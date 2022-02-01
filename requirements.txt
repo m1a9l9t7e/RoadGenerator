@@ -1,3 +1,4 @@
+wheel
 argparse
 colour
 numpy~=1.20.3
