@@ -20,6 +20,8 @@ Get more instructions [here](https://github.com/ManimCommunity/manim)
 
 `sudo apt-get install build-essential libgl1-mesa-dev`
 
+`sudo apt-get install python3-dev graphviz libgraphviz-dev pkg-config`
+
 `pip install -r requirements.txt`
 
 THEN:

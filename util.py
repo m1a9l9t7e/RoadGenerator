@@ -872,7 +872,6 @@ def tree_to_list(root, dfs=True):
             current = queue.pop(len(queue) - 1)
         else:
             current = queue.pop(0)
-        print(current)
         elements.append(current)
         queue += current.children
 

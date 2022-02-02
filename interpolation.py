@@ -222,10 +222,14 @@ def get_interpolation_animation_continuous(points, duration=5, _color=WHITE, str
 
 
 def get_angle(vector1, vector2):
-    unit_vector_1 = vector1 / np.linalg.norm(vector1)
-    unit_vector_2 = vector2 / np.linalg.norm(vector2)
-    dot_product = np.dot(unit_vector_1, unit_vector_2)
-    angle = np.arccos(dot_product)
+    # unit_vector_1 = vector1 / np.linalg.norm(vector1)
+    # unit_vector_2 = vector2 / np.linalg.norm(vector2)
+    # dot_product = np.dot(unit_vector_1, unit_vector_2)
+    # angle = np.arccos(dot_product)
+
+    x1, y1 = vector1
+    x2, y2 = vector2
+    angle = np.arctan2(x1 * y2 - y1 * x2, x1 * x2 + y1 * y2)
     return angle
 
 
@@ -249,9 +253,7 @@ def get_interpolation_animation_line(track_points, colors=None, z_index=None, st
     for idx in range(len(polynomials)):
         px, py = polynomials[idx]
         line = ParametricFunction(function=lambda t: (px(t), py(t), 0), color=colors[idx], stroke_width=stroke_width)
-        animation_sequence.append(AnimationObject(type='play',
-                                                  content=Create(line),
-                                                  duration=0.25, bring_to_front=True, z_index=z_index))
+        animation_sequence.append(AnimationObject(type='add', content=line, z_index=z_index))
     return animation_sequence
 
 

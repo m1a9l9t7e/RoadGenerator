@@ -2,85 +2,89 @@ import math
 import os
 import sys
 
-import numpy as np
 from manim import *
 from termcolor import colored
 from tqdm import tqdm
 
 from anim_sequence import AnimationSequenceScene, AnimationObject
-from config_parser import Config
-from graph import Graph, custom_joins
-from ip.ip_util import QuantityConstraint, ConditionTypes, QuantityConstraintStraight, parse_ip_config
-from ip.iteration import GraphModel, get_custom_solution, convert_solution_to_graph, get_solution_from_config, ZoneDescription, get_zone_solution, IteratorType
 from interpolation import get_interpolation_animation_piece_wise, get_interpolation_animation_continuous, get_interpolation_animation_line, get_angle, \
     get_interpolation_animation_line_continuous
-from ip.problem import Problem
+from network_util import get_positions
 from util import Grid, draw_graph, remove_graph, make_unitary, add_graph, generate_track_points, draw_ip_solution, TrackProperties, track_properties_to_colors, get_line, \
-    extract_graph_tours, ZoneTypes, TrackPoint, get_text, get_orthogonal_vec, calculate_orthogonal_point, TreeShowCase, tree_to_list, get_circle, get_node_viz
+    extract_graph_tours, ZoneTypes, TrackPoint, get_text, get_orthogonal_vec, calculate_orthogonal_point, TreeShowCase, tree_to_list, get_circle, get_node_viz, \
+    get_direction
 import csv
 
 
 LIGHT_MODE = False
+separator = '~'
 
 
 class SimpleTree(AnimationSequenceScene):
     def construct(self):
+        anim_sequence = []
+        # render settings
         if LIGHT_MODE:
             self.camera.background_color = WHITE
-        # render settings
-        element_size = [1, 1]
-        spacing = [1, 2]
-        scale = 0.1
+        scale = 1
 
-        # build tree
-        # path_to_forest = os.path.join(os.getcwd(), 'Export_CableV5.csv')
-        path_to_forest = os.path.join(os.getcwd(), 'debug.csv')
-        forest = Forest(path_to_csv=path_to_forest)
-        root = forest.roots[0]
-        height = calculate_depth(root)
-        width = calculate_breadth(root)
-        set_position(root)
+        # build network graph
+        path_to_csv = os.path.join(os.getcwd(), 'Export_CableV5.csv')
+        # path_to_csv = os.path.join(os.getcwd(), 'debug.csv')
+        network = Network(path_to_csv=path_to_csv)
+        graph_dict = network.to_dict()
 
-        elements = tree_to_list(root)
-        print("Number of Nodes in Tree: {}".format(len(elements)))
+        # get positioning
+        positions = get_positions(graph_dict)
 
-        anim_sequence = []
+        # calculate plot dimensions
+        min_x, min_y = np.amin(np.array(list(positions.values())), axis=0)
+        max_x, max_y = np.amax(np.array(list(positions.values())), axis=0)
+        width = max_x - min_x
+        height = max_y - min_y
 
-        # move cam
-        camera_size = transform_position([width, height], spacing=spacing)
-        camera_position = np.array(camera_size) / 2
-
+        # move camera
+        camera_size = [width, height]
+        camera_position = np.array(camera_size) / 2 + np.array([min_x, min_y])
         print("size: {}, camera_pos: {}".format(camera_size, camera_position))
-        self.move_camera(camera_size, camera_position, duration=0.5, border_scale=1.1, shift=[0, 0])
+        self.move_camera(camera_size, camera_position, duration=0.5, border_scale=1.05, shift=[0, 0])
 
-        previous_element = None
-        for index, element in tqdm(enumerate(elements)):
-            camera_position = transform_position([element.position, element.depth], spacing=spacing)
+        # draw nodes
+        for node_id, position in positions.items():
+            position = list(position)
+            anim_sequence.append(AnimationObject(type='add', content=get_node_viz(position, node_id, scale, LIGHT_MODE), z_index=100))
 
-            if previous_element is None:
-                # draw node
-                anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
-            else:
-                if element.parent == previous_element:
-                    previous_position = transform_position((previous_element.position, previous_element.depth), spacing=spacing)
-                    line = get_line(previous_position, camera_position, stroke_width=4, color=BLACK if LIGHT_MODE else WHITE)
-                    anim_sequence.append(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
-                    anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
-                else:
-                    previous_position = transform_position((previous_element.position, previous_element.depth), spacing=spacing)
-                    parent_position = transform_position((element.parent.position, element.parent.depth), spacing=spacing)
-                    line = get_line(parent_position, camera_position, stroke_width=4, color=BLACK if LIGHT_MODE else WHITE)
-                    anim_sequence.append(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
-                    anim_sequence.append(AnimationObject(type='add', content=get_node_viz(camera_position, element.id, scale, LIGHT_MODE)))
+        debug_counter = 0
+        # draw edges
+        for node_tuple, conduit_list in tqdm(network.node_tuple_to_conduit_list.items(), desc='creating line splits'):
+            # if debug_counter > 1:
+            #     continue
+            # else:
+            #     debug_counter += 1
 
-            # if index > 15:
-            #     break
+            node1, node2 = unhash_node_tuple(node_tuple)
+            position1, position2 = list(positions[node1]), list(positions[node2])
+            # line = get_line(position1, position2, stroke_width=75 * scale, color=BLACK if LIGHT_MODE else WHITE)
+            # anim_sequence.append(AnimationObject('play', content=Create(line), duration=0.5, z_index=-5))
 
-            previous_element = element
+            # direction = get_direction(position2, position1)
+            direction = get_direction(position1, position2)
+            start = TrackPoint(position1, direction)
+            end = TrackPoint(position2, direction)
 
-        for anim in anim_sequence:
+            conduit = conduit_list[0]
+            names = [edge.cable for edge in conduit.edges]
+            colors = [edge.color for edge in conduit.edges]
+
+            line_split = LineSplit(num=7, names=names, colors=colors, start=start, end=end, start_spacing=0.07 * scale, split_spacing=1.2 * scale, split_percentage=0.4)
+            conduit_animation_sequence = get_conduit_animation_sequence(line_split, stroke_width=50 * scale)
+            anim_sequence += conduit_animation_sequence
+
+        # render everything
+        print(colored('Rendering {} animations...'.format(len(anim_sequence)), 'cyan'))
+        for anim in tqdm(anim_sequence, desc='rendering'):
             self.play_animation(anim)
-        self.wait(6)
+        self.wait(4)
 
 
 def transform_position(arr, spacing):
@@ -88,6 +92,26 @@ def transform_position(arr, spacing):
     Apply spacing
     """
     return list(np.multiply(arr, spacing))
+
+
+def get_conduit_animation_sequence(line_split, stroke_width=75):
+    if line_split.colors is None:
+        colors = [BLUE, GREEN, YELLOW_E, RED, TEAL, PURPLE, GREY_BROWN, ORANGE, DARK_GREY] * 10
+    else:
+        colors = line_split.colors
+
+    animations_sequence = []
+    # animate lines
+    for index, line_desc in enumerate(line_split.create_line_descriptions()):
+        interpolation_animation = get_interpolation_animation_line(line_desc, [colors[index]] * 4, stroke_width=stroke_width)
+        animations_sequence += interpolation_animation
+
+    # animate text
+    text_objects = line_split.create_text_descriptions(text_size=4, text_color=BLACK if LIGHT_MODE else WHITE)
+    if len(text_objects) > 0:
+        add_text = AnimationObject(type='play', content=line_split.create_text_descriptions(text_size=4, text_color=BLACK if LIGHT_MODE else WHITE), duration=0.1)
+        animations_sequence.append(add_text)
+    return animations_sequence
 
 
 class MultiLines(AnimationSequenceScene):
@@ -100,10 +124,19 @@ class MultiLines(AnimationSequenceScene):
 
         # init split
         container = MultiLineSplit(line_splits=[
-            LineSplit(num=8, start=TrackPoint((0, 0), (0, 1)), end=TrackPoint((0, 6), (0, 1)), stroke_width=stroke_width, start_spacing=0.01),
-            LineSplit(num=8, start=TrackPoint((0, 6), (1, 1)), end=TrackPoint((6, 12), (1, 1)), stroke_width=stroke_width, start_spacing=0.01),
-            LineSplit(num=8, start=TrackPoint((6, 12), (1, 0)), end=TrackPoint((12, 12), (1, 0)), stroke_width=stroke_width, start_spacing=0.01)
+            LineSplit(num=8, start=TrackPoint((0, 0), (0, 1)), end=TrackPoint((0, 6), (0, 1)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((0, 6), (1, 1)), end=TrackPoint((6, 12), (1, 1)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((6, 12), (1, 0)), end=TrackPoint((12, 12), (1, 0)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((12, 12), (1, -1)), end=TrackPoint((18, 6), (1, -1)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((18, 6), (0, -1)), end=TrackPoint((18, 0), (0, -1)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((18, 0), (-1, -1)), end=TrackPoint((12, -6), (-1, -1)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((12, -6), (-1, 0)), end=TrackPoint((6, -6), (-1, 0)), start_spacing=0.01),
+            LineSplit(num=8, start=TrackPoint((6, -6), (-1, 1)), end=TrackPoint((0, 0), (-1, 0)), start_spacing=0.01),
         ])
+        # container = MultiLineSplit(line_splits=[
+        #     LineSplit(num=8, start=TrackPoint((0, 0), (-1, -1)), end=TrackPoint((4, -1), (1, 1)), start_spacing=0.01),
+        #     LineSplit(num=8, start=TrackPoint((3, 12), (1, 1)), end=TrackPoint((12, 16), (1, 1)), start_spacing=0.01),
+        # ])
         # split = LineSplit(num=8, start=TrackPoint((0, 0), (0, 1)), end=TrackPoint((0, 6), (0, 1)), stroke_width=stroke_width)
         # split = LineSplit(num=8, start=TrackPoint((0, 0), (1, 0)), end=TrackPoint((6, 0), (1, 0)), stroke_width=stroke_width)
         # self.move_camera(*split.get_camera_settings())
@@ -130,17 +163,26 @@ class MultiLines(AnimationSequenceScene):
 
 
 class LineSplit:
-    def __init__(self, num, start, end, colors=None, stroke_width=4, start_spacing=0.05, split_spacing=0.2, split_percentage=0.2):
+    def __init__(self, num, start, end, names=None, colors=None, start_spacing=0.05, split_spacing=0.2, split_percentage=0.2):
         self.num = num
         self.start = start
         self.end = end
         self.distance = np.linalg.norm(np.abs(self.start.logical_coords() - self.end.logical_coords()))
-        if colors is None:
-            colors = [WHITE] * num
-        self.stroke_width = stroke_width
+        if names is None:
+            self.names = ["description {}".format(index) for index in range(self.num)]
+        else:
+            self.names = names
+            self.num = len(names)
+
+        if colors is not None:
+            self.colors = [color_map[_color] for _color in colors]
+        else:
+            self.colors = None
+
         self.start_spacing = start_spacing
         self.split_spacing = split_spacing
         self.split_percentage = split_percentage
+        self.direction = get_direction(self.start.logical_coords(), self.end.logical_coords())
 
     def create_line_descriptions(self):
         line_descriptions = []
@@ -155,10 +197,17 @@ class LineSplit:
 
     def create_text_descriptions(self, text_size=0.5, text_color=WHITE, stroke_width=1.5):
         text_list = []
-        descriptions = ["description {}".format(index) for index in range(self.num)]
         positions = self.get_split_positions()
-        for index, description in enumerate(descriptions):
-            rotation = get_angle((1, 0), np.array(self.start.direction[:2]))
+        for index, description in enumerate(self.names):
+            if description == '':
+                continue
+
+            rotation = get_angle((1, 0), self.direction)
+            if rotation < -math.pi/2:
+                rotation += math.pi
+            if rotation > math.pi / 2:
+                rotation -= math.pi
+
             orthogonal = self.get_orthogonal_point(distance=positions[index] * self.split_spacing, percentage=0.5)
             text = get_text(description, orthogonal.logical_coords(), rotate=rotation, scale=text_size, color=text_color,
                             stroke_width=stroke_width)
@@ -172,7 +221,9 @@ class LineSplit:
         @param percentage: position on line in percentage from start to end
         """
         coords_on_line = self.start.logical_coords() + np.array(self.end.logical_coords() - self.start.logical_coords()) * percentage
-        point_on_line = TrackPoint(coords_on_line, self.start.direction)
+        direction = get_direction(self.start.logical_coords(), self.end.logical_coords())
+        # point_on_line = TrackPoint(coords_on_line, self.start.direction)
+        point_on_line = TrackPoint(coords_on_line, direction)
         orthogonal = calculate_orthogonal_point(point_on_line, distance)
         return orthogonal
 
@@ -233,13 +284,11 @@ class MultiLineSplit:
         return camera_size, camera_pos
 
 
-class Forest:
+class Network:
     def __init__(self, path_to_csv):
         self.roots = []
         # map from node id to Node object
         self.id_to_node = dict()
-        # map from node id to Conduit object
-        self.id_to_conduit = dict()
         # map from hash(Node, Node) to dict(conduit_id1: list, ..., conduit_idn: list)
         self.node_tuple_to_conduit_list = dict()
         self.parse_csv(path_to_csv)
@@ -290,23 +339,38 @@ class Forest:
 
                     current_node = next_node
                     current_edges = []
+                    current_conduit = None
                 elif _type == EntryTypes.edge:
                     if current_node is None:
                         raise RuntimeError('Edge without preceding node in csv file!')
                     edge = Edge(_id=_id, _position=_position, _color=_color, _cable=_cable)
                     if current_conduit is None:
                         current_conduit = Conduit(_id)
-                        self.id_to_conduit[_id] = current_conduit
                     current_conduit.add_edge(edge)
                 else:
                     continue
 
-        for (_, node) in self.id_to_node.items():
-            # print("{}".format(str(node)))
+        for index, (_, node) in enumerate(self.id_to_node.items()):
+            # print("{}: {}".format(index, str(node)))
             if node.parent is None:
                 self.roots.append(node)
 
-        print("Forest has {} root(s)!".format(len(self.roots)))
+        for index, (tuple_hash, _dict) in enumerate(self.node_tuple_to_conduit_list.items()):
+            dict_str = ""
+            for content in _dict:
+                dict_str += "{} | ".format(content)
+            # print("{}: {}".format(tuple_hash, dict_str))
+
+        # print(self.node_tuple_to_conduit_list)
+        # as_list = tree_to_list(self.roots[0])
+        # print("Forest has {} root(s) and {} nodes! DFS iteration finds {} nodes!".format(len(self.roots), len(self.id_to_node.items()), len(as_list)))
+
+    def to_dict(self):
+        forest = {_id: [] for (_id, _) in self.id_to_node.items()}
+        for index, (tuple_hash, _dict) in enumerate(self.node_tuple_to_conduit_list.items()):
+            id1, id2 = unhash_node_tuple(tuple_hash)
+            forest[id1].append(id2)
+        return forest
 
 
 class Node:
@@ -334,7 +398,7 @@ class Edge:
         self.cable = _cable
 
     def __str__(self):
-        return colored("[EDGE] id: {}, cable: {}".format(self.conduit_id, self.cable), 'yellow')
+        return colored("[EDGE] id: {}, cable: {}, color: {}".format(self.conduit_id, self.cable, self.color), 'yellow')
 
 
 class Conduit:
@@ -352,49 +416,11 @@ class Conduit:
 
 
 def hash_node_tuple(node1, node2):
-    return "{}-{}".format(node1.id, node2.id)
+    return "{}{}{}".format(node1.id, separator, node2.id)
 
 
-def calculate_depth(root, start_depth=0, dfs=False):
-    # calculate and set depth for all nodes in tree
-    max_depth = 0
-    root.depth = start_depth
-    elements = []
-    queue = [root]
-    while len(queue) > 0:
-        # print([str(item) for item in queue])
-        if dfs:
-            current = queue.pop(len(queue) - 1)
-        else:
-            current = queue.pop(0)
-        elements.append(current)
-        for child in current.children:
-            child.depth = current.depth + 1
-            if child.depth > max_depth:
-                max_depth = child.depth
-            queue.append(child)
-
-    return max_depth
-
-
-def set_position(node, shift=0):
-    node.position = shift + node.size / 2
-    child_shift = 0
-    for child_node in node.children:
-        set_position(child_node, shift=shift + child_shift)
-        child_shift += child_node.size
-
-    print("node: {}, {}, {}".format(node, colored("width: {}".format(node.size), 'cyan'), colored("pos: {}".format(node.position), 'yellow')))
-
-
-def calculate_breadth(node, element_width=2):
-    if len(node.children) == 0:
-        node.size = element_width
-    else:
-        node.size = sum([calculate_breadth(child_node) for child_node in node.children])
-
-    # print("node: {}, {}".format(node, colored("width: {}".format(node.size), 'cyan')))
-    return node.size
+def unhash_node_tuple(node_tuple_hash):
+    return node_tuple_hash.split(separator)
 
 
 class EntryTypes:
@@ -403,9 +429,20 @@ class EntryTypes:
     empty = 'Empty'
 
 
+color_map = {
+    'RED': RED,
+    'GREEN': GREEN,
+    'BLUE': BLUE,
+    'YELLOW': YELLOW,
+    'WHITE': BLACK if LIGHT_MODE else WHITE,
+    'GREY': GREY,
+    'BROWN': LIGHT_BROWN
+}
+
+
 if __name__ == '__main__':
-    # scene = MultiLines()
-    scene = SimpleTree()
+    scene = MultiLines()
+    # scene = SimpleTree()
     scene.construct()
 
     # forest = Forest(path_to_csv='/home/malte/svenja/gfibre/Export_CableV5.csv')
