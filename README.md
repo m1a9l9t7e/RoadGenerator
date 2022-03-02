@@ -1,4 +1,8 @@
-# circuit-creator
+# RoadGenerator
+
+Find all roads matching a given specification for more efficient test case generation.
+
+![gif](https://media.giphy.com/media/HPsaIfGklJFDy2xysR/giphy.gif)
 
 Get more instructions [here](https://github.com/ManimCommunity/manim)
 
