@@ -1,6 +1,12 @@
-# circuit-creator
+# RoadGenerator
 
-Get more instructions [here](https://github.com/ManimCommunity/manim)
+![gif](https://media.giphy.com/media/HPsaIfGklJFDy2xysR/giphy.gif)
+
+RoadGenerator is a tool for better test case generation in the Carolo-Cup setting. Given a fixed 2D space, it can
+
+* generate all valid roads.
+* generate roads matching given specifications (number of intersections, 90-degree turns, etc.).
+* visualize and export the end result for use in simulation.
 
 ## Installation
 
