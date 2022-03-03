@@ -233,6 +233,10 @@ class Grid:
 
         return animation_sequence
 
+    def remove(self):
+        animation_sequence = [AnimationObject(type='remove', content=self.drawable)]
+        return animation_sequence
+
 
 def get_circle(coords, radius, color, secondary_color, border_width=2):
     circle = Dot(point=coords, radius=radius)
@@ -285,14 +289,21 @@ def get_colored_text(text, color=WHITE):
     return text
 
 
-def draw_graph(graph, z_index=None, duration=1):
+def draw_graph(graph, z_index=None, duration=1, stroke_width=1):
     """
     Creates manim animations for drawing a given graph.
     :returns animations
     """
     animation_sequence = []
+    if stroke_width != 1:
+        for node in graph.nodes:
+            node.drawable = node._create_drawable(stroke_width=stroke_width)
+        for edge in graph.edges:
+            edge.drawable = edge._create_drawable(stroke_width=4 * stroke_width)
+
     node_drawables = [FadeIn(node.drawable) for node in graph.nodes]
     edge_drawables = [Create(edge.drawable) for edge in graph.edges]
+
     if z_index is None:
         animation_sequence.append(AnimationObject(type='play', content=node_drawables, duration=duration, bring_to_front=True))
         animation_sequence.append(AnimationObject(type='play', content=edge_drawables, duration=duration, bring_to_back=True))
@@ -341,9 +352,13 @@ def draw_ip_solution(ip_solution, square_size, shift):
     return animation_sequence
 
 
-def add_graph(graph, z_index=0):
-    nodes = [node.drawable for node in graph.nodes]
-    edges = [edge.drawable for edge in graph.edges]
+def add_graph(graph, z_index=0, refresh_drawables=True):
+    if refresh_drawables:
+        nodes = [node._create_drawable() for node in graph.nodes]
+        edges = [edge._create_drawable() for edge in graph.edges]
+    else:
+        nodes = [node.drawable for node in graph.nodes]
+        edges = [edge.drawable for edge in graph.edges]
     return [AnimationObject(type='add', content=edges, z_index=z_index-1), AnimationObject(type='add', content=nodes, z_index=z_index+1)]
 
 
@@ -460,8 +475,8 @@ def generate_track_points(graph_tour, track_width, z_index=None):
         track_properties.append(node2.track_property)
         line_drawables.append(get_line(center.coords, left.coords, stroke_width=1, color=ORANGE))
         line_drawables.append(get_line(center.coords, right.coords, stroke_width=1, color=ORANGE))
-        point_drawables.append(get_circle(right.coords, 0.04, GREEN, GREEN_E, border_width=1))
-        point_drawables.append(get_circle(left.coords, 0.04, GREEN, GREEN_E, border_width=1))
+        point_drawables.append(get_circle(right.coords, 0.06, RED, RED_E, border_width=4))
+        point_drawables.append(get_circle(left.coords, 0.06, RED, RED_E, border_width=4))
 
     if z_index is None:
         track_points_creation = [

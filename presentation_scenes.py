@@ -136,13 +136,11 @@ class IP(AnimationSequenceScene):
 
 class IPVisualization:
     def __init__(self, path_to_config, show_graph=True, show_text='names', show_intersections=True, show_all_intersections=False, show_edges=False, show_track=False,
-                 show_cells=True):
+                 show_cells=True, scale=2.8):
         if show_text not in ['names', 'values']:
             raise ValueError('Unknown value for show_text: {}'.format(show_text))
 
         self.solution = get_solution_from_config(path_to_config, _print=False, allow_gap_intersections=False)
-        self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
-
         self.problem_dict = calculate_problem_dict(self.solution, print_time=False)
 
         self.width, self.height = [value+1 for value in np.shape(self.solution)]
@@ -156,7 +154,7 @@ class IPVisualization:
         self.show_text = show_text
         self.show_cells = show_cells
         self.n = (self.width * self.height - 4) / 2 + 1
-        self.square_size = 1
+        self.square_size = scale
         self.num_elements = self.ip_width * self.ip_height
         self.helper = GridShowCase(self.num_elements, [self.square_size, self.square_size], spacing=[0, 0], space_ratio=[self.ip_width, self.ip_height])
         self.animation_sequence = []
@@ -190,7 +188,6 @@ class IPVisualization:
             self.remove_legend()
             # self.add_track()
             self.add_track_fm(colored=True)
-            # self.add_track(colored=True)
         return self.animation_sequence
 
     def add_pause(self, duration):
@@ -244,15 +241,15 @@ class IPVisualization:
                     node_grid_values = self.problem_dict['node_grid_values']
                     self.captions.append(get_text('{}'.format(node_grid_values[x][y]), coords))
                 elif self.show_text == 'names':
-                    self.captions.append(get_text(r'$c_{' + str(x+1) + ',' + str(y+1) + '}$', coords))
+                    self.captions.append(get_text(r'$c_{' + str(x+1) + ',' + str(y+1) + '}$', coords, scale=self.square_size))
                     # if intersection_constraints_names[counter] is not None:
                     #    self.captions.append(get_text(r'$c_\mathrm{' + intersection_constraints_names[counter] + '}$', coords, scale=1 if intersection_constraints_names[counter] == '' else 0.65))
                     # counter2 += 1
 
         self.animation_sequence += [
             AnimationObject('add', content=self.squares, z_index=0),
-            AnimationObject('play', content=[Create(text) for text in self.captions], duration=1, z_index=5),
-            AnimationObject('add', content=self.captions, z_index=5)
+            # AnimationObject('play', content=[Create(text) for text in self.captions], duration=1, z_index=5),
+            AnimationObject('add', content=self.captions, z_index=5),
         ]
 
     def remove_squares(self):
@@ -342,7 +339,7 @@ class IPVisualization:
             #         drawable.set_color(colors[index])
             #     self.animation_sequence.append(AnimationObject(type='add', content=edge_drawables, duration=0, z_index=15))
 
-            self.animation_sequence += draw_graph(self.graph, z_index=15)
+            self.animation_sequence += draw_graph(self.graph, z_index=15, stroke_width=1)
             self.animation_sequence += [AnimationObject('wait', content=[], wait_after=3)]
             self.animation_sequence += [AnimationObject('remove', content=self.captions)]
             if len(intersections) > 0:
@@ -387,15 +384,14 @@ class IPVisualization:
         for animations in animations_list:
             self.animation_sequence += animations
 
-    def add_track_fm(self, track_width=0.2, colored=False):
+    def add_track_fm(self, track_width=0.26, colored=False):
         if colored:
             colored_by = 'track_property'
         else:
             colored_by = None
 
         # Draw grid
-        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size)
-        # grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=2)
+        grid = Grid(self.graph, square_size=self.square_size, shift=np.array([-1, -1]) * self.square_size, stroke_width=4)
         self.animation_sequence += grid.get_animation_sequence()
 
         # get track point animations
@@ -408,10 +404,12 @@ class IPVisualization:
             tp_remove_anims.append(remove_track_points)
 
         # get track animations
-        fm = FeatureModel(self.solution, scale=self.square_size, shift=np.array([-0.5, -0.5]) * self.square_size, problem_dict=self.problem_dict)
+        fm = FeatureModel(self.solution, None, scale=self.square_size, problem_dict=None, start_index=0, intersection_size=0.5 * (2 / self.square_size),
+                          shift=np.array([-0.5, -0.5]) * self.square_size)
+
         anim_sequence = []
         for index, feature in enumerate(fm.features):
-            animation = feature.draw(track_width=track_width, color_by=colored_by)
+            animation = feature.draw(track_width=track_width, color_by=colored_by, stroke_width=4)
             if animation is not None:
                 anim_sequence.append(animation)
 
@@ -427,6 +425,7 @@ class IPVisualization:
         for animations in tp_remove_anims:
             self.animation_sequence += animations
 
+        self.animation_sequence += grid.remove()
         # self.play_animations(anim_sequence)
 
     def remove_graph_edges(self):
@@ -510,13 +509,21 @@ def shift_edge(edge, shift_from_center=0.12):
 class IPExtra(AnimationSequenceScene):
     def construct(self):
         path_to_config = os.path.join(os.getcwd(), 'ip/configs/innter_outer.txt')
-        viz = IPVisualization(path_to_config, show_text='names', show_edges=False, show_track=True, show_graph=True, show_cells=False)
+        viz = IPVisualization(path_to_config, scale=2.8, show_text='names', show_edges=False, show_track=True, show_graph=True, show_cells=True)
         camera_position, camera_size, shift = viz.get_camera_settings()
         # self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.5, shift=shift)
-        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=2, shift=shift)
+        self.move_camera(camera_size, camera_position, duration=0.1, border_scale=1.4, shift=shift)
         self.play_animations(viz.get_animation_sequence())
         self.wait(5)
 
+
+# 1. Empty grid graph with grid
+# 2. Cells
+# 3. Cells and intersections
+# 4. Graph cycle
+# 5. Track
+# 6. Zone Assignment
+# 7. Simulation
 
 if __name__ == '__main__':
     scene = IPExtra()

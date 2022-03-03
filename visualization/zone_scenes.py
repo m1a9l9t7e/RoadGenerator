@@ -36,7 +36,7 @@ class FMTrackZones(AnimationSequenceScene):
         color_zone_start_end = False
         draw_track = True
         draw_nl = not draw_track
-        config = Config('/home/malte/PycharmProjects/circuit-creator/super_configs/zones.json')
+        config = Config('/super_configs/zones.json')
 
         ip_solution, problem_dict = config.get_layout()
         w, h = [value + 1 for value in np.shape(ip_solution)]
@@ -142,7 +142,7 @@ class FMTrackZones2(AnimationSequenceScene):
         color_zone_start_end = False
         draw_track = False
         draw_nl = not draw_track
-        config = Config('/home/malte/PycharmProjects/circuit-creator/super_configs/running-example.json')
+        config = Config('/super_configs/running-example.json')
 
         ip_solution, problem_dict = config.get_layout()
         w, h = [value + 1 for value in np.shape(ip_solution)]
@@ -246,7 +246,7 @@ class FMTrackZonesNL(AnimationSequenceScene):
     def construct(self):
         scale, track_width = (1, 0.21)
         y_scale = 1.25
-        config = Config('/home/malte/PycharmProjects/circuit-creator/super_configs/zones.json')
+        config = Config('/super_configs/zones.json')
 
         ip_solution, problem_dict = config.get_layout()
         w, h = [value + 1 for value in np.shape(ip_solution)]

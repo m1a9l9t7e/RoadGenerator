@@ -35,13 +35,16 @@ class FeatureModel:
         self.start_index = start_index
 
         # convert solution to graph
-        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict, shift=shift, scale=1)
+        self.graph = convert_solution_to_graph(self.ip_solution, self.problem_dict)
 
         # Extract features from ip solution
         self.features = self.get_features(self.zone_selection)
 
         # Scale elements
         self._scale(scale)
+
+        # Shift elements
+        self._shift(shift)
 
         # build feature model and keep reference to root
         self.feature_root = self.build_feature_model()
@@ -151,6 +154,13 @@ class FeatureModel:
         for feature in self.features:
             feature.scale(factor)
         self.intersection_size *= factor
+
+    def _shift(self, shift):
+        shift = list(shift)
+        if len(shift) == 2:
+            shift += [0]
+        for feature in self.features:
+            feature.shift(shift)
 
 
 def get_featureIDE_graphics_properties():

@@ -64,10 +64,10 @@ class Node:
         edge = self.get_edge_to(node)
         return edge.remove()
 
-    def _create_drawable(self):
-        circle = Dot(point=self.get_real_coords(), radius=0.1)
+    def _create_drawable(self, stroke_width=1):
+        circle = Dot(point=self.get_real_coords(), radius=0.1 * stroke_width)
         circle.set_fill(BLUE, opacity=1)
-        circle.set_stroke(BLUE_E, width=4)
+        circle.set_stroke(BLUE_E, width=4 * stroke_width)
         return circle
 
 
@@ -90,8 +90,8 @@ class Edge:
         self.node1 = self.node2
         self.node2 = swap
 
-    def _create_drawable(self):
-        line = Line(self.node1.get_real_coords(), self.node2.get_real_coords())
+    def _create_drawable(self, stroke_width=4):
+        line = Line(self.node1.get_real_coords(), self.node2.get_real_coords(), stroke_width=stroke_width)
         return line
 
     def remove(self):
@@ -106,6 +106,7 @@ class Graph:
     def __init__(self, width, height, scale=1, shift=[0, 0], edge_list=None):
         self.width = width
         self.height = height
+        self.shift = shift
         self.grid = [[Node(-1, -1)] * height for _ in range(width)]
         self.nodes = []
         self.edges = []
@@ -158,6 +159,10 @@ class Graph:
         strings = sorted(strings)
         _str += "".join(strings)
         return _str
+
+    def scale(self, factor):
+        for node in self.nodes:
+            node.real_coords = transform_coords(node.get_coords(), self.shift, factor)
 
     def _add_all_edges(self):
         for x in range(self.width):

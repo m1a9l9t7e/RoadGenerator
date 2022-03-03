@@ -188,6 +188,10 @@ class BasicFeature(TLFeature):
         self.start = TrackPoint(np.array(self.start.coords) * factor, self.start.direction)
         self.end = TrackPoint(np.array(self.end.coords) * factor, self.end.direction)
 
+    def shift(self, shift):
+        self.start = TrackPoint(np.array(self.start.coords) + shift, self.start.direction)
+        self.end = TrackPoint(np.array(self.end.coords) + shift, self.end.direction)
+
     def get_features(self):
         level3 = Feature(Features.level3.value, sub_features=[Feature(entry.value) for entry in Level3], mandatory=False, alternative=False)
         return [level3]
@@ -309,6 +313,12 @@ class Intersection(CompositeFeature):
         self.bottom_right = TrackPoint(np.array(self.bottom_right.coords) * factor, self.bottom_right.direction)
         self.top_left = TrackPoint(np.array(self.top_left.coords) * factor, self.top_left.direction)
         self.top_right = TrackPoint(np.array(self.top_right.coords) * factor, self.top_right.direction)
+
+    def shift(self, shift):
+        self.bottom_left = TrackPoint(np.array(self.bottom_left.coords) + shift, self.bottom_left.direction)
+        self.bottom_right = TrackPoint(np.array(self.bottom_right.coords) + shift, self.bottom_right.direction)
+        self.top_left = TrackPoint(np.array(self.top_left.coords) + shift, self.top_left.direction)
+        self.top_right = TrackPoint(np.array(self.top_right.coords) + shift, self.top_right.direction)
 
     def set_bottom_left(self, track_point1, track_point2):
         self.bottom_left = choose_closest_track_point(self.center, [track_point1, track_point2])

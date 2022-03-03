@@ -35,7 +35,7 @@ class TrackCorrect(AnimationSequenceScene):
         # path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/layout.json'
         # path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc17.json'
         # path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/cc20_real.json'
-        path_to_config = '/home/malte/PycharmProjects/circuit-creator/super_configs/correct.json'
+        path_to_config = '/super_configs/correct.json'
         config = Config(path_to_config)
         print(config.layout.solution)
         square_size = config.layout.scale
